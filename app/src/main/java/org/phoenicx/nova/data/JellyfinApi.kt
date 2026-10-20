@@ -175,8 +175,16 @@ class JellyfinApi(private val prefs: Prefs) {
     fun logo(item: Item, w: Int = 800): String? =
         if (item.logoTag != null) image(item.logoItemId ?: item.id, "Logo", item.logoTag, w) else null
 
-    fun personImage(p: Person, w: Int = 240): String? =
-        if (p.imageTag != null) image(p.id, "Primary", p.imageTag, w) else null
+    /** Try the photo even when the server didn't send a tag — many people still have one. */
+    fun personImage(p: Person, w: Int = 240): String? = image(p.id, "Primary", p.imageTag, w)
+
+    suspend fun person(id: String): Item = Item.parse(getObj("/Users/$userId/Items/$id?Fields=Overview,ProductionLocations"))
+
+    /** Movies and shows a person appears in */
+    suspend fun filmography(personId: String): List<Item> = getItems(
+        "/Users/$userId/Items?PersonIds=$personId&Recursive=true&IncludeItemTypes=Movie,Series" +
+            "&SortBy=ProductionYear,PremiereDate,SortName&SortOrder=Descending&Fields=$fields$imgParams"
+    )
 
     fun userImage(): String = "$server/Users/$userId/Images/Primary?maxWidth=120&quality=90"
 

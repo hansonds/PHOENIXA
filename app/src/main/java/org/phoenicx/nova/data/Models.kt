@@ -162,6 +162,8 @@ data class Item(
     val studios: List<String> = emptyList(),
     val streams: List<MediaStreamInfo> = emptyList(),
     val premiereDate: String? = null,
+    val endDate: String? = null,
+    val locations: List<String> = emptyList(),
     val mediaSources: List<MediaSourceInfo> = emptyList(),
 ) {
     val isSeries get() = type == "Series"
@@ -291,6 +293,8 @@ data class Item(
                 } ?: emptyList(),
                 streams = streams.ifEmpty { sources.firstOrNull()?.streams ?: emptyList() },
                 premiereDate = o.optStringOrNull("PremiereDate"),
+                endDate = o.optStringOrNull("EndDate"),
+                locations = o.optJSONArray("ProductionLocations").toStringList(),
                 mediaSources = sources,
             )
         }

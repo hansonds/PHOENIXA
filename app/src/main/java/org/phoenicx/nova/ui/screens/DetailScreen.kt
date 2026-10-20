@@ -320,7 +320,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                     contentPadding = PaddingValues(horizontal = 56.dp, vertical = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 ) {
-                                    items(cast.take(30), key = { p -> p.id + p.role }) { p -> PersonCard(p) }
+                                    items(cast.take(30), key = { p -> p.id + p.role }) { p -> PersonCard(p) { nav.push(Screen.Person(p.id, p.name)) } }
                                 }
                             }
                         }

@@ -12,6 +12,7 @@ sealed class Screen {
     data object Favorites : Screen()
     data object Settings : Screen()
     data class Detail(val itemId: String) : Screen()
+    data class Person(val id: String, val name: String) : Screen()
 }
 
 class Navigator(start: Screen) {
