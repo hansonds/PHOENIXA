@@ -120,12 +120,11 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
         // Brand side
         Column(Modifier.weight(1f)) {
             androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_mark),
+                painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_stacked),
                 contentDescription = null,
-                modifier = Modifier.size(width = 150.dp, height = 126.dp),
+                modifier = Modifier.size(230.dp),
             )
             Spacer(Modifier.height(12.dp))
-            Row { Text("PHOENIX", style = NovaType.Display.copy(fontSize = 64.sp, letterSpacing = 6.sp, fontWeight = FontWeight.Black), color = Nova.Text); Text("A", style = NovaType.Display.copy(fontSize = 64.sp, letterSpacing = 6.sp, fontWeight = FontWeight.Black), color = androidx.compose.ui.graphics.Color(0xFFFF5A2C)) }
             Spacer(Modifier.height(12.dp))
             Text("Your cinema, reimagined.", style = NovaType.Section.copy(fontWeight = FontWeight.Normal), color = Nova.TextDim)
         }

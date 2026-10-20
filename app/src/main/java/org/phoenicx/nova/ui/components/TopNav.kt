@@ -53,16 +53,12 @@ import java.util.Locale
 
 @Composable
 fun NovaWordmark() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        androidx.compose.foundation.Image(
-            painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_mark),
-            contentDescription = null,
-            modifier = Modifier.size(width = 40.dp, height = 34.dp),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text("PHOENIX", style = NovaType.Section.copy(fontWeight = FontWeight.Bold, letterSpacing = 3.sp, fontSize = 18.sp), color = Nova.Text)
-        Text("A", style = NovaType.Section.copy(fontWeight = FontWeight.Bold, letterSpacing = 3.sp, fontSize = 18.sp), color = androidx.compose.ui.graphics.Color(0xFFFF5A2C))
-    }
+    // Stacked PHOENIXA logo (phoenix above the name), transparent background
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_stacked),
+        contentDescription = "PHOENIXA",
+        modifier = Modifier.size(64.dp),
+    )
 }
 
 @Composable
@@ -82,11 +78,11 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(start = 48.dp, end = 48.dp, top = 26.dp, bottom = 12.dp),
+            .padding(start = 44.dp, end = 48.dp, top = 18.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         NovaWordmark()
-        Spacer(Modifier.width(28.dp))
+        Spacer(Modifier.width(22.dp))
         // Takes the free space; the pill bar scrolls sideways if there are many libraries
         Box(Modifier.weight(1f)) {
         Row(
