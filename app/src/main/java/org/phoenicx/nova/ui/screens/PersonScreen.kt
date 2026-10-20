@@ -104,73 +104,80 @@ fun PersonScreen(nav: Navigator, personId: String, name: String) {
     val birth = parseDate(p?.premiereDate)
     val death = parseDate(p?.endDate)
 
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(UiScale.posterWidth.dp),
-        contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 40.dp, bottom = 60.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                // Photo
-                Box(
-                    Modifier
-                        .size(width = 200.dp, height = 260.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(Nova.SurfaceHi)
-                        .border(1.dp, Nova.Stroke, RoundedCornerShape(22.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(name.take(1), style = NovaType.Display, color = Nova.TextDim)
-                    AsyncImage(
-                        model = api.image(personId, "Primary", p?.primaryTag, 500),
-                        contentDescription = name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                Spacer(Modifier.width(36.dp))
-                Column(Modifier.widthIn(max = 760.dp)) {
-                    Text("✦  CAST & CREW", style = NovaType.Caption, color = Nova.Cyan)
-                    Spacer(Modifier.height(8.dp))
-                    Text(p?.name ?: name, style = NovaType.Display.copy(fontSize = 44.sp), color = Nova.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.height(14.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (birth != null) {
-                            val now = death ?: Calendar.getInstance()
-                            GlassChip("Born ${prettyDate(birth)}")
-                            if (death == null) GlassChip("Age ${ageBetween(birth, now)}", accent = Nova.Cyan)
-                        }
-                        if (death != null) GlassChip("Died ${prettyDate(death)}")
-                        GlassChip("${list.size} title${if (list.size == 1) "" else "s"} on your server", accent = Nova.Violet)
-                    }
-                    p?.locations?.firstOrNull()?.let { place ->
-                        Spacer(Modifier.height(10.dp))
-                        Text("Born in $place", style = NovaType.Label, color = Nova.TextDim)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        p?.overview?.takeIf { it.isNotBlank() } ?: "No biography available.",
-                        style = NovaType.Body, color = Nova.TextDim, maxLines = 7, overflow = TextOverflow.Ellipsis,
-                    )
-                }
+    // Fixed info panel on the left (never scrolls away) + movies grid on the right
+    Row(Modifier.fillMaxSize().padding(start = 56.dp, top = 36.dp)) {
+        Column(Modifier.width(360.dp).padding(end = 28.dp)) {
+            Box(
+                Modifier
+                    .size(width = 170.dp, height = 220.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Nova.SurfaceHi)
+                    .border(1.dp, Nova.Stroke, RoundedCornerShape(20.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(name.take(1), style = NovaType.Display, color = Nova.TextDim)
+                AsyncImage(
+                    model = api.image(personId, "Primary", p?.primaryTag, 500),
+                    contentDescription = name,
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
-        }
-        if (list.isNotEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                SectionTitle("Movies & Shows")
+            Spacer(Modifier.height(16.dp))
+            Text(p?.name ?: name, style = NovaType.Title, color = Nova.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(10.dp))
+            if (birth != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlassChip("Born ${prettyDate(birth)}")
+                    if (death == null) GlassChip("Age ${ageBetween(birth, Calendar.getInstance())}", accent = Nova.Cyan)
+                }
+                Spacer(Modifier.height(8.dp))
             }
-        }
-        items(list.size, key = { list[it].id }) { i ->
-            val item = list[i]
-            PosterCard(
-                item,
-                onClick = { nav.push(Screen.Detail(item.id)) },
-                width = UiScale.posterWidth,
-                showTitle = true,
-                focusRequester = if (i == 0) firstCard else null,
+            if (death != null) {
+                GlassChip("Died ${prettyDate(death)}")
+                Spacer(Modifier.height(8.dp))
+            }
+            p?.locations?.firstOrNull()?.let { place ->
+                Text("Born in $place", style = NovaType.Label, color = Nova.TextDim, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(10.dp))
+            }
+            Text(
+                p?.overview?.takeIf { it.isNotBlank() } ?: "No biography available.",
+                style = NovaType.Label.copy(fontSize = 13.sp, lineHeight = 19.sp), color = Nova.TextDim,
+                maxLines = 7, overflow = TextOverflow.Ellipsis,
             )
+        }
+
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 56.dp)) {
+                SectionTitle("Movies & Shows")
+                Spacer(Modifier.weight(1f))
+                GlassChip("${list.size} title${if (list.size == 1) "" else "s"} on your server", accent = Nova.Violet)
+            }
+            if (list.isEmpty()) {
+                Spacer(Modifier.height(20.dp))
+                Text("Nothing on your server with this person yet.", style = NovaType.Body, color = Nova.TextDim)
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(UiScale.posterWidth.dp),
+                    contentPadding = PaddingValues(start = 4.dp, end = 56.dp, top = 16.dp, bottom = 60.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(22.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    items(list.size, key = { list[it].id }) { i ->
+                        val item = list[i]
+                        PosterCard(
+                            item,
+                            onClick = { nav.push(Screen.Detail(item.id)) },
+                            width = UiScale.posterWidth,
+                            showTitle = true,
+                            focusRequester = if (i == 0) firstCard else null,
+                        )
+                    }
+                }
+            }
         }
     }
 }
