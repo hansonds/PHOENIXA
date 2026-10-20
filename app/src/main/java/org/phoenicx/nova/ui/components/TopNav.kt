@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -86,6 +88,11 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
         ) {
             NavIcon(Icons.Outlined.Search, selected == Screen.Search, if (selected == Screen.Search) selReq else null) { if (selected != Screen.Search) nav.tab(Screen.Search) }
             NavPill("Home", selected == Screen.Home, if (selected == Screen.Home) selReq else null) { if (selected != Screen.Home) nav.tab(Screen.Home) }
+            NavIcon(
+                if (selected == Screen.Favorites) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                selected == Screen.Favorites,
+                if (selected == Screen.Favorites) selReq else null,
+            ) { if (selected != Screen.Favorites) nav.tab(Screen.Favorites) }
             libs.take(5).forEach { lib ->
                 val isSel = (selected as? Screen.Lib)?.library?.id == lib.id
                 NavPill(lib.name, isSel, if (isSel) selReq else null) { if (!isSel) nav.tab(Screen.Lib(lib)) }

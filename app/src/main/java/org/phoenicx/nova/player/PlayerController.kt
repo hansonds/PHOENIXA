@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -67,6 +68,12 @@ class PlayerController(context: Context) {
     private var source: PlaybackSource? = null
     private var progressJob: Job? = null
     private val lastErrors = mutableListOf<String>()
+    var speed by mutableStateOf(1f); private set
+
+    fun setSpeed(v: Float) {
+        speed = v
+        player.setPlaybackSpeed(v)
+    }
 
     init {
         val renderers = DefaultRenderersFactory(context)
@@ -89,7 +96,7 @@ class PlayerController(context: Context) {
             )
             .setUserAgent("PhoenicxNova/1.1 (Android TV)")
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(30_000, 120_000, 2_000, 4_000)
+            .setBufferDurationsMs(20_000, 120_000, 900, 2_500)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
         player = ExoPlayer.Builder(context, renderers)
@@ -145,16 +152,20 @@ class PlayerController(context: Context) {
                 val prev = source
                 val prevItem = item
                 if (prev != null && prevItem != null && prevItem.id != itemId) {
-                    api.reportStopped(prevItem.id, prev, player.currentPosition * 10_000)
+                    val ticks = player.currentPosition * 10_000
+                    scope.launch { api.reportStopped(prevItem.id, prev, ticks) }
                 }
-                val it = api.item(itemId)
-                item = it
-                val src = api.playbackInfo(
-                    itemId, startTicks,
-                    DeviceProfile.build(progressive = streamMode == StreamMode.Progressive),
-                    allowDirect = streamMode == StreamMode.Direct,
-                    forceDirect = streamMode == StreamMode.Direct && prefs.directPlayOnly,
-                )
+                // Ask the server for the item and the stream at the same time (faster start)
+                val itemD = scope.async { api.item(itemId) }
+                val srcD = scope.async {
+                    api.playbackInfo(
+                        itemId, startTicks,
+                        DeviceProfile.get(progressive = streamMode == StreamMode.Progressive),
+                        allowDirect = streamMode == StreamMode.Direct,
+                        forceDirect = streamMode == StreamMode.Direct && prefs.directPlayOnly,
+                    )
+                }
+                val src = srcD.await()
                 // If the server can't direct play it, we're really transcoding (HLS)
                 if (streamMode == StreamMode.Direct && src.isTranscoding) mode = StreamMode.Hls
                 source = src
@@ -179,8 +190,11 @@ class PlayerController(context: Context) {
                     .setSubtitleConfigurations(subs)
                     .build()
                 player.setMediaItem(mi, startTicks / 10_000)
+                player.setPlaybackSpeed(speed)
                 player.prepare()
                 player.playWhenReady = true
+                val it = itemD.await()
+                item = it
                 api.reportStart(itemId, src, startTicks)
                 startProgressLoop()
                 nextEpisode = null

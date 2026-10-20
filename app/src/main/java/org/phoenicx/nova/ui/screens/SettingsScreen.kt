@@ -88,7 +88,7 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             NovaButton("Sign out", Icons.Outlined.Logout) { onSignOut() }
             Spacer(Modifier.height(10.dp))
-            Text("Phoenicx Nova 1.2 · made by Hanson", style = NovaType.Label, color = Nova.TextFaint)
+            Text("Phoenicx Nova 1.3 · made by Hanson", style = NovaType.Label, color = Nova.TextFaint)
             Spacer(Modifier.height(40.dp))
         }
     }

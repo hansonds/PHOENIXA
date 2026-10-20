@@ -15,6 +15,15 @@ object DeviceProfile {
         false
     }
 
+    private var cached: JSONObject? = null
+    private var cachedProgressive: JSONObject? = null
+
+    /** Built once per app run — scanning the TV's decoders is slow. */
+    @Synchronized
+    fun get(progressive: Boolean = false): JSONObject =
+        if (progressive) cachedProgressive ?: build(true).also { cachedProgressive = it }
+        else cached ?: build(false).also { cached = it }
+
     /** progressive = transcode to a single MPEG-TS stream instead of HLS (last-resort fallback). */
     fun build(progressive: Boolean = false): JSONObject {
         val video = mutableListOf("h264")

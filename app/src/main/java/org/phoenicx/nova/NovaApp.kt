@@ -20,6 +20,8 @@ class NovaApp : Application(), ImageLoaderFactory {
         instance = this
         prefs = Prefs(this)
         api = JellyfinApi(prefs)
+        // Warm up the decoder scan in the background so playback starts faster later
+        Thread { runCatching { org.phoenicx.nova.player.DeviceProfile.get() } }.start()
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)

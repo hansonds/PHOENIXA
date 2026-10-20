@@ -21,6 +21,7 @@ import org.phoenicx.nova.ui.screens.HomeState
 import org.phoenicx.nova.ui.screens.LibraryScreen
 import org.phoenicx.nova.ui.screens.LoginScreen
 import org.phoenicx.nova.ui.screens.SearchScreen
+import org.phoenicx.nova.ui.screens.FavoritesScreen
 import org.phoenicx.nova.ui.screens.SettingsScreen
 import org.phoenicx.nova.ui.theme.NovaTheme
 
@@ -54,6 +55,7 @@ fun NovaRoot() {
             Screen.Home -> HomeScreen(nav, homeState)
             is Screen.Lib -> LibraryScreen(nav, screen.library)
             Screen.Search -> SearchScreen(nav)
+            Screen.Favorites -> FavoritesScreen(nav)
             Screen.Settings -> SettingsScreen(nav, onSignOut = {
                 app.prefs.signOut()
                 homeState.loaded = false

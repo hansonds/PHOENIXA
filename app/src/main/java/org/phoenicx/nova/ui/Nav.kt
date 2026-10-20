@@ -9,6 +9,7 @@ sealed class Screen {
     data object Home : Screen()
     data class Lib(val library: Library) : Screen()
     data object Search : Screen()
+    data object Favorites : Screen()
     data object Settings : Screen()
     data class Detail(val itemId: String) : Screen()
 }

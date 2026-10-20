@@ -51,6 +51,7 @@ import androidx.compose.material.icons.outlined.Forward10
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Replay10
 import androidx.compose.material.icons.outlined.SurroundSound
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -142,7 +143,7 @@ class PlayerActivity : ComponentActivity() {
     }
 }
 
-private enum class Panel { None, Subtitles, Audio }
+private enum class Panel { None, Subtitles, Audio, Speed }
 
 @Composable
 private fun PlayerScreen(c: PlayerController, onExit: () -> Unit) {
@@ -261,9 +262,13 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit) {
             exit = slideOutHorizontally { it } + fadeOut(),
             modifier = Modifier.align(Alignment.CenterEnd),
         ) {
-            TrackPanel(c, if (panel == Panel.Audio) C.TRACK_TYPE_AUDIO else C.TRACK_TYPE_TEXT,
-                title = if (panel == Panel.Audio) "Audio" else "Subtitles",
-                onDone = { panel = Panel.None })
+            if (panel == Panel.Speed) {
+                SpeedPanel(c, onDone = { panel = Panel.None })
+            } else {
+                TrackPanel(c, if (panel == Panel.Audio) C.TRACK_TYPE_AUDIO else C.TRACK_TYPE_TEXT,
+                    title = if (panel == Panel.Audio) "Audio" else "Subtitles",
+                    onDone = { panel = Panel.None })
+            }
         }
 
         c.error?.let { err ->
@@ -313,6 +318,7 @@ private fun Overlay(
         ) {
             RoundIcon(Icons.Outlined.ClosedCaption, "Subtitles") { onPanel(Panel.Subtitles) }
             RoundIcon(Icons.Outlined.SurroundSound, "Audio") { onPanel(Panel.Audio) }
+            RoundIcon(Icons.Outlined.Speed, "Speed", active = c.speed != 1f) { onPanel(Panel.Speed) }
             if (c.nextEpisode != null) RoundIcon(Icons.Filled.SkipNext, "Next episode") { c.playNext() }
             RoundIcon(Icons.Outlined.Info, "Info", active = showInfo) { onInfo() }
         }
@@ -532,6 +538,51 @@ private fun TrackPanel(c: PlayerController, type: Int, title: String, onDone: ()
                             if (o.detail.isNotEmpty()) Text(o.detail, style = NovaType.Label.copy(fontSize = 12.sp), color = Nova.TextDim, maxLines = 1)
                         }
                         if (o.selected) Icon(Icons.Outlined.Check, null, tint = Nova.Cyan)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
+
+private fun speedLabel(v: Float): String =
+    if (v == 1f) "Normal (1x)" else (if (v % 1f == 0f) "${v.toInt()}x" else "${v}x")
+
+@Composable
+private fun SpeedPanel(c: PlayerController, onDone: () -> Unit) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(80); runCatching { first.requestFocus() } }
+    Column(
+        Modifier
+            .fillMaxHeight()
+            .width(360.dp)
+            .background(Brush.horizontalGradient(listOf(Color(0xE6121522), Color(0xFA121522))))
+            .border(1.dp, Nova.Stroke)
+            .padding(28.dp)
+    ) {
+        Text("Playback speed", style = NovaType.Title, color = Nova.Text)
+        Spacer(Modifier.height(18.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(speeds.size) { i ->
+                val v = speeds[i]
+                val selected = v == c.speed
+                FocusSurface(
+                    onClick = { c.setSpeed(v); onDone() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    focusedScale = 1.02f,
+                    focusRequester = if (selected) first else null,
+                ) { focused ->
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .background(if (focused) Color(0x336CE5F5) else Color(0x14FFFFFF))
+                            .padding(horizontal = 16.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(speedLabel(v), style = NovaType.Button, color = Nova.Text, modifier = Modifier.weight(1f))
+                        if (selected) Icon(Icons.Outlined.Check, null, tint = Nova.Cyan)
                     }
                 }
             }

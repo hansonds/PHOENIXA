@@ -211,8 +211,8 @@ class JellyfinApi(private val prefs: Prefs) {
         "/Users/$userId/Items/Latest?ParentId=$parentId&Limit=24&Fields=$fields$imgParams"
     )
 
-    suspend fun favorites(): List<Item> = getItems(
-        "/Users/$userId/Items?Filters=IsFavorite&IncludeItemTypes=Movie,Series&Recursive=true&SortBy=SortName&Limit=40&Fields=$fields$imgParams"
+    suspend fun favorites(types: String = "Movie,Series", limit: Int = 40): List<Item> = getItems(
+        "/Users/$userId/Items?Filters=IsFavorite&IncludeItemTypes=$types&Recursive=true&SortBy=SortName&Limit=$limit&Fields=$fields$imgParams"
     )
 
     suspend fun item(id: String): Item = Item.parse(
