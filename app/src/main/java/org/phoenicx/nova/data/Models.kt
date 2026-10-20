@@ -166,6 +166,7 @@ data class Item(
 ) {
     val isSeries get() = type == "Series"
     val isEpisode get() = type == "Episode"
+    val isCollection get() = type == "BoxSet" || type == "Folder" || type == "CollectionFolder"
     val isFolderLike get() = type == "Series" || type == "Season" || type == "BoxSet" || type == "CollectionFolder"
 
     val episodeLabel: String?

@@ -91,6 +91,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
     var selectedSeason by remember { mutableStateOf<Item?>(null) }
     var episodes by remember { mutableStateOf<List<Item>>(emptyList()) }
     var similar by remember { mutableStateOf<List<Item>>(emptyList()) }
+    var children by remember { mutableStateOf<List<Item>>(emptyList()) }
     var nextUp by remember { mutableStateOf<Item?>(null) }
     val playRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -122,7 +123,8 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                         ?: s.firstOrNull { se -> (se.unplayedCount ?: 0) > 0 } ?: s.firstOrNull()
                 }
             }
-            similar = simD.await()
+            if (it.isCollection) children = runCatching { api.children(it.id) }.getOrDefault(emptyList())
+            similar = if (it.isCollection) emptyList() else simD.await()
         } catch (e: Exception) {
             error = e.message ?: "Couldn't load"
         }
@@ -209,7 +211,8 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                         audioIndex = audioSel ?: src.defaultAudioIndex,
                                         subtitleIndex = subSel ?: (src.defaultSubtitleIndex ?: -1),
                                     ) else null
-                                    Launcher.play(context, scope, nextUp ?: it, fromStart, sel)
+                                    val target = if (it.isCollection) (children.firstOrNull { c -> !c.played } ?: children.firstOrNull()) else (nextUp ?: it)
+                                    if (target != null) Launcher.play(context, scope, target, fromStart, if (it.isCollection) null else sel)
                                 },
                                 onGoSeries = { sid -> nav.push(Screen.Detail(sid)) },
                                 onChanged = { changed -> item = changed })
@@ -243,6 +246,24 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                     Spacer(Modifier.width(12.dp))
                                     val left = ((it.runTimeTicks - it.playbackPositionTicks) / 600_000_000L).toInt()
                                     Text("${formatRuntime(left)} left", style = NovaType.Label, color = Nova.TextDim)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (it.isCollection && children.isNotEmpty()) {
+                    item("children") {
+                        Column(Modifier.padding(top = 8.dp)) {
+                            SectionTitle("In this collection · ${children.size}", Modifier.padding(start = 56.dp))
+                            EdgeScroll(56.dp, 56.dp) {
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 56.dp, vertical = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(18.dp),
+                                ) {
+                                    items(children, key = { c -> c.id }) { c ->
+                                        PosterCard(c, onClick = { nav.push(Screen.Detail(c.id)) }, width = UiScale.posterWidth, showTitle = true)
+                                    }
                                 }
                             }
                         }

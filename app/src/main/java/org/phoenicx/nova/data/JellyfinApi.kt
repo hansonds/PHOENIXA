@@ -231,6 +231,11 @@ class JellyfinApi(private val prefs: Prefs) {
         "/Shows/$seriesId/Episodes?UserId=$userId&Fields=$fields$imgParams" + (seasonId?.let { "&SeasonId=$it" } ?: "")
     )
 
+    /** Items inside a collection (BoxSet) or folder */
+    suspend fun children(parentId: String): List<Item> = getItems(
+        "/Users/$userId/Items?ParentId=$parentId&SortBy=ProductionYear,PremiereDate,SortName&SortOrder=Ascending&Fields=$fields$imgParams"
+    )
+
     suspend fun similar(id: String): List<Item> = getItems(
         "/Items/$id/Similar?UserId=$userId&Limit=16&Fields=$fields$imgParams"
     )
