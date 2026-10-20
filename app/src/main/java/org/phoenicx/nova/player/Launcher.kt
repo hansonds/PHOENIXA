@@ -9,7 +9,7 @@ import org.phoenicx.nova.data.Item
 
 object Launcher {
     /** Plays a movie/episode directly; for a series or season it finds the next episode to watch. */
-    fun play(context: Context, scope: CoroutineScope, item: Item, fromStart: Boolean = false) {
+    fun play(context: Context, scope: CoroutineScope, item: Item, fromStart: Boolean = false, sel: org.phoenicx.nova.data.PlaySelection? = null) {
         val api = NovaApp.instance.api
         scope.launch {
             try {
@@ -23,7 +23,7 @@ object Launcher {
                     Toast.makeText(context, "Nothing to play", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
-                PlayerActivity.start(context, target.id, if (fromStart || target.played) 0L else target.playbackPositionTicks)
+                PlayerActivity.start(context, target.id, if (fromStart || target.played) 0L else target.playbackPositionTicks, if (target.id == item.id) sel else null)
             } catch (e: Exception) {
                 Toast.makeText(context, e.message ?: "Playback failed", Toast.LENGTH_LONG).show()
             }

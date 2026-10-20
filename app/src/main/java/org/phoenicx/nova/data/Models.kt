@@ -19,6 +19,111 @@ data class MediaStreamInfo(
     val height: Int,
     val videoRange: String,
     val channels: Int,
+    val index: Int = 0,
+    val language: String? = null,
+    val title: String? = null,
+    val isDefault: Boolean = false,
+    val isForced: Boolean = false,
+    val isExternal: Boolean = false,
+    val isTextSubtitle: Boolean = false,
+    val videoRangeType: String = "",
+) {
+    /** Human label for HDR formats, or null for SDR */
+    val hdrLabel: String?
+        get() {
+            val t = videoRangeType.uppercase()
+            return when {
+                t.startsWith("DOVI") -> "Dolby Vision"
+                t.contains("HDR10PLUS") || t.contains("HDR10+") -> "HDR10+"
+                t.contains("HDR10") -> "HDR10"
+                t.contains("HLG") -> "HLG"
+                videoRange.equals("HDR", true) -> "HDR"
+                else -> null
+            }
+        }
+
+    companion object {
+        fun parse(s: JSONObject) = MediaStreamInfo(
+            type = s.optString("Type"),
+            codec = s.optString("Codec"),
+            displayTitle = s.optString("DisplayTitle"),
+            width = s.optInt("Width"),
+            height = s.optInt("Height"),
+            videoRange = s.optString("VideoRange"),
+            channels = s.optInt("Channels"),
+            index = s.optInt("Index"),
+            language = s.optStringOrNull("Language"),
+            title = s.optStringOrNull("Title"),
+            isDefault = s.optBoolean("IsDefault"),
+            isForced = s.optBoolean("IsForced"),
+            isExternal = s.optBoolean("IsExternal"),
+            isTextSubtitle = s.optBoolean("IsTextSubtitleStream"),
+            videoRangeType = s.optString("VideoRangeType"),
+        )
+    }
+}
+
+/** One playable version of a title (e.g. 4K HDR vs 1080p). */
+data class MediaSourceInfo(
+    val id: String,
+    val name: String,
+    val container: String,
+    val size: Long,
+    val bitrate: Long,
+    val streams: List<MediaStreamInfo>,
+    val defaultAudioIndex: Int?,
+    val defaultSubtitleIndex: Int?,
+) {
+    val video get() = streams.firstOrNull { it.type == "Video" }
+    val audioStreams get() = streams.filter { it.type == "Audio" }
+    val subtitleStreams get() = streams.filter { it.type == "Subtitle" }
+
+    val label: String
+        get() {
+            val v = video
+            val res = when {
+                v == null -> null
+                v.width >= 3200 || v.height >= 1700 -> "4K"
+                v.width >= 1800 || v.height >= 1000 -> "1080p"
+                v.width >= 1200 || v.height >= 700 -> "720p"
+                v.height > 0 -> "${v.height}p"
+                else -> null
+            }
+            return listOfNotNull(res, v?.hdrLabel, v?.codec?.uppercase()).joinToString(" · ").ifEmpty { name }
+        }
+
+    val detail: String
+        get() = listOfNotNull(
+            name.takeIf { it.isNotBlank() },
+            container.uppercase().takeIf { it.isNotBlank() },
+            if (size > 0) String.format("%.1f GB", size / 1_073_741_824.0) else null,
+            if (bitrate > 0) "${bitrate / 1_000_000} Mbps" else null,
+        ).joinToString(" · ")
+
+    companion object {
+        fun parse(o: JSONObject): MediaSourceInfo {
+            val arr = o.optJSONArray("MediaStreams")
+            val streams = if (arr == null) emptyList() else (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.let(MediaStreamInfo::parse) }
+            return MediaSourceInfo(
+                id = o.optString("Id"),
+                name = o.optString("Name"),
+                container = o.optString("Container"),
+                size = o.optLong("Size"),
+                bitrate = o.optLong("Bitrate"),
+                streams = streams,
+                defaultAudioIndex = if (o.has("DefaultAudioStreamIndex") && !o.isNull("DefaultAudioStreamIndex")) o.optInt("DefaultAudioStreamIndex") else null,
+                defaultSubtitleIndex = if (o.has("DefaultSubtitleStreamIndex") && !o.isNull("DefaultSubtitleStreamIndex")) o.optInt("DefaultSubtitleStreamIndex") else null,
+            )
+        }
+    }
+}
+
+/** What the user picked on the details page before pressing Play. */
+data class PlaySelection(
+    val mediaSourceId: String? = null,
+    val audioIndex: Int? = null,
+    /** -1 = subtitles off, null = server default */
+    val subtitleIndex: Int? = null,
 )
 
 data class Item(
@@ -57,6 +162,7 @@ data class Item(
     val studios: List<String> = emptyList(),
     val streams: List<MediaStreamInfo> = emptyList(),
     val premiereDate: String? = null,
+    val mediaSources: List<MediaSourceInfo> = emptyList(),
 ) {
     val isSeries get() = type == "Series"
     val isEpisode get() = type == "Episode"
@@ -83,9 +189,18 @@ data class Item(
                 v.width >= 3200 || v.height >= 1700 -> out += "4K"
                 v.width >= 1800 || v.height >= 1000 -> out += "HD"
             }
-            if (v.videoRange.equals("HDR", true)) out += "HDR"
+            v.hdrLabel?.let { out += it }
             val a = streams.firstOrNull { it.type == "Audio" }
-            if (a != null && a.channels >= 6) out += "5.1"
+            if (a != null) {
+                val at = a.displayTitle.uppercase()
+                when {
+                    at.contains("ATMOS") -> out += "Atmos"
+                    a.codec.equals("truehd", true) -> out += "TrueHD"
+                    a.codec.startsWith("dts", true) || a.codec.equals("dca", true) -> out += "DTS"
+                }
+                if (a.channels >= 6) out += if (a.channels >= 8) "7.1" else "5.1"
+            }
+            if (mediaSources.size > 1) out += "${mediaSources.size} versions"
             return out
         }
 
@@ -131,18 +246,10 @@ data class Item(
             } ?: emptyList()
 
             val streams = o.optJSONArray("MediaStreams")?.let { arr ->
-                (0 until arr.length()).mapNotNull { i ->
-                    val s = arr.optJSONObject(i) ?: return@mapNotNull null
-                    MediaStreamInfo(
-                        type = s.optString("Type"),
-                        codec = s.optString("Codec"),
-                        displayTitle = s.optString("DisplayTitle"),
-                        width = s.optInt("Width"),
-                        height = s.optInt("Height"),
-                        videoRange = s.optString("VideoRange"),
-                        channels = s.optInt("Channels"),
-                    )
-                }
+                (0 until arr.length()).mapNotNull { i -> arr.optJSONObject(i)?.let(MediaStreamInfo::parse) }
+            } ?: emptyList()
+            val sources = o.optJSONArray("MediaSources")?.let { arr ->
+                (0 until arr.length()).mapNotNull { i -> arr.optJSONObject(i)?.let(MediaSourceInfo::parse) }
             } ?: emptyList()
 
             return Item(
@@ -181,8 +288,9 @@ data class Item(
                 studios = o.optJSONArray("Studios")?.let { arr ->
                     (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.optString("Name") }
                 } ?: emptyList(),
-                streams = streams,
+                streams = streams.ifEmpty { sources.firstOrNull()?.streams ?: emptyList() },
                 premiereDate = o.optStringOrNull("PremiereDate"),
+                mediaSources = sources,
             )
         }
     }

@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import org.phoenicx.nova.NovaApp
 import org.phoenicx.nova.data.Item
 import org.phoenicx.nova.data.PlaybackSource
+import org.phoenicx.nova.data.PlaySelection
 import java.util.Locale
 
 data class TrackOption(
@@ -120,6 +121,7 @@ class PlayerController(context: Context) {
 
             override fun onTracksChanged(tracks: Tracks) {
                 tracksVersion++
+                if (!pendingApplied && !tracks.isEmpty) applySelection()
             }
 
             override fun onPlayerError(e: PlaybackException) {
@@ -141,7 +143,13 @@ class PlayerController(context: Context) {
         })
     }
 
-    fun load(itemId: String, startTicks: Long, streamMode: StreamMode = StreamMode.Direct) {
+    /** Version / audio / subtitle chosen on the details page (null = server defaults) */
+    private var selection: PlaySelection? = null
+    private var pendingApplied = true
+
+    fun load(itemId: String, startTicks: Long, streamMode: StreamMode = StreamMode.Direct, sel: PlaySelection? = selection) {
+        selection = sel
+        pendingApplied = sel == null
         if (streamMode == StreamMode.Direct) lastErrors.clear()
         mode = streamMode
         error = null
@@ -163,6 +171,7 @@ class PlayerController(context: Context) {
                         DeviceProfile.get(progressive = streamMode == StreamMode.Progressive),
                         allowDirect = streamMode == StreamMode.Direct,
                         forceDirect = streamMode == StreamMode.Direct && prefs.directPlayOnly,
+                        sel = sel,
                     )
                 }
                 val src = srcD.await()
@@ -176,6 +185,7 @@ class PlayerController(context: Context) {
                         .setMimeType(MimeTypes.TEXT_VTT)
                         .setLanguage(s.language)
                         .setLabel(s.title)
+                        .setId("ext${s.index}")
                         .build()
                 }
                 val mi = MediaItem.Builder()
@@ -242,7 +252,7 @@ class PlayerController(context: Context) {
 
     fun playNext() {
         val next = nextEpisode ?: return
-        load(next.id, 0)
+        load(next.id, 0, StreamMode.Direct, sel = null)
     }
 
     fun togglePlay() {
@@ -292,6 +302,44 @@ class PlayerController(context: Context) {
         } else {
             b.setTrackTypeDisabled(type, false)
             b.setOverrideForType(TrackSelectionOverride(opt.group.mediaTrackGroup, opt.index))
+        }
+        player.trackSelectionParameters = b.build()
+    }
+
+    /** Turns the details-page choice into ExoPlayer track picks once the file's tracks are known. */
+    private fun applySelection() {
+        pendingApplied = true
+        val sel = selection ?: return
+        val src = source ?: return
+        val b = player.trackSelectionParameters.buildUpon()
+
+        sel.audioIndex?.let { want ->
+            val k = src.embeddedAudio.indexOf(want)
+            val audio = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+                .flatMap { g -> (0 until g.length).map { g to it } }
+            if (k >= 0 && k < audio.size) {
+                val (g, i) = audio[k]
+                b.setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, i))
+            }
+        }
+
+        when (val want = sel.subtitleIndex) {
+            null -> {}
+            -1 -> b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            else -> {
+                val text = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+                    .flatMap { g -> (0 until g.length).map { g to it } }
+                val ext = text.firstOrNull { (g, i) -> g.getTrackFormat(i).id?.endsWith("ext$want") == true }
+                val pick = ext ?: run {
+                    val k = src.embeddedSubs.indexOf(want)
+                    val embedded = text.filter { (g, i) -> g.getTrackFormat(i).id?.contains("ext") != true }
+                    if (k >= 0 && k < embedded.size) embedded[k] else null
+                }
+                if (pick != null) {
+                    b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    b.setOverrideForType(TrackSelectionOverride(pick.first.mediaTrackGroup, pick.second))
+                }
+            }
         }
         player.trackSelectionParameters = b.build()
     }

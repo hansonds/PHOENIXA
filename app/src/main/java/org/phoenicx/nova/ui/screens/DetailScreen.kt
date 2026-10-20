@@ -58,6 +58,9 @@ import org.phoenicx.nova.ui.Screen
 import org.phoenicx.nova.ui.components.BackdropLayer
 import org.phoenicx.nova.ui.components.CenterMessage
 import org.phoenicx.nova.ui.components.FocusSurface
+import org.phoenicx.nova.ui.components.OptionSheet
+import org.phoenicx.nova.ui.components.SheetOption
+import org.phoenicx.nova.data.PlaySelection
 import org.phoenicx.nova.ui.components.GlassChip
 import org.phoenicx.nova.ui.components.LandscapeCard
 import org.phoenicx.nova.ui.components.MetaRow
@@ -91,6 +94,18 @@ fun DetailScreen(nav: Navigator, itemId: String) {
     var nextUp by remember { mutableStateOf<Item?>(null) }
     val playRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
+    // Version / audio / subtitle choices for movies & episodes
+    var srcIdx by remember { mutableStateOf(0) }
+    var audioSel by remember { mutableStateOf<Int?>(null) }
+    var subSel by remember { mutableStateOf<Int?>(null) }
+    var sheet by remember { mutableStateOf<String?>(null) }
+    var lastSheet by remember { mutableStateOf<String?>(null) }
+    val chipRequesters = remember { mapOf("version" to FocusRequester(), "audio" to FocusRequester(), "subs" to FocusRequester()) }
+    LaunchedEffect(sheet) {
+        if (sheet == null && lastSheet != null) {
+            delay(60); runCatching { lastSheet?.let { k -> chipRequesters[k]?.requestFocus() } }
+        }
+    }
     var focusedOnce by remember { mutableStateOf(false) }
 
     suspend fun load() = coroutineScope {
@@ -187,9 +202,40 @@ fun DetailScreen(nav: Navigator, itemId: String) {
 
                             Spacer(Modifier.height(24.dp))
                             ActionRow(it, nextUp, playRequester,
-                                onFocusRow = { scope.launch { delay(170); listState.animateScrollToItem(0) } }, onPlay = { fromStart -> Launcher.play(context, scope, nextUp ?: it, fromStart) },
+                                onFocusRow = { scope.launch { delay(170); listState.animateScrollToItem(0) } }, onPlay = { fromStart ->
+                                    val src = it.mediaSources.getOrNull(srcIdx)
+                                    val sel = if (!it.isSeries && src != null) PlaySelection(
+                                        mediaSourceId = src.id,
+                                        audioIndex = audioSel ?: src.defaultAudioIndex,
+                                        subtitleIndex = subSel ?: (src.defaultSubtitleIndex ?: -1),
+                                    ) else null
+                                    Launcher.play(context, scope, nextUp ?: it, fromStart, sel)
+                                },
                                 onGoSeries = { sid -> nav.push(Screen.Detail(sid)) },
                                 onChanged = { changed -> item = changed })
+                            val src = it.mediaSources.getOrNull(srcIdx)
+                            if (!it.isSeries && src != null) {
+                                Spacer(Modifier.height(16.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    if (it.mediaSources.size > 1) {
+                                        SelectorChip("VERSION", src.label, chipRequesters.getValue("version")) {
+                                            lastSheet = "version"; sheet = "version"
+                                        }
+                                    }
+                                    val aIdx = audioSel ?: src.defaultAudioIndex
+                                    val aStream = src.audioStreams.firstOrNull { a -> a.index == aIdx } ?: src.audioStreams.firstOrNull()
+                                    if (src.audioStreams.isNotEmpty()) {
+                                        SelectorChip("AUDIO", aStream?.displayTitle ?: "Default", chipRequesters.getValue("audio")) {
+                                            lastSheet = "audio"; sheet = "audio"
+                                        }
+                                    }
+                                    val sIdx = subSel ?: (src.defaultSubtitleIndex ?: -1)
+                                    val sStream = src.subtitleStreams.firstOrNull { x -> x.index == sIdx }
+                                    SelectorChip("SUBTITLES", sStream?.displayTitle ?: "Off", chipRequesters.getValue("subs")) {
+                                        lastSheet = "subs"; sheet = "subs"
+                                    }
+                                }
+                            }
                             if (it.progress > 0f && !it.played && !it.isSeries) {
                                 Spacer(Modifier.height(14.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -277,6 +323,64 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                     }
                 }
             }
+        }
+        val cur = item
+        val curSrc = cur?.mediaSources?.getOrNull(srcIdx)
+        if (sheet != null && cur != null && curSrc != null) {
+            when (sheet) {
+                "version" -> OptionSheet(
+                    "Version",
+                    cur.mediaSources.mapIndexed { i, m -> SheetOption(m.label, m.detail, i == srcIdx) },
+                    onSelect = { i -> srcIdx = i; audioSel = null; subSel = null; sheet = null },
+                    onDismiss = { sheet = null },
+                )
+                "audio" -> {
+                    val list = curSrc.audioStreams
+                    val current = audioSel ?: curSrc.defaultAudioIndex ?: list.firstOrNull()?.index
+                    OptionSheet(
+                        "Audio",
+                        list.map { a -> SheetOption(a.displayTitle.ifEmpty { a.codec.uppercase() }, a.title ?: "", a.index == current) },
+                        onSelect = { i -> audioSel = list[i].index; sheet = null },
+                        onDismiss = { sheet = null },
+                    )
+                }
+                "subs" -> {
+                    val list = curSrc.subtitleStreams
+                    val current = subSel ?: (curSrc.defaultSubtitleIndex ?: -1)
+                    OptionSheet(
+                        "Subtitles",
+                        listOf(SheetOption("Off", "", current == -1)) +
+                            list.map { x ->
+                                SheetOption(
+                                    x.displayTitle.ifEmpty { x.language ?: "Subtitle" },
+                                    listOfNotNull(x.title, if (x.isExternal) "External file" else null, if (x.isForced) "Forced" else null).joinToString(" · "),
+                                    x.index == current,
+                                )
+                            },
+                        onSelect = { i -> subSel = if (i == 0) -1 else list[i - 1].index; sheet = null },
+                        onDismiss = { sheet = null },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectorChip(caption: String, value: String, requester: FocusRequester, onClick: () -> Unit) {
+    FocusSurface(onClick = onClick, shape = RoundedCornerShape(14.dp), focusedScale = 1.04f, borderWidth = 0.dp, glow = false, focusRequester = requester) { focused ->
+        Column(
+            Modifier
+                .widthIn(min = 150.dp, max = 300.dp)
+                .background(if (focused) Color(0xFFF4F7FF) else Color(0x1FFFFFFF))
+                .border(1.dp, if (focused) Color.Transparent else Nova.Stroke, RoundedCornerShape(14.dp))
+                .padding(horizontal = 16.dp, vertical = 9.dp)
+        ) {
+            Text(caption, style = NovaType.Caption.copy(fontSize = 10.sp), color = if (focused) Color(0xFF4A5068) else Nova.TextFaint)
+            Text(
+                "$value  ▾", style = NovaType.Label.copy(fontSize = 14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                color = if (focused) Color(0xFF12152A) else Nova.Text,
+            )
         }
     }
 }

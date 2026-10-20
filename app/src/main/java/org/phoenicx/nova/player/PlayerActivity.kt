@@ -113,7 +113,13 @@ class PlayerActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         controller = PlayerController(this)
         val itemId = intent.getStringExtra(EXTRA_ID) ?: return finish()
-        controller.load(itemId, intent.getLongExtra(EXTRA_TICKS, 0L))
+        val sel = if (intent.hasExtra(EXTRA_SOURCE) || intent.hasExtra(EXTRA_AUDIO) || intent.hasExtra(EXTRA_SUB))
+            org.phoenicx.nova.data.PlaySelection(
+                mediaSourceId = intent.getStringExtra(EXTRA_SOURCE),
+                audioIndex = if (intent.hasExtra(EXTRA_AUDIO)) intent.getIntExtra(EXTRA_AUDIO, 0) else null,
+                subtitleIndex = if (intent.hasExtra(EXTRA_SUB)) intent.getIntExtra(EXTRA_SUB, -1) else null,
+            ) else null
+        controller.load(itemId, intent.getLongExtra(EXTRA_TICKS, 0L), StreamMode.Direct, sel)
         setContent {
             NovaTheme {
                 PlayerScreen(controller, onExit = { finish() }, registerRescue = { rescue = it })
@@ -147,12 +153,17 @@ class PlayerActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_ID = "id"
         private const val EXTRA_TICKS = "ticks"
-        fun start(context: Context, itemId: String, startTicks: Long) {
-            context.startActivity(
-                Intent(context, PlayerActivity::class.java)
-                    .putExtra(EXTRA_ID, itemId)
-                    .putExtra(EXTRA_TICKS, startTicks)
-            )
+        private const val EXTRA_SOURCE = "source"
+        private const val EXTRA_AUDIO = "audio"
+        private const val EXTRA_SUB = "sub"
+        fun start(context: Context, itemId: String, startTicks: Long, sel: org.phoenicx.nova.data.PlaySelection? = null) {
+            val i = Intent(context, PlayerActivity::class.java)
+                .putExtra(EXTRA_ID, itemId)
+                .putExtra(EXTRA_TICKS, startTicks)
+            sel?.mediaSourceId?.let { i.putExtra(EXTRA_SOURCE, it) }
+            sel?.audioIndex?.let { i.putExtra(EXTRA_AUDIO, it) }
+            sel?.subtitleIndex?.let { i.putExtra(EXTRA_SUB, it) }
+            context.startActivity(i)
         }
     }
 }

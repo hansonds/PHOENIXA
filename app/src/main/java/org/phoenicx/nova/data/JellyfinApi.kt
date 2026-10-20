@@ -23,9 +23,13 @@ data class PlaybackSource(
     val playSessionId: String?,
     val isTranscoding: Boolean,
     val externalSubs: List<ExternalSub>,
+    /** Jellyfin indexes of audio tracks inside the file, in file order */
+    val embeddedAudio: List<Int> = emptyList(),
+    /** Jellyfin indexes of subtitle tracks inside the file, in file order */
+    val embeddedSubs: List<Int> = emptyList(),
 )
 
-data class ExternalSub(val url: String, val language: String?, val title: String, val mime: String)
+data class ExternalSub(val url: String, val language: String?, val title: String, val mime: String, val index: Int = -1)
 
 class JellyfinApi(private val prefs: Prefs) {
 
@@ -259,7 +263,7 @@ class JellyfinApi(private val prefs: Prefs) {
 
     // ---------- Playback ----------
 
-    suspend fun playbackInfo(itemId: String, startTicks: Long, profile: JSONObject, allowDirect: Boolean, forceDirect: Boolean = false, audioIndex: Int? = null): PlaybackSource {
+    suspend fun playbackInfo(itemId: String, startTicks: Long, profile: JSONObject, allowDirect: Boolean, forceDirect: Boolean = false, sel: PlaySelection? = null): PlaybackSource {
         val maxBitrate = if (prefs.maxBitrateMbps > 0) prefs.maxBitrateMbps * 1_000_000 else 200_000_000
         val body = JSONObject()
             .put("UserId", userId)
@@ -270,11 +274,17 @@ class JellyfinApi(private val prefs: Prefs) {
             .put("EnableTranscoding", !forceDirect)
             .put("AutoOpenLiveStream", true)
             .put("DeviceProfile", profile)
-            .apply { if (audioIndex != null) put("AudioStreamIndex", audioIndex) }
+            .apply {
+                sel?.mediaSourceId?.let { put("MediaSourceId", it) }
+                sel?.audioIndex?.let { put("AudioStreamIndex", it) }
+                sel?.subtitleIndex?.let { if (it >= 0) put("SubtitleStreamIndex", it) }
+            }
         val o = JSONObject(call("POST", "/Items/$itemId/PlaybackInfo?UserId=$userId", body))
         val playSessionId = o.optStringOrNull("PlaySessionId")
         val sources = o.optJSONArray("MediaSources") ?: throw ApiException("No playable media")
-        val ms = sources.optJSONObject(0) ?: throw ApiException("No playable media")
+        val ms = (0 until sources.length()).mapNotNull { sources.optJSONObject(it) }
+            .let { all -> all.firstOrNull { it.optString("Id") == sel?.mediaSourceId } ?: all.firstOrNull() }
+            ?: throw ApiException("No playable media")
         val msId = ms.optString("Id")
         val container = ms.optString("Container")
 
@@ -311,10 +321,23 @@ class JellyfinApi(private val prefs: Prefs) {
                     language = s.optStringOrNull("Language"),
                     title = s.optString("DisplayTitle", "Subtitle $idx"),
                     mime = "text/vtt",
+                    index = idx,
                 )
             }
         }
-        return PlaybackSource(url, msId, playSessionId, transcoding, subs)
+        val embeddedAudio = mutableListOf<Int>()
+        val embeddedSubs = mutableListOf<Int>()
+        if (streams != null) {
+            for (i in 0 until streams.length()) {
+                val st = streams.optJSONObject(i) ?: continue
+                if (st.optBoolean("IsExternal")) continue
+                when (st.optString("Type")) {
+                    "Audio" -> embeddedAudio += st.optInt("Index")
+                    "Subtitle" -> embeddedSubs += st.optInt("Index")
+                }
+            }
+        }
+        return PlaybackSource(url, msId, playSessionId, transcoding, subs, embeddedAudio, embeddedSubs)
     }
 
     private fun progressBody(itemId: String, src: PlaybackSource, ticks: Long, paused: Boolean) = JSONObject()
