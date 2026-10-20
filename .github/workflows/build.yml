@@ -19,18 +19,18 @@ jobs:
       - name: Build release APK
         run: gradle assembleRelease --stacktrace
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk PhoenicxNova.apk
+        run: cp app/build/outputs/apk/release/app-release.apk PHOENIXA.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: PhoenicxNova-APK
-          path: PhoenicxNova.apk
+          name: PHOENIXA-APK
+          path: PHOENIXA.apk
       - name: Publish latest release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: Phoenicx Nova (latest build)
-          files: PhoenicxNova.apk
+          name: PHOENIXA (latest build)
+          files: PHOENIXA.apk
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
