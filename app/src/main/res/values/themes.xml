@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.Nova" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/nova_bg</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+    <color name="nova_bg">#FF121522</color>
+</resources>
