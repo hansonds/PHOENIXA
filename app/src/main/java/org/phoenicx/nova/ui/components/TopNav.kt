@@ -1,6 +1,8 @@
 package org.phoenicx.nova.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -74,19 +76,25 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
         }
     }
     val libs = nav.libraries.value.filter { it.collectionType in setOf("movies", "tvshows", "boxsets", null, "homevideos") }
+    Box(modifier.fillMaxWidth()) {
+    // Small clock in the top-right corner, above the bar
+    Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 52.dp)) { Clock() }
     Row(
-        modifier
+        Modifier
             .fillMaxWidth()
-            .padding(horizontal = 48.dp, vertical = 22.dp),
+            .padding(start = 48.dp, end = 48.dp, top = 26.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         NovaWordmark()
-        Spacer(Modifier.width(32.dp))
+        Spacer(Modifier.width(28.dp))
+        // Takes the free space; the pill bar scrolls sideways if there are many libraries
+        Box(Modifier.weight(1f)) {
         Row(
             Modifier
                 .clip(RoundedCornerShape(26.dp))
                 .background(Color(0x5C1A1F33))
                 .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
+                .horizontalScroll(rememberScrollState())
                 .padding(5.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -98,20 +106,20 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
                 selected == Screen.Favorites,
                 if (selected == Screen.Favorites) selReq else null,
             ) { if (selected != Screen.Favorites) nav.tab(Screen.Favorites) }
-            libs.take(5).forEach { lib ->
+            libs.forEach { lib ->
                 val isSel = (selected as? Screen.Lib)?.library?.id == lib.id
                 NavPill(lib.name, isSel, if (isSel) selReq else null) { if (!isSel) nav.tab(Screen.Lib(lib)) }
             }
         }
-        Spacer(Modifier.weight(1f))
-        Clock()
-        Spacer(Modifier.width(18.dp))
+        }
+        Spacer(Modifier.width(16.dp))
         NavIcon(Icons.Outlined.Settings, selected == Screen.Settings, if (selected == Screen.Settings) selReq else null) { if (selected != Screen.Settings) nav.tab(Screen.Settings) }
         Spacer(Modifier.width(10.dp))
         Box(Modifier.size(38.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {
             Text((org.phoenicx.nova.NovaApp.instance.prefs.userName ?: "?").take(1).uppercase(), style = NovaType.Button, color = Color(0xFF12152A))
             AsyncImage(api.userImage(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
+    }
     }
 }
 
@@ -123,8 +131,8 @@ private fun NavPill(text: String, selected: Boolean, req: FocusRequester?, onCli
             selected -> Brush.horizontalGradient(listOf(Color(0x406CE5F5), Color(0x40A58BFF)))
             else -> Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
         }
-        Box(Modifier.height(40.dp).background(bg).padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
-            Text(text, style = NovaType.Button, color = if (focused) Color(0xFF12152A) else if (selected) Nova.Text else Nova.TextDim)
+        Box(Modifier.height(40.dp).background(bg).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+            Text(text, style = NovaType.Button, maxLines = 1, softWrap = false, color = if (focused) Color(0xFF12152A) else if (selected) Nova.Text else Nova.TextDim)
         }
     }
 }
@@ -154,7 +162,11 @@ fun Clock() {
         while (true) { now = Date(); delay(15_000) }
     }
     val fmt = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
-    Text(fmt.format(now), style = NovaType.Section.copy(fontWeight = FontWeight.Medium), color = Nova.Text)
+    Text(
+        fmt.format(now),
+        style = NovaType.Label.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp),
+        color = Nova.TextDim, maxLines = 1, softWrap = false,
+    )
 }
 
 @Suppress("unused")

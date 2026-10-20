@@ -223,7 +223,7 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val heroH: Dp = (maxHeight - 84.dp - 128.dp).coerceAtLeast(300.dp)
+        val heroH: Dp = (maxHeight - 88.dp - 128.dp).coerceAtLeast(300.dp)
         BackdropLayer(
             heroItem?.let { api.backdrop(it) },
             kenBurns = false,
