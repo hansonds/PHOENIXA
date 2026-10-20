@@ -107,7 +107,7 @@ fun PersonScreen(nav: Navigator, personId: String, name: String) {
     LaunchedEffect(personId) {
         try {
             coroutineScope {
-                val p = async { runCatching { api.person(personId) }.getOrNull() }
+                val p = async { api.personWithBio(personId, name) }
                 val w = async { api.filmography(personId) }
                 works = w.await()
                 person = p.await()
@@ -249,8 +249,10 @@ private fun BioOverlay(name: String, bio: String, onClose: () -> Unit) {
                         when (e.key) {
                             Key.DirectionDown -> { scope.launch { scroll.animateScrollBy(260f) }; true }
                             Key.DirectionUp -> { scope.launch { scroll.animateScrollBy(-260f) }; true }
-                            Key.DirectionCenter, Key.Enter -> { onClose(); true }
-                            else -> true
+                            Key.DirectionCenter, Key.Enter, Key.Back, Key.Escape -> { onClose(); true }
+                            // keep the highlight inside the panel, but let every other key (Back, Home…) work
+                            Key.DirectionLeft, Key.DirectionRight -> true
+                            else -> false
                         }
                     }
                     .focusable()

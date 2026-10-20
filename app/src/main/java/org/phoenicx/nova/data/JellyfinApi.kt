@@ -180,6 +180,24 @@ class JellyfinApi(private val prefs: Prefs) {
 
     suspend fun person(id: String): Item = Item.parse(getObj("/Users/$userId/Items/$id?Fields=Overview,ProductionLocations"))
 
+    /**
+     * Person details with biography. Tries the item endpoint, then the /Persons endpoint, and once more
+     * after a short wait (the server may fetch the biography on demand the first time).
+     */
+    suspend fun personWithBio(id: String, name: String): Item? {
+        suspend fun byName(): Item? = runCatching {
+            Item.parse(getObj("/Persons/${enc(name)}?userId=$userId&Fields=Overview,ProductionLocations"))
+        }.getOrNull()
+        var best: Item? = runCatching { person(id) }.getOrNull()
+        if (best?.overview.isNullOrBlank()) byName()?.let { if (best == null || it.overview.isNotBlank()) best = it }
+        if (best?.overview.isNullOrBlank()) {
+            kotlinx.coroutines.delay(1500)
+            val again = runCatching { person(id) }.getOrNull() ?: byName()
+            if (again != null && (best == null || again.overview.isNotBlank())) best = again
+        }
+        return best
+    }
+
     /** Movies and shows a person appears in */
     suspend fun filmography(personId: String): List<Item> = getItems(
         "/Users/$userId/Items?PersonIds=$personId&Recursive=true&IncludeItemTypes=Movie,Series" +
