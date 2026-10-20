@@ -1,6 +1,24 @@
 package org.phoenicx.nova.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import kotlinx.coroutines.launch
+import org.phoenicx.nova.ui.components.NovaButton
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,6 +96,13 @@ fun PersonScreen(nav: Navigator, personId: String, name: String) {
     var works by remember { mutableStateOf<List<Item>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val firstCard = remember { FocusRequester() }
+    val readMoreReq = remember { FocusRequester() }
+    var showBio by remember { mutableStateOf(false) }
+    var bioWasOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(showBio) {
+        if (showBio) bioWasOpen = true
+        else if (bioWasOpen) { delay(60); runCatching { readMoreReq.requestFocus() } }
+    }
 
     LaunchedEffect(personId) {
         try {
@@ -104,6 +129,7 @@ fun PersonScreen(nav: Navigator, personId: String, name: String) {
     val birth = parseDate(p?.premiereDate)
     val death = parseDate(p?.endDate)
 
+    Box(Modifier.fillMaxSize()) {
     // Fixed info panel on the left (never scrolls away) + movies grid on the right
     Row(Modifier.fillMaxSize().padding(start = 56.dp, top = 36.dp)) {
         Column(Modifier.width(360.dp).padding(end = 28.dp)) {
@@ -142,11 +168,16 @@ fun PersonScreen(nav: Navigator, personId: String, name: String) {
                 Text("Born in $place", style = NovaType.Label, color = Nova.TextDim, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(10.dp))
             }
+            val bio = p?.overview?.takeIf { it.isNotBlank() }
             Text(
-                p?.overview?.takeIf { it.isNotBlank() } ?: "No biography available.",
+                bio ?: "No biography available.",
                 style = NovaType.Label.copy(fontSize = 13.sp, lineHeight = 19.sp), color = Nova.TextDim,
-                maxLines = 7, overflow = TextOverflow.Ellipsis,
+                maxLines = 6, overflow = TextOverflow.Ellipsis,
             )
+            if (bio != null && bio.length > 260) {
+                Spacer(Modifier.height(12.dp))
+                NovaButton("Read more", Icons.Outlined.MenuBook, focusRequester = readMoreReq) { showBio = true }
+            }
         }
 
         Column(Modifier.weight(1f)) {
@@ -177,6 +208,59 @@ fun PersonScreen(nav: Navigator, personId: String, name: String) {
                         )
                     }
                 }
+            }
+        }
+    }
+    if (showBio) BioOverlay(p?.name ?: name, p?.overview ?: "", onClose = { showBio = false })
+    }
+}
+
+/** Full biography, scrolled with up/down on the remote; Back closes it. */
+@Composable
+private fun BioOverlay(name: String, bio: String, onClose: () -> Unit) {
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val req = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(60); runCatching { req.requestFocus() } }
+    BackHandler { onClose() }
+    Box(Modifier.fillMaxSize().background(Color(0xE6090B12)), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier
+                .widthIn(max = 900.dp)
+                .fillMaxWidth(0.8f)
+                .fillMaxHeight(0.82f)
+                .clip(RoundedCornerShape(26.dp))
+                .background(Nova.Surface)
+                .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
+                .padding(36.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(name, style = NovaType.Title, color = Nova.Text, modifier = Modifier.weight(1f))
+                Text("▲ ▼ scroll   ·   Back to close", style = NovaType.Label, color = Nova.TextFaint)
+            }
+            Spacer(Modifier.height(18.dp))
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .focusRequester(req)
+                    .onPreviewKeyEvent { e ->
+                        if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        when (e.key) {
+                            Key.DirectionDown -> { scope.launch { scroll.animateScrollBy(260f) }; true }
+                            Key.DirectionUp -> { scope.launch { scroll.animateScrollBy(-260f) }; true }
+                            Key.DirectionCenter, Key.Enter -> { onClose(); true }
+                            else -> true
+                        }
+                    }
+                    .focusable()
+            ) {
+                Text(
+                    bio,
+                    style = NovaType.Body.copy(fontSize = 17.sp, lineHeight = 28.sp),
+                    color = Nova.Text,
+                    modifier = Modifier.verticalScroll(scroll),
+                )
             }
         }
     }
