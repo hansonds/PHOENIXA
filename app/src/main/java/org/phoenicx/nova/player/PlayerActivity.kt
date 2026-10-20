@@ -68,6 +68,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -115,9 +116,22 @@ class PlayerActivity : ComponentActivity() {
         controller.load(itemId, intent.getLongExtra(EXTRA_TICKS, 0L))
         setContent {
             NovaTheme {
-                PlayerScreen(controller, onExit = { finish() })
+                PlayerScreen(controller, onExit = { finish() }, registerRescue = { rescue = it })
             }
         }
+    }
+
+    /** Set by the player screen; puts the remote's highlight back somewhere sensible. */
+    private var rescue: (() -> Unit)? = null
+
+    override fun onKeyDown(keyCode: Int, event: AKeyEvent): Boolean {
+        // Only reached when no on-screen control handled the key, i.e. focus was lost
+        val nav = keyCode in setOf(
+            AKeyEvent.KEYCODE_DPAD_UP, AKeyEvent.KEYCODE_DPAD_DOWN, AKeyEvent.KEYCODE_DPAD_LEFT,
+            AKeyEvent.KEYCODE_DPAD_RIGHT, AKeyEvent.KEYCODE_DPAD_CENTER, AKeyEvent.KEYCODE_ENTER,
+        )
+        if (nav && rescue != null) { rescue?.invoke(); return true }
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onPause() {
@@ -146,7 +160,7 @@ class PlayerActivity : ComponentActivity() {
 private enum class Panel { None, Subtitles, Audio, Speed }
 
 @Composable
-private fun PlayerScreen(c: PlayerController, onExit: () -> Unit) {
+private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue: ((() -> Unit)) -> Unit) {
     var overlay by remember { mutableStateOf(true) }
     var showInfo by remember { mutableStateOf(false) }
     var panel by remember { mutableStateOf(Panel.None) }
@@ -156,6 +170,35 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit) {
     val playRequester = remember { FocusRequester() }
     val seekRequester = remember { FocusRequester() }
     val item = c.item
+    val goBackRequester = remember { FocusRequester() }
+    var rootFocused by remember { mutableStateOf(false) }
+    var anyFocus by remember { mutableStateOf(false) }
+    var refocusTick by remember { mutableIntStateOf(0) }
+
+    // Puts focus where it belongs for the current state of the screen
+    fun refocus() {
+        val target = when {
+            c.error != null -> goBackRequester
+            panel != Panel.None -> null // the panel focuses its own selected row
+            overlay -> playRequester
+            else -> rootRequester
+        }
+        if (target != null) runCatching { target.requestFocus() }.onFailure { runCatching { rootRequester.requestFocus() } }
+    }
+    registerRescue { if (!overlay && c.error == null) overlay = true; refocusTick++ }
+    LaunchedEffect(refocusTick) { if (refocusTick > 0) { delay(30); refocus() } }
+
+    // Watchdog: if nothing on screen has focus (a control vanished), take it back
+    LaunchedEffect(anyFocus) {
+        if (!anyFocus) { delay(120); if (!anyFocus) refocus() }
+    }
+    // After a side panel closes, its rows are gone — go back to the play button
+    LaunchedEffect(panel) {
+        if (panel == Panel.None) { delay(60); refocus() }
+    }
+    // A new episode starts (Next pressed): the Next buttons may disappear
+    LaunchedEffect(item?.id) { delay(80); refocus() }
+    LaunchedEffect(c.error) { if (c.error != null) { overlay = true; delay(80); refocus() } }
 
     // Position ticker
     LaunchedEffect(Unit) {
@@ -170,7 +213,7 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit) {
     }
     LaunchedEffect(overlay) {
         delay(60)
-        runCatching { if (overlay) playRequester.requestFocus() else rootRequester.requestFocus() }
+        refocus()
     }
     LaunchedEffect(c.finished) { if (c.finished) onExit() }
 
@@ -199,6 +242,14 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit) {
                     AKeyEvent.KEYCODE_MEDIA_REWIND -> { c.seekBy(-10_000); seekFlash++; return@onPreviewKeyEvent true }
                     AKeyEvent.KEYCODE_MEDIA_NEXT -> { c.playNext(); return@onPreviewKeyEvent true }
                 }
+                // Overlay is up but the highlight sits on the background: pull it onto the controls
+                if (overlay && rootFocused && panel == Panel.None) {
+                    when (e.key) {
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.DirectionUp, Key.DirectionDown,
+                        Key.DirectionLeft, Key.DirectionRight -> { refocus(); return@onPreviewKeyEvent true }
+                        else -> {}
+                    }
+                }
                 if (!overlay) {
                     when (e.key) {
                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { c.togglePlay(); overlay = true; true }
@@ -209,6 +260,7 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit) {
                     }
                 } else false
             }
+            .onFocusChanged { rootFocused = it.isFocused; anyFocus = it.hasFocus }
             .focusRequester(rootRequester)
             .focusable()
     ) {
@@ -280,7 +332,7 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Text(err, style = NovaType.Body, color = Nova.TextDim)
                 Spacer(Modifier.height(20.dp))
-                NovaButton("Go back", primary = true) { onExit() }
+                NovaButton("Go back", primary = true, focusRequester = goBackRequester) { onExit() }
             }
         }
     }

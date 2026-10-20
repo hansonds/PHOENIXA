@@ -52,9 +52,14 @@ import java.util.Locale
 @Composable
 fun NovaWordmark() {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("✦", color = Nova.Cyan, fontSize = 22.sp)
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_mark),
+            contentDescription = null,
+            modifier = Modifier.size(width = 40.dp, height = 34.dp),
+        )
         Spacer(Modifier.width(8.dp))
-        Text("NOVA", style = NovaType.Section.copy(fontWeight = FontWeight.Black, letterSpacing = 4.sp, fontSize = 18.sp), color = Nova.Text)
+        Text("PHOENIX", style = NovaType.Section.copy(fontWeight = FontWeight.Bold, letterSpacing = 3.sp, fontSize = 18.sp), color = Nova.Text)
+        Text("A", style = NovaType.Section.copy(fontWeight = FontWeight.Bold, letterSpacing = 3.sp, fontSize = 18.sp), color = androidx.compose.ui.graphics.Color(0xFFFF5A2C))
     }
 }
 

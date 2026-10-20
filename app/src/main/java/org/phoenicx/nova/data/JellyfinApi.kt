@@ -43,7 +43,7 @@ class JellyfinApi(private val prefs: Prefs) {
 
     fun authHeader(tok: String? = prefs.token): String {
         val device = (Build.MODEL ?: "Android TV").replace("\"", "")
-        val base = "MediaBrowser Client=\"Phoenicx Nova\", Device=\"$device\", DeviceId=\"${prefs.deviceId}\", Version=\"1.0.0\""
+        val base = "MediaBrowser Client=\"PHOENIXA\", Device=\"$device\", DeviceId=\"${prefs.deviceId}\", Version=\"1.0.0\""
         return if (tok.isNullOrEmpty()) base else "$base, Token=\"$tok\""
     }
 

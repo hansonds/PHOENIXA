@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Dns
@@ -118,10 +119,13 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
     Row(Modifier.fillMaxSize().padding(horizontal = 80.dp), verticalAlignment = Alignment.CenterVertically) {
         // Brand side
         Column(Modifier.weight(1f)) {
-            Text("✦", color = Nova.Cyan, fontSize = 48.sp)
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_mark),
+                contentDescription = null,
+                modifier = Modifier.size(width = 150.dp, height = 126.dp),
+            )
             Spacer(Modifier.height(12.dp))
-            Text("PHOENICX", style = NovaType.Caption.copy(fontSize = 14.sp, letterSpacing = 6.sp), color = Nova.Violet)
-            Text("NOVA", style = NovaType.Display.copy(fontSize = 84.sp, letterSpacing = 10.sp, fontWeight = FontWeight.Black), color = Nova.Text)
+            Row { Text("PHOENIX", style = NovaType.Display.copy(fontSize = 64.sp, letterSpacing = 6.sp, fontWeight = FontWeight.Black), color = Nova.Text); Text("A", style = NovaType.Display.copy(fontSize = 64.sp, letterSpacing = 6.sp, fontWeight = FontWeight.Black), color = androidx.compose.ui.graphics.Color(0xFFFF5A2C)) }
             Spacer(Modifier.height(12.dp))
             Text("Your cinema, reimagined.", style = NovaType.Section.copy(fontWeight = FontWeight.Normal), color = Nova.TextDim)
         }

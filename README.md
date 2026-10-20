@@ -1,4 +1,4 @@
-# ✦ Phoenicx Nova
+# PHOENIXA
 
 A futuristic, remote-first Jellyfin client for **Fire TV** and **Android TV** — made by **Hanson**.
 
@@ -10,7 +10,7 @@ A futuristic, remote-first Jellyfin client for **Fire TV** and **Android TV** �
 - Quick Connect sign-in (no typing on the remote)
 
 ## Install
-Download **PhoenicxNova.apk** from the [latest release](../../releases/latest) and sideload it (e.g. with the *Downloader* app on Fire TV).
+Download **PHOENIXA.apk** from the [latest release](../../releases/latest) and sideload it (e.g. with the *Downloader* app on Fire TV).
 
 ## Build
 Every push builds the APK with GitHub Actions (`.github/workflows/build.yml`).

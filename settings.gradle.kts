@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "PhoenicxNova"
+rootProject.name = "PhoenixA"
 include(":app")

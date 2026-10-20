@@ -79,7 +79,7 @@ object DeviceProfile {
         }
 
         return JSONObject()
-            .put("Name", "Phoenicx Nova")
+            .put("Name", "PHOENIXA")
             .put("MaxStreamingBitrate", 200_000_000)
             .put("MaxStaticBitrate", 200_000_000)
             .put("MusicStreamingTranscodingBitrate", 320_000)

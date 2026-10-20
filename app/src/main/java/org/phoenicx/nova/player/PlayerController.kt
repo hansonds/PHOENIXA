@@ -94,7 +94,7 @@ class PlayerController(context: Context) {
                     "X-Emby-Authorization" to api.authHeader(),
                 )
             )
-            .setUserAgent("PhoenicxNova/1.1 (Android TV)")
+            .setUserAgent("PHOENIXA/1.4 (Android TV)")
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(20_000, 120_000, 900, 2_500)
             .setPrioritizeTimeOverSizeThresholds(true)
