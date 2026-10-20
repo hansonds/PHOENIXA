@@ -70,7 +70,7 @@ class PlayerController(context: Context) {
     private val lastErrors = mutableListOf<String>()
     var speed by mutableStateOf(1f); private set
 
-    fun setSpeed(v: Float) {
+    fun changeSpeed(v: Float) {
         speed = v
         player.setPlaybackSpeed(v)
     }

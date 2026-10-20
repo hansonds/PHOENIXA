@@ -569,7 +569,7 @@ private fun SpeedPanel(c: PlayerController, onDone: () -> Unit) {
                 val v = speeds[i]
                 val selected = v == c.speed
                 FocusSurface(
-                    onClick = { c.setSpeed(v); onDone() },
+                    onClick = { c.changeSpeed(v); onDone() },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     focusedScale = 1.02f,
