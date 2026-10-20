@@ -35,6 +35,16 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("heroAutoRotate", true)
         set(v) = sp.edit().putBoolean("heroAutoRotate", v).apply()
 
+    /** Only ever direct play (no server transcoding). */
+    var directPlayOnly: Boolean
+        get() = sp.getBoolean("directOnly", true)
+        set(v) = sp.edit().putBoolean("directOnly", v).apply()
+
+    /** 0 = Small, 1 = Medium, 2 = Large */
+    var cardSize: Int
+        get() = sp.getInt("cardSize", 1)
+        set(v) = sp.edit().putInt("cardSize", v).apply()
+
     val deviceId: String
         get() {
             var id = sp.getString("deviceId", null)

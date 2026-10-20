@@ -4,12 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,7 +22,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -59,7 +55,6 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -69,22 +64,23 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.phoenicx.nova.NovaApp
 import org.phoenicx.nova.data.Item
 import org.phoenicx.nova.player.Launcher
 import org.phoenicx.nova.ui.Navigator
 import org.phoenicx.nova.ui.Screen
 import org.phoenicx.nova.ui.components.BackdropLayer
 import org.phoenicx.nova.ui.components.CenterMessage
-import org.phoenicx.nova.ui.components.GlassChip
+import org.phoenicx.nova.ui.components.EdgeScroll
 import org.phoenicx.nova.ui.components.LandscapeCard
 import org.phoenicx.nova.ui.components.MetaRow
 import org.phoenicx.nova.ui.components.NovaButton
 import org.phoenicx.nova.ui.components.NovaLoader
-import org.phoenicx.nova.ui.components.PivotScroll
 import org.phoenicx.nova.ui.components.PosterCard
 import org.phoenicx.nova.ui.components.SectionTitle
 import org.phoenicx.nova.ui.components.TopNav
 import org.phoenicx.nova.ui.components.api
+import org.phoenicx.nova.ui.theme.UiScale
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
 
@@ -161,12 +157,14 @@ class HomeState {
     var libsCache: List<org.phoenicx.nova.data.Library> = emptyList()
 }
 
-private const val HERO_INTERVAL_MS = 9000
+
+private const val HERO_INTERVAL_MS = 10000
 
 @Composable
 fun HomeScreen(nav: Navigator, state: HomeState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val fromNav = remember { nav.focusNavOnEnter }
 
     LaunchedEffect(Unit) {
         if (!state.loaded) {
@@ -182,133 +180,139 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
     }
 
     if (!state.loaded) {
-        if (state.error != null) {
-            CenterMessage("Can't reach the server", state.error) {
-                NovaButton("Try again", primary = true, onClick = { scope.launch { state.load(true); nav.libraries.value = state.libsCache } })
-            }
-        } else NovaLoader()
+        Column(Modifier.fillMaxSize()) {
+            TopNav(nav, Screen.Home)
+            if (state.error != null) {
+                CenterMessage("Can't reach the server", state.error) {
+                    NovaButton("Try again", primary = true, onClick = { scope.launch { state.load(true); nav.libraries.value = state.libsCache } })
+                }
+            } else NovaLoader()
+        }
         return
     }
 
     val heroRequester = remember { FocusRequester() }
     val cardRequester = remember { FocusRequester() }
-    var wantHeroFocus by remember { mutableStateOf(state.heroMode) }
-
     val featured = state.featured
     val heroItem = featured.getOrNull(state.heroIndex)
+    // true while focus is on the banner buttons or the top bar
+    var heroArea by remember { mutableStateOf(state.heroMode) }
 
-    // Debounce the ambient backdrop so fast scrolling doesn't thrash images
-    var ambient by remember { mutableStateOf(state.focusedItem) }
-    LaunchedEffect(state.focusedItem) {
-        delay(380)
-        ambient = state.focusedItem
+    fun goToHero() {
+        scope.launch {
+            state.listState.scrollToItem(0)
+            delay(30)
+            runCatching { heroRequester.requestFocus() }
+        }
     }
 
-    // Auto-rotate hero
+    // Auto-rotate the banner, only while you're up in the banner area
     val slideProgress = remember { Animatable(0f) }
     var interactions by remember { mutableIntStateOf(0) }
-    LaunchedEffect(state.heroIndex, state.heroMode, featured.size, interactions) {
+    LaunchedEffect(state.heroIndex, heroArea, featured.size, interactions) {
         slideProgress.snapTo(0f)
-        if (!state.heroMode || featured.size < 2 || !org.phoenicx.nova.NovaApp.instance.prefs.heroAutoRotate) return@LaunchedEffect
+        if (!heroArea || featured.size < 2 || !NovaApp.instance.prefs.heroAutoRotate) return@LaunchedEffect
         slideProgress.animateTo(1f, tween(HERO_INTERVAL_MS, easing = LinearEasing))
         state.heroIndex = (state.heroIndex + 1) % featured.size
     }
 
-    BackHandler(enabled = !state.heroMode) {
+    BackHandler(enabled = !heroArea) {
+        heroArea = true
         state.heroMode = true
-        wantHeroFocus = true
-        scope.launch { state.listState.animateScrollToItem(0) }
+        goToHero()
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val screenH = maxHeight
-        val heroH: Dp = screenH - 142.dp
-        val infoH: Dp = 236.dp
-        val topH by animateDpAsState(if (state.heroMode) heroH else infoH, tween(420), label = "topH")
-
-        val bgUrl = if (state.heroMode) heroItem?.let { api.backdrop(it) } else ambient?.let { api.backdrop(it) ?: api.landscape(it, 1280) }
-        BackdropLayer(bgUrl, kenBurns = state.heroMode, dim = if (state.heroMode) 0f else 0.32f)
+        val heroH: Dp = (maxHeight - 84.dp - 128.dp).coerceAtLeast(300.dp)
+        BackdropLayer(
+            heroItem?.let { api.backdrop(it) },
+            kenBurns = false,
+            dim = if (heroArea) 0f else 0.5f,
+        )
 
         Column(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxWidth().height(topH)) {
-                if (state.heroMode && heroItem != null) {
-                    Column(Modifier.fillMaxSize()) {
-                        TopNav(nav, Screen.Home)
-                        Spacer(Modifier.weight(1f))
-                        HeroInfo(heroItem, state.heroIndex)
-                        Spacer(Modifier.height(22.dp))
-                        Row(
-                            Modifier
-                                .padding(start = 56.dp, end = 56.dp, bottom = 18.dp)
-                                .fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            var focusedBtn by remember { mutableIntStateOf(0) }
-                            Row(
-                                Modifier.onPreviewKeyEvent { e ->
-                                    if (e.type != KeyEventType.KeyDown || featured.size < 2) return@onPreviewKeyEvent false
-                                    when {
-                                        e.key == Key.DirectionLeft && focusedBtn == 0 -> {
-                                            state.heroIndex = (state.heroIndex - 1 + featured.size) % featured.size
-                                            interactions++; true
-                                        }
-                                        e.key == Key.DirectionRight && focusedBtn == 2 -> {
-                                            state.heroIndex = (state.heroIndex + 1) % featured.size
-                                            interactions++; true
-                                        }
-                                        else -> false
-                                    }
-                                },
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            ) {
-                                val resume = heroItem.playbackPositionTicks > 0 && !heroItem.played
-                                NovaButton(
-                                    if (resume) "Resume" else "Play", Icons.Filled.PlayArrow, primary = true,
-                                    focusRequester = heroRequester, onFocused = { focusedBtn = 0 },
-                                ) { Launcher.play(context, scope, heroItem) }
-                                NovaButton("More Info", Icons.Outlined.Info, onFocused = { focusedBtn = 1 }) {
-                                    nav.push(Screen.Detail(heroItem.id))
-                                }
-                                var fav by remember(heroItem.id) { mutableStateOf(heroItem.isFavorite) }
-                                NovaButton("", if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, onFocused = { focusedBtn = 2 }) {
-                                    fav = !fav
-                                    scope.launch { runCatching { api.setFavorite(heroItem.id, fav) } }
-                                }
-                            }
-                            Spacer(Modifier.weight(1f))
-                            SlideIndicator(featured.size, state.heroIndex, slideProgress.value)
-                        }
-                    }
-                } else if (!state.heroMode) {
-                    FocusInfoPanel(state.focusedItem)
-                }
+            // Top bar stays put, always reachable with UP
+            Box(Modifier.onFocusChanged { if (it.hasFocus) { heroArea = true; state.heroMode = true } }) {
+                TopNav(nav, Screen.Home)
             }
 
-            // Content rows
-            val density = LocalDensity.current
-            val rowPivotPx = with(density) { 50.dp.toPx() }
-            PivotScroll(0f, rowPivotPx) {
+            EdgeScroll(startMargin = 46.dp, endMargin = 24.dp) {
                 LazyColumn(
                     state = state.listState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .onFocusChanged { if (it.hasFocus) state.heroMode = false }
                         .onPreviewKeyEvent { e ->
-                            if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp && state.focusedRow == 0 && !state.heroMode) {
+                            // From the first row, UP always lands cleanly on the banner buttons
+                            if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp && !heroArea && state.focusedRow == 0) {
+                                heroArea = true
                                 state.heroMode = true
-                                wantHeroFocus = true
+                                goToHero()
                                 true
                             } else false
                         },
-                    contentPadding = PaddingValues(bottom = 200.dp),
+                    contentPadding = PaddingValues(bottom = 120.dp),
                 ) {
+                    item(key = "hero") {
+                        if (heroItem != null) {
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(heroH)
+                                    .onFocusChanged { if (it.hasFocus) { heroArea = true; state.heroMode = true } }
+                                    .padding(horizontal = 56.dp),
+                                verticalArrangement = Arrangement.Bottom,
+                            ) {
+                                HeroInfo(heroItem)
+                                Spacer(Modifier.height(18.dp))
+                                Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    var focusedBtn by remember { mutableIntStateOf(0) }
+                                    Row(
+                                        Modifier.onPreviewKeyEvent { e ->
+                                            if (e.type != KeyEventType.KeyDown || featured.size < 2) return@onPreviewKeyEvent false
+                                            when {
+                                                e.key == Key.DirectionLeft && focusedBtn == 0 -> {
+                                                    state.heroIndex = (state.heroIndex - 1 + featured.size) % featured.size
+                                                    interactions++; true
+                                                }
+                                                e.key == Key.DirectionRight && focusedBtn == 2 -> {
+                                                    state.heroIndex = (state.heroIndex + 1) % featured.size
+                                                    interactions++; true
+                                                }
+                                                else -> false
+                                            }
+                                        },
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                    ) {
+                                        val resume = heroItem.playbackPositionTicks > 0 && !heroItem.played
+                                        NovaButton(
+                                            if (resume) "Resume" else "Play", Icons.Filled.PlayArrow, primary = true,
+                                            focusRequester = heroRequester, onFocused = { focusedBtn = 0 },
+                                        ) { Launcher.play(context, scope, heroItem) }
+                                        NovaButton("More Info", Icons.Outlined.Info, onFocused = { focusedBtn = 1 }) {
+                                            nav.push(Screen.Detail(heroItem.id))
+                                        }
+                                        var fav by remember(heroItem.id) { mutableStateOf(heroItem.isFavorite) }
+                                        NovaButton("", if (fav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, onFocused = { focusedBtn = 2 }) {
+                                            fav = !fav
+                                            scope.launch { runCatching { api.setFavorite(heroItem.id, fav) } }
+                                        }
+                                    }
+                                    Spacer(Modifier.weight(1f))
+                                    SlideIndicator(featured.size, state.heroIndex, slideProgress.value)
+                                }
+                            }
+                        } else {
+                            Spacer(Modifier.height(24.dp))
+                        }
+                    }
                     itemsIndexed(state.rows, key = { _, r -> r.key }) { rowIndex, row ->
                         ContentRow(
                             row = row,
                             rowIndex = rowIndex,
                             state = state,
                             cardRequester = cardRequester,
+                            onRowFocused = { heroArea = false; state.heroMode = false },
                             onClick = { item ->
                                 if (row.playOnClick) Launcher.play(context, scope, item)
                                 else nav.push(Screen.Detail(item.id))
@@ -320,19 +324,14 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
         }
     }
 
-    LaunchedEffect(wantHeroFocus, state.heroMode) {
-        if (wantHeroFocus && state.heroMode) {
-            delay(30)
-            runCatching { heroRequester.requestFocus() }
-            wantHeroFocus = false
-        }
-    }
-    // Restore focus when coming back to Home
+    // Restore focus when coming back to Home (the top bar handles it when opened from the top bar)
     LaunchedEffect(Unit) {
-        delay(60)
-        if (state.heroMode) runCatching { heroRequester.requestFocus() }
-        else if (runCatching { cardRequester.requestFocus() }.isFailure) {
-            state.heroMode = true; wantHeroFocus = true
+        if (fromNav) return@LaunchedEffect
+        delay(80)
+        if (state.heroMode || state.lastFocusKey == null) {
+            runCatching { heroRequester.requestFocus() }
+        } else if (runCatching { cardRequester.requestFocus() }.isFailure) {
+            heroArea = true; state.heroMode = true; goToHero()
         }
     }
 }
@@ -343,29 +342,33 @@ private fun ContentRow(
     rowIndex: Int,
     state: HomeState,
     cardRequester: FocusRequester,
+    onRowFocused: () -> Unit,
     onClick: (Item) -> Unit,
 ) {
-    val density = LocalDensity.current
-    Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp)
+            .onFocusChanged { if (it.hasFocus) { state.focusedRow = rowIndex; onRowFocused() } }
+    ) {
         SectionTitle(row.title, Modifier.padding(start = 56.dp))
-        PivotScroll(0f, with(density) { 56.dp.toPx() }) {
+        EdgeScroll(56.dp, 56.dp) {
             LazyRow(
                 state = state.rowState(row.key),
-                contentPadding = PaddingValues(horizontal = 56.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(if (row.landscape) 20.dp else 18.dp),
+                contentPadding = PaddingValues(horizontal = 56.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (row.landscape) 18.dp else 16.dp),
             ) {
                 itemsIndexed(row.items, key = { _, it -> it.id }) { _, item ->
                     val key = "${row.key}/${item.id}"
                     val req = if (state.lastFocusKey == key) cardRequester else null
                     val onFocused = {
                         state.focusedItem = item
-                        state.focusedRow = rowIndex
                         state.lastFocusKey = key
                     }
                     if (row.landscape) {
-                        LandscapeCard(item, onClick = { onClick(item) }, focusRequester = req, onFocused = onFocused)
+                        LandscapeCard(item, onClick = { onClick(item) }, width = UiScale.landscapeWidth, focusRequester = req, onFocused = onFocused)
                     } else {
-                        PosterCard(item, onClick = { onClick(item) }, focusRequester = req, onFocused = onFocused)
+                        PosterCard(item, onClick = { onClick(item) }, width = UiScale.posterWidth, showTitle = true, focusRequester = req, onFocused = onFocused)
                     }
                 }
             }
@@ -374,34 +377,32 @@ private fun ContentRow(
 }
 
 @Composable
-private fun HeroInfo(item: Item, index: Int) {
+private fun HeroInfo(item: Item) {
     AnimatedContent(
         targetState = item,
-        transitionSpec = {
-            (fadeIn(tween(600, 150)) + slideInHorizontally(tween(600, 150)) { -40 }) togetherWith fadeOut(tween(250))
-        },
+        transitionSpec = { fadeIn(tween(450)) togetherWith fadeOut(tween(200)) },
         label = "hero",
-        modifier = Modifier.padding(horizontal = 56.dp),
     ) { it ->
-        Column(Modifier.widthIn(max = 640.dp)) {
+        Column(Modifier.widthIn(max = 620.dp)) {
             Text(
                 if (it.isSeries) "✦  FEATURED SERIES" else "✦  FEATURED FILM",
                 style = NovaType.Caption, color = Nova.Cyan,
             )
-            Spacer(Modifier.height(12.dp))
-            TitleOrLogo(it, maxLogoH = 120.dp, maxLogoW = 460.dp, big = true)
-            Spacer(Modifier.height(16.dp))
-            MetaRow(it)
-            if (it.genres.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    it.genres.take(4).forEach { g -> GlassChip(g) }
-                }
-            }
+            Spacer(Modifier.height(10.dp))
+            TitleOrLogo(it, maxLogoH = 96.dp, maxLogoW = 420.dp, big = true)
             Spacer(Modifier.height(14.dp))
+            MetaRow(it)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                listOfNotNull(
+                    it.genres.take(3).joinToString(" • ").takeIf { g -> g.isNotEmpty() },
+                ).joinToString() ,
+                style = NovaType.Label, color = Nova.Text,
+            )
+            Spacer(Modifier.height(8.dp))
             Text(
                 it.overview, style = NovaType.Body, color = Nova.TextDim,
-                maxLines = 3, overflow = TextOverflow.Ellipsis,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -441,42 +442,14 @@ private fun SlideIndicator(count: Int, index: Int, progress: Float) {
                     .background(Color(0x40FFFFFF))
             ) {
                 if (active) {
-                    Box(Modifier.fillMaxSize().padding(0.dp)) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth(progress.coerceIn(0.02f, 1f))
-                                .height(4.dp)
-                                .background(Nova.AccentBrushH)
-                        )
-                    }
+                    Box(
+                        Modifier
+                            .fillMaxWidth(progress.coerceIn(0.02f, 1f))
+                            .height(4.dp)
+                            .background(Nova.AccentBrushH)
+                    )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun FocusInfoPanel(item: Item?) {
-    if (item == null) return
-    AnimatedContent(
-        targetState = item,
-        transitionSpec = { (fadeIn(tween(300)) + slideInVertically(tween(300)) { 16 }) togetherWith fadeOut(tween(150)) },
-        label = "info",
-        modifier = Modifier.fillMaxSize().padding(start = 56.dp, top = 40.dp, end = 56.dp),
-    ) { it ->
-        Column(Modifier.widthIn(max = 680.dp)) {
-            TitleOrLogo(it, maxLogoH = 72.dp, maxLogoW = 360.dp, big = false)
-            Spacer(Modifier.height(12.dp))
-            MetaRow(it)
-            if (it.isEpisode) {
-                Spacer(Modifier.height(8.dp))
-                Text(listOfNotNull(it.episodeLabel, it.name).joinToString("  ·  "), style = NovaType.Label, color = Nova.Text)
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                it.overview.ifEmpty { it.genres.joinToString(" • ") },
-                style = NovaType.Body, color = Nova.TextDim, maxLines = 3, overflow = TextOverflow.Ellipsis,
-            )
         }
     }
 }

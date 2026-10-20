@@ -32,6 +32,7 @@ import org.phoenicx.nova.ui.components.NovaTextField
 import org.phoenicx.nova.ui.components.PosterCard
 import org.phoenicx.nova.ui.components.TopNav
 import org.phoenicx.nova.ui.components.api
+import org.phoenicx.nova.ui.theme.UiScale
 
 @Composable
 fun SearchScreen(nav: Navigator) {
@@ -40,7 +41,8 @@ fun SearchScreen(nav: Navigator) {
     var loading by remember { mutableStateOf(false) }
     val fieldRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) { delay(120); runCatching { fieldRequester.requestFocus() } }
+    val fromNav = remember { nav.focusNavOnEnter }
+    LaunchedEffect(Unit) { if (!fromNav) { delay(120); runCatching { fieldRequester.requestFocus() } } }
     LaunchedEffect(query) {
         if (query.trim().length < 2) { results = emptyList(); return@LaunchedEffect }
         delay(450)
@@ -64,14 +66,14 @@ fun SearchScreen(nav: Navigator) {
             query.trim().length >= 2 && results.isEmpty() && !loading -> CenterMessage("No results", "Try a different title")
             results.isEmpty() -> CenterMessage("Find something to watch", "Start typing a title, actor or genre")
             else -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(152.dp),
+                columns = GridCells.Adaptive(UiScale.posterWidth.dp),
                 contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 24.dp, bottom = 60.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(results, key = { it.id }) { item ->
-                    PosterCard(item, onClick = { nav.push(Screen.Detail(item.id)) }, width = 152, showTitle = true)
+                    PosterCard(item, onClick = { nav.push(Screen.Detail(item.id)) }, width = UiScale.posterWidth, showTitle = true)
                 }
             }
         }

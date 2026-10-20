@@ -8,7 +8,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -45,7 +44,7 @@ fun NovaRoot() {
     AnimatedContent(
         targetState = nav.current,
         transitionSpec = {
-            (fadeIn(tween(320)) + scaleIn(tween(320), initialScale = 0.985f)) togetherWith fadeOut(tween(160))
+            fadeIn(tween(180)) togetherWith fadeOut(tween(120))
         },
         label = "screens",
         modifier = Modifier.fillMaxSize(),

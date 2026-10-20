@@ -15,7 +15,8 @@ object DeviceProfile {
         false
     }
 
-    fun build(): JSONObject {
+    /** progressive = transcode to a single MPEG-TS stream instead of HLS (last-resort fallback). */
+    fun build(progressive: Boolean = false): JSONObject {
         val video = mutableListOf("h264")
         if (hasDecoder("video/hevc")) video += listOf("hevc", "h265")
         if (hasDecoder("video/x-vnd.on2.vp9")) video += "vp9"
@@ -23,12 +24,12 @@ object DeviceProfile {
         if (hasDecoder("video/mp4v-es")) video += "mpeg4"
         if (hasDecoder("video/mpeg2")) video += "mpeg2video"
 
-        // ExoPlayer decodes these in software or via the platform on every device
-        val audio = mutableListOf("aac", "mp3", "mp2", "opus", "flac", "vorbis", "pcm_s16le", "pcm_s24le", "alac")
-        if (hasDecoder("audio/ac3")) audio += "ac3"
-        if (hasDecoder("audio/eac3")) audio += "eac3"
-        if (hasDecoder("audio/vnd.dts")) audio += "dts"
-        if (hasDecoder("audio/true-hd")) audio += "truehd"
+        // With the FFmpeg decoder built in, the player handles every common audio format itself
+        // (passthrough to your TV/receiver when it supports it, otherwise decoded in the app).
+        val audio = mutableListOf(
+            "aac", "mp3", "mp2", "opus", "flac", "vorbis", "alac", "pcm_s16le", "pcm_s24le",
+            "ac3", "eac3", "dts", "dca", "truehd", "mlp",
+        )
 
         val v = video.joinToString(",")
         val a = audio.joinToString(",")
@@ -43,13 +44,20 @@ object DeviceProfile {
         }.joinToString(",")
 
         val transcoding = JSONArray()
-            .put(JSONObject().put("Type", "Video").put("Container", "ts").put("Protocol", "hls")
-                .put("VideoCodec", if ("hevc" in video) "h264,hevc" else "h264")
-                .put("AudioCodec", transcodeAudio)
-                .put("Context", "Streaming")
-                .put("MaxAudioChannels", "6")
-                .put("MinSegments", 1)
-                .put("BreakOnNonKeyFrames", true))
+            .put(
+                if (progressive)
+                    JSONObject().put("Type", "Video").put("Container", "ts").put("Protocol", "http")
+                        .put("VideoCodec", "h264").put("AudioCodec", "aac")
+                        .put("Context", "Streaming").put("MaxAudioChannels", "2")
+                else
+                    JSONObject().put("Type", "Video").put("Container", "ts").put("Protocol", "hls")
+                        .put("VideoCodec", "h264")
+                        .put("AudioCodec", transcodeAudio)
+                        .put("Context", "Streaming")
+                        .put("MaxAudioChannels", "6")
+                        .put("MinSegments", 1)
+                        .put("BreakOnNonKeyFrames", false)
+            )
             .put(JSONObject().put("Type", "Audio").put("Container", "mp3").put("AudioCodec", "mp3")
                 .put("Protocol", "http").put("Context", "Streaming"))
 

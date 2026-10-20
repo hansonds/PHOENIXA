@@ -39,7 +39,7 @@ fun FocusSurface(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(14.dp),
-    focusedScale: Float = 1.07f,
+    focusedScale: Float = 1.05f,
     borderWidth: Dp = 2.5.dp,
     glow: Boolean = true,
     focusRequester: FocusRequester? = null,
@@ -48,7 +48,7 @@ fun FocusSurface(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val scale by animateFloatAsState(if (focused) focusedScale else 1f, tween(200, easing = FastOutSlowInEasing), label = "scale")
+    val scale by animateFloatAsState(if (focused) focusedScale else 1f, tween(130, easing = FastOutSlowInEasing), label = "scale")
     LaunchedEffect(focused) { if (focused) onFocused?.invoke() }
 
     Box(
@@ -67,20 +67,30 @@ fun FocusSurface(
     }
 }
 
-/** Keeps the focused child at a fixed fraction of the viewport (Netflix-style pivot scrolling). */
+/**
+ * Calm, remote-friendly scrolling: the list only moves when the focused item would be
+ * off-screen, and then just far enough to show it with a margin. Short and snappy.
+ */
 @OptIn(ExperimentalFoundationApi::class)
-fun pivotSpec(fraction: Float, startOffsetPx: Float = 0f, onlyWhenHidden: Boolean = false) = object : BringIntoViewSpec {
-    override val scrollAnimationSpec: AnimationSpec<Float> = tween(320, easing = FastOutSlowInEasing)
+fun edgeSpec(startMarginPx: Float, endMarginPx: Float) = object : BringIntoViewSpec {
+    override val scrollAnimationSpec: AnimationSpec<Float> = tween(160, easing = FastOutSlowInEasing)
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
-        if (onlyWhenHidden && offset >= 0f && offset + size <= containerSize) return 0f
-        val pivot = containerSize * fraction + startOffsetPx
-        return offset - pivot
+        val start = startMarginPx
+        val end = containerSize - endMarginPx
+        return when {
+            offset < start -> offset - start
+            offset + size > end -> (offset + size) - end
+            else -> 0f
+        }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PivotScroll(fraction: Float, startOffsetPx: Float = 0f, onlyWhenHidden: Boolean = false, content: @Composable () -> Unit) {
-    val spec = remember(fraction, startOffsetPx, onlyWhenHidden) { pivotSpec(fraction, startOffsetPx, onlyWhenHidden) }
+fun EdgeScroll(startMargin: Dp, endMargin: Dp, content: @Composable () -> Unit) {
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    val sPx = with(d) { startMargin.toPx() }
+    val ePx = with(d) { endMargin.toPx() }
+    val spec = remember(sPx, ePx) { edgeSpec(sPx, ePx) }
     CompositionLocalProvider(LocalBringIntoViewSpec provides spec) { content() }
 }

@@ -39,6 +39,7 @@ import org.phoenicx.nova.ui.components.NovaButton
 import org.phoenicx.nova.ui.components.TopNav
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
+import org.phoenicx.nova.ui.theme.UiScale
 
 @Composable
 fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
@@ -47,6 +48,7 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
     var bitrateIdx by remember { mutableIntStateOf(bitrates.indexOf(prefs.maxBitrateMbps).coerceAtLeast(0)) }
     var autoNext by remember { mutableStateOf(prefs.autoPlayNext) }
     var heroRotate by remember { mutableStateOf(prefs.heroAutoRotate) }
+    var directOnly by remember { mutableStateOf(prefs.directPlayOnly) }
 
     Column(Modifier.fillMaxSize()) {
         TopNav(nav, Screen.Settings)
@@ -60,6 +62,11 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
             InfoCard("Signed in as", prefs.userName ?: "—", prefs.server)
 
             SettingRow(
+                "Direct play only",
+                "Always play the original file. Turn off to let the server transcode if a file won't play",
+                if (directOnly) "On" else "Off",
+            ) { directOnly = !directOnly; prefs.directPlayOnly = directOnly }
+            SettingRow(
                 "Streaming quality",
                 "Lower this if playback buffers on a slow connection",
                 if (bitrates[bitrateIdx] == 0) "Maximum" else "${bitrates[bitrateIdx]} Mbps",
@@ -67,6 +74,11 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
                 bitrateIdx = (bitrateIdx + 1) % bitrates.size
                 prefs.maxBitrateMbps = bitrates[bitrateIdx]
             }
+            SettingRow(
+                "Card size",
+                "Make posters and thumbnails smaller or bigger",
+                UiScale.labels[UiScale.cardSizeIndex],
+            ) { UiScale.set((UiScale.cardSizeIndex + 1) % 3) }
             SettingRow("Auto-play next episode", "Start the next episode when one ends", if (autoNext) "On" else "Off") {
                 autoNext = !autoNext; prefs.autoPlayNext = autoNext
             }
@@ -76,7 +88,7 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             NovaButton("Sign out", Icons.Outlined.Logout) { onSignOut() }
             Spacer(Modifier.height(10.dp))
-            Text("Phoenicx Nova 1.0 · made by Hanson", style = NovaType.Label, color = Nova.TextFaint)
+            Text("Phoenicx Nova 1.2 · made by Hanson", style = NovaType.Label, color = Nova.TextFaint)
             Spacer(Modifier.height(40.dp))
         }
     }

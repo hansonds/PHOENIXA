@@ -316,9 +316,9 @@ private fun Overlay(
             if (c.nextEpisode != null) RoundIcon(Icons.Filled.SkipNext, "Next episode") { c.playNext() }
             RoundIcon(Icons.Outlined.Info, "Info", active = showInfo) { onInfo() }
         }
-        if (c.transcoding) {
+        if (c.mode != StreamMode.Direct) {
             Text(
-                "TRANSCODING", style = NovaType.Caption, color = Nova.Gold,
+                c.mode.label.uppercase(), style = NovaType.Caption, color = Nova.Gold,
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 44.dp, end = 48.dp),
             )
         }

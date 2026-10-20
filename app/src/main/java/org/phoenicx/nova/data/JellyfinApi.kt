@@ -41,7 +41,7 @@ class JellyfinApi(private val prefs: Prefs) {
     val token: String get() = prefs.token ?: ""
     val isLoggedIn: Boolean get() = !prefs.token.isNullOrEmpty() && !prefs.userId.isNullOrEmpty()
 
-    private fun authHeader(tok: String? = prefs.token): String {
+    fun authHeader(tok: String? = prefs.token): String {
         val device = (Build.MODEL ?: "Android TV").replace("\"", "")
         val base = "MediaBrowser Client=\"Phoenicx Nova\", Device=\"$device\", DeviceId=\"${prefs.deviceId}\", Version=\"1.0.0\""
         return if (tok.isNullOrEmpty()) base else "$base, Token=\"$tok\""
@@ -259,7 +259,7 @@ class JellyfinApi(private val prefs: Prefs) {
 
     // ---------- Playback ----------
 
-    suspend fun playbackInfo(itemId: String, startTicks: Long, profile: JSONObject, allowDirect: Boolean): PlaybackSource {
+    suspend fun playbackInfo(itemId: String, startTicks: Long, profile: JSONObject, allowDirect: Boolean, forceDirect: Boolean = false, audioIndex: Int? = null): PlaybackSource {
         val maxBitrate = if (prefs.maxBitrateMbps > 0) prefs.maxBitrateMbps * 1_000_000 else 200_000_000
         val body = JSONObject()
             .put("UserId", userId)
@@ -267,9 +267,10 @@ class JellyfinApi(private val prefs: Prefs) {
             .put("MaxStreamingBitrate", maxBitrate)
             .put("EnableDirectPlay", allowDirect)
             .put("EnableDirectStream", allowDirect)
-            .put("EnableTranscoding", true)
+            .put("EnableTranscoding", !forceDirect)
             .put("AutoOpenLiveStream", true)
             .put("DeviceProfile", profile)
+            .apply { if (audioIndex != null) put("AudioStreamIndex", audioIndex) }
         val o = JSONObject(call("POST", "/Items/$itemId/PlaybackInfo?UserId=$userId", body))
         val playSessionId = o.optStringOrNull("PlaySessionId")
         val sources = o.optJSONArray("MediaSources") ?: throw ApiException("No playable media")
@@ -277,18 +278,19 @@ class JellyfinApi(private val prefs: Prefs) {
         val msId = ms.optString("Id")
         val container = ms.optString("Container")
 
-        val directOk = allowDirect && (ms.optBoolean("SupportsDirectPlay") || ms.optBoolean("SupportsDirectStream"))
+        val directOk = forceDirect || allowDirect && (ms.optBoolean("SupportsDirectPlay") || ms.optBoolean("SupportsDirectStream"))
         val transcodeUrl = ms.optStringOrNull("TranscodingUrl")
 
         val url: String
         val transcoding: Boolean
         if (directOk || transcodeUrl == null) {
-            url = "$server/Videos/$itemId/stream?static=true&MediaSourceId=$msId&api_key=$token" +
+            url = "$server/Videos/$itemId/stream?static=true&MediaSourceId=$msId&ApiKey=$token&api_key=$token" +
                 (if (playSessionId != null) "&PlaySessionId=$playSessionId" else "") +
                 (if (container.isNotEmpty()) "&Container=$container" else "")
             transcoding = false
         } else {
-            url = server + transcodeUrl + (if (transcodeUrl.contains("api_key")) "" else "&api_key=$token")
+            val sep = if (transcodeUrl.contains("?")) "&" else "?"
+            url = server + transcodeUrl + (if (transcodeUrl.contains("ApiKey", ignoreCase = true) || transcodeUrl.contains("api_key")) "" else "${sep}ApiKey=$token")
             transcoding = true
         }
 
@@ -305,7 +307,7 @@ class JellyfinApi(private val prefs: Prefs) {
                 if (!isExternal && !transcoding) continue
                 val idx = s.optInt("Index")
                 subs += ExternalSub(
-                    url = "$server/Videos/$itemId/$msId/Subtitles/$idx/0/Stream.vtt?api_key=$token",
+                    url = "$server/Videos/$itemId/$msId/Subtitles/$idx/0/Stream.vtt?ApiKey=$token&api_key=$token",
                     language = s.optStringOrNull("Language"),
                     title = s.optString("DisplayTitle", "Subtitle $idx"),
                     mime = "text/vtt",

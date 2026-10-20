@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -42,6 +42,8 @@ import org.phoenicx.nova.ui.components.TopNav
 import org.phoenicx.nova.ui.components.api
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
+import org.phoenicx.nova.ui.theme.UiScale
+import kotlinx.coroutines.delay
 
 private data class SortOpt(val label: String, val by: String, val order: String)
 
@@ -55,7 +57,11 @@ private val sorts = listOf(
 
 @Composable
 fun LibraryScreen(nav: Navigator, lib: Library) {
-    var sortIdx by remember { mutableIntStateOf(0) }
+    val fromNav = remember { nav.focusNavOnEnter }
+    val saved = remember { if (fromNav) null else nav.libraryPos[lib.id] }
+    var sortIdx by remember { mutableIntStateOf(saved?.first ?: 0) }
+    val restoreRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    var restoreIndex by remember { mutableIntStateOf(saved?.second ?: -1) }
     var items by remember { mutableStateOf<List<Item>>(emptyList()) }
     var total by remember { mutableIntStateOf(-1) }
     var loading by remember { mutableStateOf(false) }
@@ -82,7 +88,20 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
     LaunchedEffect(lib.id, sortIdx) {
         items = emptyList(); total = -1
         loadMore(reset = true)
-        grid.scrollToItem(0)
+        val target = restoreIndex
+        if (target > 0) {
+            while (items.size <= target && (total < 0 || items.size < total)) {
+                val before = items.size
+                loadMore(reset = false)
+                if (items.size == before) break
+            }
+        }
+        grid.scrollToItem(target.coerceIn(0, (items.size - 1).coerceAtLeast(0)))
+        if (target >= 0) {
+            delay(120)
+            runCatching { restoreRequester.requestFocus() }
+            restoreIndex = -1
+        }
     }
     LaunchedEffect(grid) {
         snapshotFlow { grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
@@ -109,14 +128,23 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
             items.isEmpty() -> CenterMessage("Nothing here yet")
             else -> LazyVerticalGrid(
                 state = grid,
-                columns = GridCells.Adaptive(152.dp),
+                columns = GridCells.Adaptive(UiScale.posterWidth.dp),
                 contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 18.dp, bottom = 60.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(items, key = { it.id }) { item ->
-                    PosterCard(item, onClick = { nav.push(Screen.Detail(item.id)) }, width = 152, showTitle = true)
+                itemsIndexed(items, key = { _, it -> it.id }) { index, item ->
+                    PosterCard(
+                        item,
+                        onClick = {
+                            nav.libraryPos[lib.id] = sortIdx to index
+                            nav.push(Screen.Detail(item.id))
+                        },
+                        width = UiScale.posterWidth,
+                        showTitle = true,
+                        focusRequester = if (index == (saved?.second ?: -2)) restoreRequester else null,
+                    )
                 }
             }
         }

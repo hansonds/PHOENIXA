@@ -15,8 +15,11 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +42,9 @@ data class TrackOption(
     val index: Int,
 )
 
+/** How the video reaches the TV, tried in this order until one works. */
+enum class StreamMode(val label: String) { Direct("Direct play"), Hls("Transcoding"), Progressive("Transcoding (compat)") }
+
 class PlayerController(context: Context) {
     private val api = NovaApp.instance.api
     private val prefs = NovaApp.instance.prefs
@@ -56,15 +62,16 @@ class PlayerController(context: Context) {
     var finished by mutableStateOf(false); private set
     var tracksVersion by mutableLongStateOf(0L); private set
     var transcoding by mutableStateOf(false); private set
+    var mode by mutableStateOf(StreamMode.Direct); private set
 
     private var source: PlaybackSource? = null
-    private var triedTranscode = false
     private var progressJob: Job? = null
+    private val lastErrors = mutableListOf<String>()
 
     init {
         val renderers = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         val selector = DefaultTrackSelector(context).apply {
             setParameters(
                 buildUponParameters()
@@ -72,7 +79,22 @@ class PlayerController(context: Context) {
                     .setPreferredTextLanguage(null)
             )
         }
+        // All video requests carry the Jellyfin token as a header (works with Jellyfin 10.11+)
+        val http = OkHttpDataSource.Factory(api.http)
+            .setDefaultRequestProperties(
+                mapOf(
+                    "Authorization" to api.authHeader(),
+                    "X-Emby-Authorization" to api.authHeader(),
+                )
+            )
+            .setUserAgent("PhoenicxNova/1.1 (Android TV)")
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(30_000, 120_000, 2_000, 4_000)
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
         player = ExoPlayer.Builder(context, renderers)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(http))
+            .setLoadControl(loadControl)
             .setTrackSelector(selector)
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
@@ -94,18 +116,27 @@ class PlayerController(context: Context) {
             }
 
             override fun onPlayerError(e: PlaybackException) {
-                val pos = player.currentPosition
-                if (!triedTranscode && source?.isTranscoding == false) {
-                    triedTranscode = true
-                    item?.let { load(it.id, pos * 10_000, allowDirect = false) }
+                val pos = player.currentPosition.coerceAtLeast(0)
+                val next = when (mode) {
+                    StreamMode.Direct -> if (prefs.directPlayOnly) null else StreamMode.Hls
+                    StreamMode.Hls -> StreamMode.Progressive
+                    StreamMode.Progressive -> null
+                }
+                val it = item
+                if (next != null && it != null) {
+                    lastErrors += "${mode.label}: ${e.errorCodeName}"
+                    load(it.id, pos * 10_000, next)
                 } else {
-                    error = "Playback failed: ${e.errorCodeName}"
+                    lastErrors += "${mode.label}: ${e.errorCodeName} ${e.cause?.message?.take(80) ?: ""}"
+                    error = lastErrors.joinToString("\n")
                 }
             }
         })
     }
 
-    fun load(itemId: String, startTicks: Long, allowDirect: Boolean = true) {
+    fun load(itemId: String, startTicks: Long, streamMode: StreamMode = StreamMode.Direct) {
+        if (streamMode == StreamMode.Direct) lastErrors.clear()
+        mode = streamMode
         error = null
         finished = false
         buffering = true
@@ -118,8 +149,14 @@ class PlayerController(context: Context) {
                 }
                 val it = api.item(itemId)
                 item = it
-                if (allowDirect) triedTranscode = false
-                val src = api.playbackInfo(itemId, startTicks, DeviceProfile.build(), allowDirect)
+                val src = api.playbackInfo(
+                    itemId, startTicks,
+                    DeviceProfile.build(progressive = streamMode == StreamMode.Progressive),
+                    allowDirect = streamMode == StreamMode.Direct,
+                    forceDirect = streamMode == StreamMode.Direct && prefs.directPlayOnly,
+                )
+                // If the server can't direct play it, we're really transcoding (HLS)
+                if (streamMode == StreamMode.Direct && src.isTranscoding) mode = StreamMode.Hls
                 source = src
                 transcoding = src.isTranscoding
 
@@ -133,7 +170,12 @@ class PlayerController(context: Context) {
                 val mi = MediaItem.Builder()
                     .setUri(src.url)
                     .setMediaId(itemId)
-                    .apply { if (src.isTranscoding) setMimeType(MimeTypes.APPLICATION_M3U8) }
+                    .apply {
+                        when {
+                            src.url.contains(".m3u8", ignoreCase = true) -> setMimeType(MimeTypes.APPLICATION_M3U8)
+                            src.isTranscoding -> setMimeType(MimeTypes.VIDEO_MP2T)
+                        }
+                    }
                     .setSubtitleConfigurations(subs)
                     .build()
                 player.setMediaItem(mi, startTicks / 10_000)
@@ -150,7 +192,7 @@ class PlayerController(context: Context) {
                     }.getOrNull()
                 }
             } catch (e: Exception) {
-                error = e.message ?: "Couldn't start playback"
+                error = (lastErrors + (e.message ?: "Couldn't start playback")).joinToString("\n")
             }
         }
     }

@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -57,6 +58,14 @@ fun NovaWordmark() {
 
 @Composable
 fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
+    val selReq = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        if (nav.focusNavOnEnter) {
+            delay(90)
+            runCatching { selReq.requestFocus() }
+            nav.focusNavOnEnter = false
+        }
+    }
     val libs = nav.libraries.value.filter { it.collectionType in setOf("movies", "tvshows", "boxsets", null, "homevideos") }
     Row(
         modifier
@@ -75,16 +84,17 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            NavIcon(Icons.Outlined.Search, selected == Screen.Search) { nav.tab(Screen.Search) }
-            NavPill("Home", selected == Screen.Home) { nav.tab(Screen.Home) }
+            NavIcon(Icons.Outlined.Search, selected == Screen.Search, if (selected == Screen.Search) selReq else null) { if (selected != Screen.Search) nav.tab(Screen.Search) }
+            NavPill("Home", selected == Screen.Home, if (selected == Screen.Home) selReq else null) { if (selected != Screen.Home) nav.tab(Screen.Home) }
             libs.take(5).forEach { lib ->
-                NavPill(lib.name, (selected as? Screen.Lib)?.library?.id == lib.id) { nav.tab(Screen.Lib(lib)) }
+                val isSel = (selected as? Screen.Lib)?.library?.id == lib.id
+                NavPill(lib.name, isSel, if (isSel) selReq else null) { if (!isSel) nav.tab(Screen.Lib(lib)) }
             }
         }
         Spacer(Modifier.weight(1f))
         Clock()
         Spacer(Modifier.width(18.dp))
-        NavIcon(Icons.Outlined.Settings, selected == Screen.Settings) { nav.tab(Screen.Settings) }
+        NavIcon(Icons.Outlined.Settings, selected == Screen.Settings, if (selected == Screen.Settings) selReq else null) { if (selected != Screen.Settings) nav.tab(Screen.Settings) }
         Spacer(Modifier.width(10.dp))
         Box(Modifier.size(38.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {
             Text((org.phoenicx.nova.NovaApp.instance.prefs.userName ?: "?").take(1).uppercase(), style = NovaType.Button, color = Color(0xFF12152A))
@@ -94,8 +104,8 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun NavPill(text: String, selected: Boolean, onClick: () -> Unit) {
-    FocusSurface(onClick = onClick, shape = RoundedCornerShape(22.dp), focusedScale = 1.05f, borderWidth = 0.dp, glow = false) { focused ->
+private fun NavPill(text: String, selected: Boolean, req: FocusRequester?, onClick: () -> Unit) {
+    FocusSurface(onClick = onClick, shape = RoundedCornerShape(22.dp), focusedScale = 1.04f, borderWidth = 0.dp, glow = false, focusRequester = req) { focused ->
         val bg = when {
             focused -> Brush.horizontalGradient(listOf(Color(0xFFF4F7FF), Color(0xFFE2E8FF)))
             selected -> Brush.horizontalGradient(listOf(Color(0x406CE5F5), Color(0x40A58BFF)))
@@ -108,8 +118,8 @@ private fun NavPill(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun NavIcon(icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
-    FocusSurface(onClick = onClick, shape = CircleShape, focusedScale = 1.1f, borderWidth = 0.dp, glow = false) { focused ->
+private fun NavIcon(icon: ImageVector, selected: Boolean, req: FocusRequester?, onClick: () -> Unit) {
+    FocusSurface(onClick = onClick, shape = CircleShape, focusedScale = 1.06f, borderWidth = 0.dp, glow = false, focusRequester = req) { focused ->
         Box(
             Modifier.size(40.dp).background(
                 when {

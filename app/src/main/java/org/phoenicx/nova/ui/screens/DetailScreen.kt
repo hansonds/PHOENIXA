@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -63,7 +64,8 @@ import org.phoenicx.nova.ui.components.MetaRow
 import org.phoenicx.nova.ui.components.NovaButton
 import org.phoenicx.nova.ui.components.NovaLoader
 import org.phoenicx.nova.ui.components.PersonCard
-import org.phoenicx.nova.ui.components.PivotScroll
+import org.phoenicx.nova.ui.components.EdgeScroll
+import androidx.compose.foundation.lazy.rememberLazyListState
 import org.phoenicx.nova.ui.components.PosterCard
 import org.phoenicx.nova.ui.components.ProgressBar
 import org.phoenicx.nova.ui.components.SectionTitle
@@ -71,6 +73,7 @@ import org.phoenicx.nova.ui.components.api
 import org.phoenicx.nova.ui.components.formatRuntime
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
+import org.phoenicx.nova.ui.theme.UiScale
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -87,6 +90,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
     var similar by remember { mutableStateOf<List<Item>>(emptyList()) }
     var nextUp by remember { mutableStateOf<Item?>(null) }
     val playRequester = remember { FocusRequester() }
+    val listState = rememberLazyListState()
     var focusedOnce by remember { mutableStateOf(false) }
 
     suspend fun load() = coroutineScope {
@@ -137,8 +141,8 @@ fun DetailScreen(nav: Navigator, itemId: String) {
         BackdropLayer(api.backdrop(it) ?: api.landscape(it, 1280), kenBurns = true, dim = 0f)
 
         val density = LocalDensity.current
-        PivotScroll(0f, with(density) { 60.dp.toPx() }, onlyWhenHidden = true) {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 80.dp)) {
+        EdgeScroll(70.dp, 40.dp) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 80.dp)) {
                 item("header") {
                     Box(Modifier.fillMaxWidth().height(headerH)) {
                         Column(
@@ -182,7 +186,8 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                             }
 
                             Spacer(Modifier.height(24.dp))
-                            ActionRow(it, nextUp, playRequester, onPlay = { fromStart -> Launcher.play(context, scope, nextUp ?: it, fromStart) },
+                            ActionRow(it, nextUp, playRequester,
+                                onFocusRow = { scope.launch { delay(170); listState.animateScrollToItem(0) } }, onPlay = { fromStart -> Launcher.play(context, scope, nextUp ?: it, fromStart) },
                                 onGoSeries = { sid -> nav.push(Screen.Detail(sid)) },
                                 onChanged = { changed -> item = changed })
                             if (it.progress > 0f && !it.played && !it.isSeries) {
@@ -210,15 +215,15 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                     SeasonTab(s.name, s.id == selectedSeason?.id) { selectedSeason = s }
                                 }
                             }
-                            PivotScroll(0f, with(density) { 56.dp.toPx() }) {
+                            EdgeScroll(56.dp, 56.dp) {
                                 LazyRow(
                                     contentPadding = PaddingValues(horizontal = 56.dp, vertical = 14.dp),
                                     horizontalArrangement = Arrangement.spacedBy(20.dp),
                                 ) {
                                     items(episodes, key = { e -> e.id }) { e ->
-                                        Column(Modifier.width(300.dp)) {
+                                        Column(Modifier.width((UiScale.landscapeWidth * 1.15f).toInt().dp)) {
                                             LandscapeCard(
-                                                e, width = 300,
+                                                e, width = (UiScale.landscapeWidth * 1.15f).toInt(),
                                                 subtitle = listOfNotNull(
                                                     e.indexNumber?.let { n -> "Episode $n" },
                                                     e.runtimeMinutes.takeIf { m -> m > 0 }?.let(::formatRuntime),
@@ -242,7 +247,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                     item("cast") {
                         Column(Modifier.padding(top = 12.dp)) {
                             SectionTitle("Cast & Crew", Modifier.padding(start = 56.dp))
-                            PivotScroll(0f, with(density) { 56.dp.toPx() }) {
+                            EdgeScroll(56.dp, 56.dp) {
                                 LazyRow(
                                     contentPadding = PaddingValues(horizontal = 56.dp, vertical = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -258,13 +263,13 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                     item("similar") {
                         Column(Modifier.padding(top = 12.dp)) {
                             SectionTitle("More Like This", Modifier.padding(start = 56.dp))
-                            PivotScroll(0f, with(density) { 56.dp.toPx() }) {
+                            EdgeScroll(56.dp, 56.dp) {
                                 LazyRow(
                                     contentPadding = PaddingValues(horizontal = 56.dp, vertical = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                                 ) {
                                     items(similar, key = { s -> s.id }) { s ->
-                                        PosterCard(s, onClick = { nav.push(Screen.Detail(s.id)) }, showTitle = true)
+                                        PosterCard(s, onClick = { nav.push(Screen.Detail(s.id)) }, width = UiScale.posterWidth, showTitle = true)
                                     }
                                 }
                             }
@@ -284,9 +289,10 @@ private fun ActionRow(
     onPlay: (fromStart: Boolean) -> Unit,
     onGoSeries: (String) -> Unit,
     onChanged: (Item) -> Unit,
+    onFocusRow: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
-    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.onFocusChanged { f -> if (f.hasFocus) onFocusRow() }, horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         val label = when {
             item.isSeries && nextUp != null -> {
                 val resume = nextUp.playbackPositionTicks > 0

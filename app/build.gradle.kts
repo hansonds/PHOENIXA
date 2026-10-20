@@ -6,14 +6,14 @@ plugins {
 
 android {
     namespace = "org.phoenicx.nova"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.phoenicx.nova"
         minSdk = 23
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     signingConfigs {
@@ -68,8 +68,11 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
-    val media3 = "1.4.1"
+    val media3 = "1.9.0"
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-ui:$media3")
+    implementation("androidx.media3:media3-datasource-okhttp:$media3")
+    // Same FFmpeg audio decoder the official Jellyfin Android TV app uses (DTS, TrueHD, etc.)
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1")
 }

@@ -19,10 +19,17 @@ class Navigator(start: Screen) {
 
     val current: Screen get() = stack.last()
 
+    /** Set when a screen was opened from the top bar, so it keeps focus on the top bar. */
+    var focusNavOnEnter = false
+
+    /** Remembers where you were in each library grid: libraryId -> (sortIndex, itemIndex) */
+    val libraryPos = mutableMapOf<String, Pair<Int, Int>>()
+
     fun push(s: Screen) { stack.add(s) }
 
     /** Top-level tabs replace everything above Home. */
     fun tab(s: Screen) {
+        focusNavOnEnter = true
         while (stack.size > 1) stack.removeAt(stack.lastIndex)
         if (s != Screen.Home) stack.add(s)
     }
