@@ -7,7 +7,7 @@ class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("nova", Context.MODE_PRIVATE)
 
     var server: String
-        get() = sp.getString("server", "https://media.phoenicx.org") ?: ""
+        get() = sp.getString("server", "") ?: ""
         set(v) = sp.edit().putString("server", v).apply()
 
     var userId: String?

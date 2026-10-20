@@ -60,9 +60,10 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var qcCode by remember { mutableStateOf<String?>(null) }
     var qcSecret by remember { mutableStateOf<String?>(null) }
-    val userRequester = remember { FocusRequester() }
+    val serverRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) { delay(100); runCatching { userRequester.requestFocus() } }
+    // Highlight the server box (without opening the keyboard) so Quick Connect is a few presses away
+    LaunchedEffect(Unit) { delay(100); runCatching { serverRequester.requestFocus() } }
 
     // Poll Quick Connect until approved from another device
     LaunchedEffect(qcSecret) {
@@ -84,6 +85,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
 
     fun signIn() {
         if (busy) return
+        if (server.isBlank()) { error = "Enter your server address first"; return }
         busy = true; error = null
         scope.launch {
             try {
@@ -101,6 +103,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
 
     fun quickConnect() {
         if (busy) return
+        if (server.isBlank()) { error = "Enter your server address first"; return }
         busy = true; error = null
         scope.launch {
             try {
@@ -161,8 +164,8 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     Text("Sign in", style = NovaType.Title, color = Nova.Text)
                     NovaTextField(server, { server = it }, "Server", icon = Icons.Outlined.Dns,
-                        keyboardType = KeyboardType.Uri, placeholder = "https://your.server")
-                    NovaTextField(user, { user = it }, "Username", icon = Icons.Outlined.Person, focusRequester = userRequester)
+                        keyboardType = KeyboardType.Text, placeholder = "your-server.com", focusRequester = serverRequester)
+                    NovaTextField(user, { user = it }, "Username", icon = Icons.Outlined.Person)
                     NovaTextField(pass, { pass = it }, "Password", password = true, icon = Icons.Outlined.Lock,
                         imeAction = ImeAction.Done, onDone = { signIn() })
                     if (error != null) Text(error!!, style = NovaType.Label, color = Nova.Rose)
