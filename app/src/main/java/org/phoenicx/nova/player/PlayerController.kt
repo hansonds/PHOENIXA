@@ -34,6 +34,8 @@ import org.phoenicx.nova.NovaApp
 import org.phoenicx.nova.data.Item
 import org.phoenicx.nova.data.PlaybackSource
 import org.phoenicx.nova.data.PlaySelection
+import org.phoenicx.nova.data.Lang
+import org.phoenicx.nova.data.MediaStreamInfo
 import java.util.Locale
 
 data class TrackOption(
@@ -42,6 +44,7 @@ data class TrackOption(
     val selected: Boolean,
     val group: Tracks.Group?,
     val index: Int,
+    val language: String? = null,
 )
 
 /** How the video reaches the TV, tried in this order until one works. */
@@ -149,7 +152,7 @@ class PlayerController(context: Context) {
 
     fun load(itemId: String, startTicks: Long, streamMode: StreamMode = StreamMode.Direct, sel: PlaySelection? = selection) {
         selection = sel
-        pendingApplied = sel == null
+        pendingApplied = false
         if (streamMode == StreamMode.Direct) lastErrors.clear()
         mode = streamMode
         error = null
@@ -266,27 +269,41 @@ class PlayerController(context: Context) {
         position = target
     }
 
+    /** Jellyfin stream info for an ExoPlayer track (matched by order / external id), for proper names */
+    private fun streamFor(type: Int, ordinal: Int, formatId: String?): MediaStreamInfo? {
+        val src = source ?: return null
+        val idx = if (type == C.TRACK_TYPE_TEXT && formatId?.contains("ext") == true) {
+            formatId!!.substringAfterLast("ext").toIntOrNull()
+        } else if (type == C.TRACK_TYPE_AUDIO) src.embeddedAudio.getOrNull(ordinal)
+        else src.embeddedSubs.getOrNull(ordinal)
+        return src.streams.firstOrNull { it.index == idx }
+    }
+
     fun tracks(type: Int): List<TrackOption> {
         val out = mutableListOf<TrackOption>()
         val disabled = player.trackSelectionParameters.disabledTrackTypes.contains(type)
         var anySelected = false
+        var embeddedOrdinal = 0
         player.currentTracks.groups.filter { it.type == type }.forEach { g ->
             for (i in 0 until g.length) {
-                if (!g.isTrackSupported(i)) continue
                 val f = g.getTrackFormat(i)
-                val lang = f.language?.let { code ->
-                    runCatching { Locale(code).displayLanguage }.getOrNull()?.takeIf { it.isNotBlank() && it != code } ?: code.uppercase()
+                val isExt = f.id?.contains("ext") == true
+                val js = streamFor(type, embeddedOrdinal, f.id)
+                if (!isExt) embeddedOrdinal++
+                if (!g.isTrackSupported(i)) continue
+                val (label, detail) = if (js != null) Lang.label(js) else {
+                    val lang = Lang.name(f.language)
+                    val main = f.label ?: lang ?: "Unknown language"
+                    main to buildList {
+                        if (f.label != null && lang != null && !f.label!!.contains(lang, true)) add(lang)
+                        f.sampleMimeType?.substringAfter('/')?.uppercase()?.let { add(it.replace("X-", "")) }
+                        if (f.channelCount > 0) add(if (f.channelCount >= 6) "${f.channelCount - 1}.1" else "${f.channelCount}ch")
+                        if ((f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0) add("Forced")
+                    }.joinToString(" · ")
                 }
-                val label = f.label ?: lang ?: "Track ${out.size + 1}"
-                val detail = buildList {
-                    if (f.label != null && lang != null) add(lang)
-                    f.sampleMimeType?.substringAfter('/')?.uppercase()?.let { add(it.replace("X-", "")) }
-                    if (f.channelCount > 0) add(if (f.channelCount >= 6) "${f.channelCount - 1}.1" else "${f.channelCount}ch")
-                    if ((f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0) add("Forced")
-                }.joinToString(" · ")
                 val sel = !disabled && g.isTrackSelected(i)
                 if (sel) anySelected = true
-                out += TrackOption(label, detail, sel, g, i)
+                out += TrackOption(label, detail, sel, g, i, js?.language ?: f.language)
             }
         }
         if (type == C.TRACK_TYPE_TEXT) {
@@ -304,13 +321,20 @@ class PlayerController(context: Context) {
             b.setOverrideForType(TrackSelectionOverride(opt.group.mediaTrackGroup, opt.index))
         }
         player.trackSelectionParameters = b.build()
+        // Remember the language so the next movie / episode starts the same way
+        if (type == C.TRACK_TYPE_AUDIO) Lang.rememberAudio(opt.language)
+        else if (type == C.TRACK_TYPE_TEXT) Lang.rememberSubtitle(opt.language, off = opt.group == null)
     }
 
     /** Turns the details-page choice into ExoPlayer track picks once the file's tracks are known. */
     private fun applySelection() {
         pendingApplied = true
-        val sel = selection ?: return
         val src = source ?: return
+        // No explicit choice (next episode, Continue Watching…): use your remembered languages
+        val sel = selection ?: PlaySelection(
+            audioIndex = Lang.pickAudio(src.streams, src.defaultAudioIndex),
+            subtitleIndex = Lang.pickSubtitle(src.streams, src.defaultSubtitleIndex),
+        )
         val b = player.trackSelectionParameters.buildUpon()
 
         sel.audioIndex?.let { want ->

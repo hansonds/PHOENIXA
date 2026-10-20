@@ -61,6 +61,7 @@ import org.phoenicx.nova.ui.components.FocusSurface
 import org.phoenicx.nova.ui.components.OptionSheet
 import org.phoenicx.nova.ui.components.SheetOption
 import org.phoenicx.nova.data.PlaySelection
+import org.phoenicx.nova.data.Lang
 import org.phoenicx.nova.ui.components.GlassChip
 import org.phoenicx.nova.ui.components.LandscapeCard
 import org.phoenicx.nova.ui.components.MetaRow
@@ -208,8 +209,8 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                     val src = it.mediaSources.getOrNull(srcIdx)
                                     val sel = if (!it.isSeries && src != null) PlaySelection(
                                         mediaSourceId = src.id,
-                                        audioIndex = audioSel ?: src.defaultAudioIndex,
-                                        subtitleIndex = subSel ?: (src.defaultSubtitleIndex ?: -1),
+                                        audioIndex = audioSel ?: Lang.pickAudio(src.streams, src.defaultAudioIndex),
+                                        subtitleIndex = subSel ?: Lang.pickSubtitle(src.streams, src.defaultSubtitleIndex),
                                     ) else null
                                     val target = if (it.isCollection) (children.firstOrNull { c -> !c.played } ?: children.firstOrNull()) else (nextUp ?: it)
                                     if (target != null) Launcher.play(context, scope, target, fromStart, if (it.isCollection) null else sel)
@@ -225,16 +226,16 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                             lastSheet = "version"; sheet = "version"
                                         }
                                     }
-                                    val aIdx = audioSel ?: src.defaultAudioIndex
+                                    val aIdx = audioSel ?: Lang.pickAudio(src.streams, src.defaultAudioIndex)
                                     val aStream = src.audioStreams.firstOrNull { a -> a.index == aIdx } ?: src.audioStreams.firstOrNull()
                                     if (src.audioStreams.isNotEmpty()) {
-                                        SelectorChip("AUDIO", aStream?.displayTitle ?: "Default", chipRequesters.getValue("audio")) {
+                                        SelectorChip("AUDIO", aStream?.let { a -> Lang.label(a).let { (m, d) -> if (d.isEmpty()) m else "$m · ${d.substringBefore(" · Default")}" } } ?: "Default", chipRequesters.getValue("audio")) {
                                             lastSheet = "audio"; sheet = "audio"
                                         }
                                     }
-                                    val sIdx = subSel ?: (src.defaultSubtitleIndex ?: -1)
+                                    val sIdx = subSel ?: Lang.pickSubtitle(src.streams, src.defaultSubtitleIndex)
                                     val sStream = src.subtitleStreams.firstOrNull { x -> x.index == sIdx }
-                                    SelectorChip("SUBTITLES", sStream?.displayTitle ?: "Off", chipRequesters.getValue("subs")) {
+                                    SelectorChip("SUBTITLES", sStream?.let { x -> Lang.label(x).first } ?: "Off", chipRequesters.getValue("subs")) {
                                         lastSheet = "subs"; sheet = "subs"
                                     }
                                 }
@@ -357,28 +358,26 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                 )
                 "audio" -> {
                     val list = curSrc.audioStreams
-                    val current = audioSel ?: curSrc.defaultAudioIndex ?: list.firstOrNull()?.index
+                    val current = audioSel ?: Lang.pickAudio(curSrc.streams, curSrc.defaultAudioIndex)
                     OptionSheet(
                         "Audio",
-                        list.map { a -> SheetOption(a.displayTitle.ifEmpty { a.codec.uppercase() }, a.title ?: "", a.index == current) },
-                        onSelect = { i -> audioSel = list[i].index; sheet = null },
+                        list.map { a -> Lang.label(a).let { (m, d) -> SheetOption(m, d, a.index == current) } },
+                        onSelect = { i -> audioSel = list[i].index; Lang.rememberAudio(list[i].language); sheet = null },
                         onDismiss = { sheet = null },
                     )
                 }
                 "subs" -> {
                     val list = curSrc.subtitleStreams
-                    val current = subSel ?: (curSrc.defaultSubtitleIndex ?: -1)
+                    val current = subSel ?: Lang.pickSubtitle(curSrc.streams, curSrc.defaultSubtitleIndex)
                     OptionSheet(
                         "Subtitles",
                         listOf(SheetOption("Off", "", current == -1)) +
-                            list.map { x ->
-                                SheetOption(
-                                    x.displayTitle.ifEmpty { x.language ?: "Subtitle" },
-                                    listOfNotNull(x.title, if (x.isExternal) "External file" else null, if (x.isForced) "Forced" else null).joinToString(" · "),
-                                    x.index == current,
-                                )
-                            },
-                        onSelect = { i -> subSel = if (i == 0) -1 else list[i - 1].index; sheet = null },
+                            list.map { x -> Lang.label(x).let { (m, d) -> SheetOption(m, d, x.index == current) } },
+                        onSelect = { i ->
+                            subSel = if (i == 0) -1 else list[i - 1].index
+                            Lang.rememberSubtitle(if (i == 0) null else list[i - 1].language, off = i == 0)
+                            sheet = null
+                        },
                         onDismiss = { sheet = null },
                     )
                 }

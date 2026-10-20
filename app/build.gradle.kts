@@ -12,8 +12,8 @@ android {
         applicationId = "org.phoenicx.nova"
         minSdk = 23
         targetSdk = 34
-        versionCode = 10
-        versionName = "1.5.4"
+        versionCode = 11
+        versionName = "1.6.0"
     }
 
     signingConfigs {

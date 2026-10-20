@@ -27,6 +27,10 @@ data class PlaybackSource(
     val embeddedAudio: List<Int> = emptyList(),
     /** Jellyfin indexes of subtitle tracks inside the file, in file order */
     val embeddedSubs: List<Int> = emptyList(),
+    /** All streams of the chosen version, with language/codec info */
+    val streams: List<MediaStreamInfo> = emptyList(),
+    val defaultAudioIndex: Int? = null,
+    val defaultSubtitleIndex: Int? = null,
 )
 
 data class ExternalSub(val url: String, val language: String?, val title: String, val mime: String, val index: Int = -1)
@@ -342,7 +346,10 @@ class JellyfinApi(private val prefs: Prefs) {
                 }
             }
         }
-        return PlaybackSource(url, msId, playSessionId, transcoding, subs, embeddedAudio, embeddedSubs)
+        val allStreams = if (streams == null) emptyList() else (0 until streams.length()).mapNotNull { streams.optJSONObject(it)?.let(MediaStreamInfo::parse) }
+        val defA = if (ms.has("DefaultAudioStreamIndex") && !ms.isNull("DefaultAudioStreamIndex")) ms.optInt("DefaultAudioStreamIndex") else null
+        val defS = if (ms.has("DefaultSubtitleStreamIndex") && !ms.isNull("DefaultSubtitleStreamIndex")) ms.optInt("DefaultSubtitleStreamIndex") else null
+        return PlaybackSource(url, msId, playSessionId, transcoding, subs, embeddedAudio, embeddedSubs, allStreams, defA, defS)
     }
 
     private fun progressBody(itemId: String, src: PlaybackSource, ticks: Long, paused: Boolean) = JSONObject()

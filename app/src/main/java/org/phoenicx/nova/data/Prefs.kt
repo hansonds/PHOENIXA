@@ -40,6 +40,16 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("directOnly", true)
         set(v) = sp.edit().putBoolean("directOnly", v).apply()
 
+    /** Last audio language you picked (e.g. "tam"), used for every title */
+    var audioLang: String?
+        get() = sp.getString("audioLang", null)
+        set(v) = sp.edit().putString("audioLang", v).apply()
+
+    /** Last subtitle language you picked, or "off" */
+    var subLang: String?
+        get() = sp.getString("subLang", null)
+        set(v) = sp.edit().putString("subLang", v).apply()
+
     /** 0 = Small, 1 = Medium, 2 = Large */
     var cardSize: Int
         get() = sp.getInt("cardSize", 1)
