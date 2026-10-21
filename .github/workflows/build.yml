@@ -53,12 +53,21 @@ jobs:
           path: PHOENIXA-play.aab
 
       # ---------- Public release (APK only; the .aab stays private in Actions) ----------
+      - name: Move the 'latest' tag to this build
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git tag -f latest
+          git push -f origin latest
       - name: Publish latest release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: PHOENIXA (latest build)
+          body: |
+            Latest PHOENIXA build for Fire TV and Android TV.
+            Download **PHOENIXA.apk** below and install it with Downloader (or any file manager).
+            It installs over older versions and keeps your login and settings.
           files: PHOENIXA.apk
           make_latest: true
         env:
