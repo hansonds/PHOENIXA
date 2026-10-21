@@ -88,9 +88,12 @@ fun NovaTextField(
     LaunchedEffect(editing) {
         if (editing) {
             wasEditing = true
-            hadEditFocus = false
-            delay(40)
-            runCatching { editReq.requestFocus() }
+            // retry a few times in case the text box isn't ready yet
+            for (attempt in 0 until 5) {
+                delay(40)
+                runCatching { editReq.requestFocus() }
+                if (hadEditFocus) break
+            }
             kb?.show()
         } else if (wasEditing) {
             delay(40)
@@ -101,6 +104,12 @@ fun NovaTextField(
                 fm.moveFocus(FocusDirection.Down)
             }
         }
+    }
+
+    fun startEditing() {
+        hadEditFocus = false   // must be cleared before the text box appears, or it closes itself instantly
+        moveNextAfter = false
+        editing = true
     }
 
     fun finish(next: Boolean) {
@@ -128,7 +137,7 @@ fun NovaTextField(
                 Modifier
                     .focusRequester(displayReq)
                     .clip(shape)
-                    .clickable(interactionSource = displayInteraction, indication = null) { editing = true }
+                    .clickable(interactionSource = displayInteraction, indication = null) { startEditing() }
                     .then(boxModifier),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

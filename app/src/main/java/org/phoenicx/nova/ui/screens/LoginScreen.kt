@@ -64,6 +64,10 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
 
     // Highlight the server box (without opening the keyboard) so Quick Connect is a few presses away
     LaunchedEffect(Unit) { delay(100); runCatching { serverRequester.requestFocus() } }
+    // After a failed sign-in the buttons briefly disappear (loading), so put the highlight back on the Server box
+    LaunchedEffect(error, busy) {
+        if (error != null && !busy) { delay(80); runCatching { serverRequester.requestFocus() } }
+    }
 
     // Poll Quick Connect until approved from another device
     LaunchedEffect(qcSecret) {
