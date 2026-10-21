@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Google Play build: run with -PplayStore=true (marks the app TV-only and signs with your private upload key)
+val playStore = (project.findProperty("playStore") as String?) == "true"
+val uploadKeystore: String? = System.getenv("UPLOAD_KEYSTORE_FILE")
+
 android {
     namespace = "org.phoenicx.nova"
     compileSdk = 36
@@ -14,6 +18,8 @@ android {
         targetSdk = 34
         versionCode = 16
         versionName = "1.6.5"
+        // Google Play: TV-only. Sideload/Amazon: not required (some Fire TV models don't report it).
+        manifestPlaceholders["leanbackRequired"] = if (playStore) "true" else "false"
     }
 
     signingConfigs {
@@ -23,6 +29,14 @@ android {
             keyAlias = "nova"
             keyPassword = "phoenicxnova"
         }
+        if (uploadKeystore != null) {
+            create("upload") {
+                storeFile = file(uploadKeystore)
+                storePassword = System.getenv("UPLOAD_STORE_PASSWORD")
+                keyAlias = System.getenv("UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("UPLOAD_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -30,7 +44,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("nova")
+            signingConfig = if (playStore && uploadKeystore != null) signingConfigs.getByName("upload")
+                            else signingConfigs.getByName("nova")
         }
         debug {
             signingConfig = signingConfigs.getByName("nova")
