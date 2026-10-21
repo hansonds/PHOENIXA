@@ -18,6 +18,24 @@ Built for the couch: big artwork, calm navigation, and a player that plays your 
 </div>
 
 ---
+## 📸 Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/home.png" width="49%" />
+  <img src="docs/screenshots/home-2.png" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/library.png" width="80%" />
+</p>
+
+### 🎬 See it in action
+
+
+https://github.com/user-attachments/assets/a5bbc7f2-241f-448e-b9ac-9179431592b1
+
+
+
+---
 
 ## ✦ Why PHOENIXA?
 
