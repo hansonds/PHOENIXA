@@ -198,7 +198,13 @@ gradle assembleRelease
 > ⚠️ The signing key in `keystore/` exists so that sideloaded updates install over each other. If you fork this project for public distribution or store release, generate your own key and keep it private.
 
 ---
+## 🤖 AI disclosure
 
+PHOENIXA was built with help from AI. I'm not a professional developer: I designed the app, decided how it should look and behave, and tested every build on my own Fire TV and Android TV. The Kotlin code was largely written by an AI assistant (Claude by Anthropic), working from my instructions and bug reports.
+
+The full source is here, so anyone can read or review it. Bug reports and pull requests are very welcome.
+
+---
 ## 🙏 Credits
 
 - Created by **[Hanson](https://github.com/hansonds)**.
