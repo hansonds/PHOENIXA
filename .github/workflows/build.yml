@@ -16,6 +16,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.14.3
+
+      # ---------- APK for sideloading / Amazon ----------
       - name: Build release APK
         run: gradle assembleRelease --stacktrace
       - name: Rename APK
@@ -24,6 +26,33 @@ jobs:
         with:
           name: PHOENIXA-APK
           path: PHOENIXA.apk
+
+      # ---------- App Bundle for Google Play (only when the upload key secrets exist) ----------
+      - name: Build Google Play bundle
+        id: aab
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+          UPLOAD_STORE_PASSWORD: ${{ secrets.UPLOAD_STORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+        run: |
+          if [ -z "$UPLOAD_KEYSTORE_BASE64" ]; then
+            echo "No upload key secrets set - skipping Google Play bundle."
+            exit 0
+          fi
+          echo "$UPLOAD_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          export UPLOAD_KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
+          gradle bundleRelease -PplayStore=true --stacktrace
+          cp app/build/outputs/bundle/release/app-release.aab PHOENIXA-play.aab
+          rm -f "$RUNNER_TEMP/upload.jks"
+          echo "built=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: steps.aab.outputs.built == 'true'
+        with:
+          name: PHOENIXA-GooglePlay-AAB
+          path: PHOENIXA-play.aab
+
+      # ---------- Public release (APK only; the .aab stays private in Actions) ----------
       - name: Publish latest release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
