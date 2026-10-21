@@ -11,7 +11,7 @@ Built for the couch: big artwork, calm navigation, and a player that plays your 
 [![Build APK](https://github.com/hansonds/PHOENIXA/actions/workflows/build.yml/badge.svg)](https://github.com/hansonds/PHOENIXA/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/hansonds/PHOENIXA?label=download&color=ff5a2c)](https://github.com/hansonds/PHOENIXA/releases/latest)
 ![Platform](https://img.shields.io/badge/platform-Fire%20TV%20%7C%20Android%20TV-6ce5f5)
-![Min Android](https://img.shields.io/badge/Android-6.0%2B-a58bff)
+![Min Android](https://img.shields.io/badge/Android-7.0%2B-a58bff)
 
 <img src="docs/banner.png" alt="PHOENIXA banner" width="640" />
 

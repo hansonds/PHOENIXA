@@ -16,8 +16,8 @@ android {
         applicationId = "org.phoenicx.nova"
         minSdk = 24
         targetSdk = 34
-        versionCode = 17
-        versionName = "1.6.6"
+        versionCode = 18
+        versionName = "1.6.7"
         // Google Play: TV-only. Sideload/Amazon: not required (some Fire TV models don't report it).
         manifestPlaceholders["leanbackRequired"] = if (playStore) "true" else "false"
     }

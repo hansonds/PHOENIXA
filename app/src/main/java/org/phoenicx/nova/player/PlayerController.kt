@@ -99,9 +99,14 @@ class PlayerController(context: Context) {
                 )
             )
             .setUserAgent("PHOENIXA/1.4 (Android TV)")
+        // Read-ahead buffer is capped by the app's memory, not just by time. A time-only limit let
+        // high-bitrate 4K files fill the memory on Fire TV Sticks and crash the app back to Home.
+        val heap = Runtime.getRuntime().maxMemory()
+        val bufferBytes = (heap / 3).coerceIn(32L * 1024 * 1024, 160L * 1024 * 1024).toInt()
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(20_000, 120_000, 900, 2_500)
-            .setPrioritizeTimeOverSizeThresholds(true)
+            .setBufferDurationsMs(15_000, 50_000, 1_000, 2_500)
+            .setTargetBufferBytes(bufferBytes)
+            .setPrioritizeTimeOverSizeThresholds(false)
             .build()
         player = ExoPlayer.Builder(context, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(http))

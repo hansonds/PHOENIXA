@@ -18,6 +18,7 @@ class NovaApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        installCrashLog()
         prefs = Prefs(this)
         api = JellyfinApi(prefs)
         // Warm up the decoder scan in the background so playback starts faster later
@@ -33,6 +34,23 @@ class NovaApp : Application(), ImageLoaderFactory {
         .crossfade(250)
         .respectCacheHeaders(false)
         .build()
+
+    /** Saves the reason for a crash so it can be read in Settings (helps fixing it). */
+    private fun installCrashLog() {
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            runCatching {
+                val sw = java.io.StringWriter()
+                e.printStackTrace(java.io.PrintWriter(sw))
+                val when_ = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date())
+                val mem = Runtime.getRuntime().maxMemory() / (1024 * 1024)
+                crashFile().writeText("$when_ · thread ${t.name} · heap ${mem} MB\n" + sw.toString().take(6000))
+            }
+            previous?.uncaughtException(t, e)
+        }
+    }
+
+    fun crashFile() = filesDir.resolve("last_crash.txt")
 
     companion object {
         lateinit var instance: NovaApp

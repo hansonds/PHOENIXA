@@ -49,6 +49,9 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
     var autoNext by remember { mutableStateOf(prefs.autoPlayNext) }
     var heroRotate by remember { mutableStateOf(prefs.heroAutoRotate) }
     var directOnly by remember { mutableStateOf(prefs.directPlayOnly) }
+    val app = NovaApp.instance
+    var crash by remember { mutableStateOf(runCatching { app.crashFile().takeIf { it.exists() }?.readText() }.getOrNull()) }
+    val version = remember { runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull() ?: "" }
 
     Column(Modifier.fillMaxSize()) {
         TopNav(nav, Screen.Settings)
@@ -88,7 +91,13 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             NovaButton("Sign out", Icons.Outlined.Logout) { onSignOut() }
             Spacer(Modifier.height(10.dp))
-            Text("PHOENIXA 1.6 · made by Hanson", style = NovaType.Label, color = Nova.TextFaint)
+            Text("PHOENIXA $version · made by Hanson", style = NovaType.Label, color = Nova.TextFaint)
+            crash?.let { report ->
+                Spacer(Modifier.height(10.dp))
+                Text("LAST CRASH REPORT", style = NovaType.Caption, color = Nova.Rose)
+                Text(report.lines().take(14).joinToString("\n"), style = NovaType.Label, color = Nova.TextDim)
+                NovaButton("Clear crash report") { runCatching { app.crashFile().delete() }; crash = null }
+            }
             Spacer(Modifier.height(40.dp))
         }
     }
