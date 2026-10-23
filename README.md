@@ -18,6 +18,24 @@ Built for the couch: big artwork, calm navigation, and a player that plays your 
 </div>
 
 ---
+## 📸 Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/home.png" width="49%" />
+  <img src="docs/screenshots/home-2.png" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/library.png" width="80%" />
+</p>
+
+### 🎬 See it in action
+
+
+https://github.com/user-attachments/assets/a5bbc7f2-241f-448e-b9ac-9179431592b1
+
+
+
+---
 
 ## ✦ Why PHOENIXA?
 
@@ -62,8 +80,6 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - Small app size (about 13 MB) and a self-managing image cache.
 
 ---
-
-## 📥 Install
 
 ### Fire TV / Fire TV Stick
 1. On your Fire TV, go to **Settings → My Fire TV → Developer options** and allow **Apps from Unknown Sources** (or allow the *Downloader* app).
@@ -178,7 +194,6 @@ gradle assembleRelease
 > ⚠️ The signing key in `keystore/` exists so that sideloaded updates install over each other. If you fork this project for public distribution or store release, generate your own key and keep it private.
 
 ---
-
 ## 🤖 AI disclosure
 
 PHOENIXA was built with help from AI. I'm not a professional developer: I designed the app, decided how it should look and behave, and tested every build on my own Fire TV and Android TV. The Kotlin code was largely written by an AI assistant (Claude by Anthropic), working from my instructions and bug reports.
@@ -186,7 +201,6 @@ PHOENIXA was built with help from AI. I'm not a professional developer: I design
 The full source is here, so anyone can read or review it. Bug reports and pull requests are very welcome.
 
 ---
-
 ## 🙏 Credits
 
 - Created by **[Hanson](https://github.com/hansonds)**.
