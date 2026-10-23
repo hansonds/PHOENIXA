@@ -18,24 +18,6 @@ Built for the couch: big artwork, calm navigation, and a player that plays your 
 </div>
 
 ---
-## 📸 Screenshots
-
-<p align="center">
-  <img src="docs/screenshots/home.png" width="49%" />
-  <img src="docs/screenshots/home-2.png" width="49%" />
-</p>
-<p align="center">
-  <img src="docs/screenshots/library.png" width="80%" />
-</p>
-
-### 🎬 See it in action
-
-
-https://github.com/user-attachments/assets/a5bbc7f2-241f-448e-b9ac-9179431592b1
-
-
-
----
 
 ## ✦ Why PHOENIXA?
 
@@ -86,14 +68,12 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 ### Fire TV / Fire TV Stick
 1. On your Fire TV, go to **Settings → My Fire TV → Developer options** and allow **Apps from Unknown Sources** (or allow the *Downloader* app).
 2. Install **Downloader** from the Amazon Appstore.
-3. Open Downloader and enter this address:
-   ```
-   https://github.com/hansonds/PHOENIXA/releases/latest/download/PHOENIXA.apk
-   ```
+3. Open Downloader and enter the code **`4563854`**
+   (or the full address: `https://github.com/hansonds/PHOENIXA/releases/latest/download/PHOENIXA.apk`)
 4. Install, open **PHOENIXA**, and sign in.
 
-### Android TV / Google TV
-Install with **Downloader** or **Send Files to TV** using the same APK link, or copy the APK over USB and open it with a file manager.
+### Android TV / Google TV / Android boxes
+Install **Downloader** from the Play Store and enter the same code **`4563854`**. You can also use **Send Files to TV**, or copy the APK over USB and open it with a file manager.
 
 ### Updating
 Download and install the new APK in the same way. It installs over the old version and keeps your login and settings.
@@ -198,6 +178,7 @@ gradle assembleRelease
 > ⚠️ The signing key in `keystore/` exists so that sideloaded updates install over each other. If you fork this project for public distribution or store release, generate your own key and keep it private.
 
 ---
+
 ## 🤖 AI disclosure
 
 PHOENIXA was built with help from AI. I'm not a professional developer: I designed the app, decided how it should look and behave, and tested every build on my own Fire TV and Android TV. The Kotlin code was largely written by an AI assistant (Claude by Anthropic), working from my instructions and bug reports.
@@ -205,6 +186,7 @@ PHOENIXA was built with help from AI. I'm not a professional developer: I design
 The full source is here, so anyone can read or review it. Bug reports and pull requests are very welcome.
 
 ---
+
 ## 🙏 Credits
 
 - Created by **[Hanson](https://github.com/hansonds)**.
