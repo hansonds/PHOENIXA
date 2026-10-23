@@ -85,8 +85,9 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 1. On your Fire TV, go to **Settings → My Fire TV → Developer options** and allow **Apps from Unknown Sources** (or allow the *Downloader* app).
 2. Install **Downloader** from the Amazon Appstore.
 3. Open Downloader and enter the code **`4563854`**
+    <p><img alt="Downloader code 4351534" src="https://img.shields.io/badge/Downloader%20code-4563854-a99aff?style=for-the-badge"></p>
    (or the full address: `https://github.com/hansonds/PHOENIXA/releases/latest/download/PHOENIXA.apk`)
-4. Install, open **PHOENIXA**, and sign in.
+5. Install, open **PHOENIXA**, and sign in.
 
 ### Android TV / Google TV / Android boxes
 Install **Downloader** from the Play Store and enter the same code **`4563854`**. You can also use **Send Files to TV**, or copy the APK over USB and open it with a file manager.
