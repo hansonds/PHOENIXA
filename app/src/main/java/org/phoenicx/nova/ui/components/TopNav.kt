@@ -88,7 +88,7 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
         Row(
             Modifier
                 .clip(RoundedCornerShape(26.dp))
-                .background(Color(0x5C1A1F33))
+                .background(Nova.Surface.copy(alpha = 0.36f))
                 .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
                 .horizontalScroll(rememberScrollState())
                 .padding(5.dp),
@@ -112,7 +112,7 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
         NavIcon(Icons.Outlined.Settings, selected == Screen.Settings, if (selected == Screen.Settings) selReq else null) { if (selected != Screen.Settings) nav.tab(Screen.Settings) }
         Spacer(Modifier.width(10.dp))
         Box(Modifier.size(38.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {
-            Text((org.phoenicx.nova.NovaApp.instance.prefs.userName ?: "?").take(1).uppercase(), style = NovaType.Button, color = Color(0xFF12152A))
+            Text((org.phoenicx.nova.NovaApp.instance.prefs.userName ?: "?").take(1).uppercase(), style = NovaType.Button, color = Nova.OnFocus)
             AsyncImage(api.userImage(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
     }
@@ -123,12 +123,12 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
 private fun NavPill(text: String, selected: Boolean, req: FocusRequester?, onClick: () -> Unit) {
     FocusSurface(onClick = onClick, shape = RoundedCornerShape(22.dp), focusedScale = 1.04f, borderWidth = 0.dp, glow = false, focusRequester = req) { focused ->
         val bg = when {
-            focused -> Brush.horizontalGradient(listOf(Color(0xFFF4F7FF), Color(0xFFE2E8FF)))
-            selected -> Brush.horizontalGradient(listOf(Color(0x406CE5F5), Color(0x40A58BFF)))
+            focused -> Brush.horizontalGradient(listOf(Nova.Focus, Nova.Focus))
+            selected -> Brush.horizontalGradient(listOf(Nova.Cyan.copy(alpha = 0.25f), Nova.Violet.copy(alpha = 0.25f)))
             else -> Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
         }
         Box(Modifier.height(40.dp).background(bg).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-            Text(text, style = NovaType.Button, maxLines = 1, softWrap = false, color = if (focused) Color(0xFF12152A) else if (selected) Nova.Text else Nova.TextDim)
+            Text(text, style = NovaType.Button, maxLines = 1, softWrap = false, color = if (focused) Nova.OnFocus else if (selected) Nova.Text else Nova.TextDim)
         }
     }
 }
@@ -139,14 +139,14 @@ private fun NavIcon(icon: ImageVector, selected: Boolean, req: FocusRequester?, 
         Box(
             Modifier.size(40.dp).background(
                 when {
-                    focused -> Color(0xFFF4F7FF)
-                    selected -> Color(0x406CE5F5)
+                    focused -> Nova.Focus
+                    selected -> Nova.Cyan.copy(alpha = 0.25f)
                     else -> Color.Transparent
                 }
             ),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, null, tint = if (focused) Color(0xFF12152A) else Nova.Text, modifier = Modifier.size(22.dp))
+            Icon(icon, null, tint = if (focused) Nova.OnFocus else Nova.Text, modifier = Modifier.size(22.dp))
         }
     }
 }

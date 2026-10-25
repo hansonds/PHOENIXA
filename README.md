@@ -18,24 +18,6 @@ Built for the couch: big artwork, calm navigation, and a player that plays your 
 </div>
 
 ---
-## 📸 Screenshots
-
-<p align="center">
-  <img src="docs/screenshots/home.png" width="49%" />
-  <img src="docs/screenshots/home-2.png" width="49%" />
-</p>
-<p align="center">
-  <img src="docs/screenshots/library.png" width="80%" />
-</p>
-
-### 🎬 See it in action
-
-
-https://github.com/user-attachments/assets/a5bbc7f2-241f-448e-b9ac-9179431592b1
-
-
-
----
 
 ## ✦ Why PHOENIXA?
 
@@ -75,19 +57,21 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 ### Comfort
 - **Quick Connect** sign-in, so there's no typing on the remote.
 - The keyboard opens only when you press OK on a text box.
+- **11 colour themes** (Nova, Phoenix Ember, Midnight Blue, Emerald, Royal Purple, Crimson Noir, Ocean Teal, Sunset Gold, Rose Quartz, Graphite, Cyber Neon), changed instantly from Settings.
 - Card size setting (Small, Medium or Large) and a streaming quality limit.
 - Calm, snappy scrolling tuned for Fire TV Sticks.
 - Small app size (about 13 MB) and a self-managing image cache.
 
 ---
 
+## 📥 Install
+
 ### Fire TV / Fire TV Stick
 1. On your Fire TV, go to **Settings → My Fire TV → Developer options** and allow **Apps from Unknown Sources** (or allow the *Downloader* app).
 2. Install **Downloader** from the Amazon Appstore.
 3. Open Downloader and enter the code **`4563854`**
-    <p><img alt="Downloader code 4351534" src="https://img.shields.io/badge/Downloader%20code-4563854-a99aff?style=for-the-badge"></p>
    (or the full address: `https://github.com/hansonds/PHOENIXA/releases/latest/download/PHOENIXA.apk`)
-5. Install, open **PHOENIXA**, and sign in.
+4. Install, open **PHOENIXA**, and sign in.
 
 ### Android TV / Google TV / Android boxes
 Install **Downloader** from the Play Store and enter the same code **`4563854`**. You can also use **Send Files to TV**, or copy the APK over USB and open it with a file manager.
@@ -130,6 +114,7 @@ Download and install the new APK in the same way. It installs over the old versi
 |---|---|
 | **Direct play only** | *On (default):* always play the original file. *Off:* let the server transcode files the TV can't play (requires transcoding enabled on the server). |
 | **Streaming quality** | Caps bitrate for slow connections (Maximum → 4 Mbps). |
+| **Theme** | Pick one of 11 colour themes. *Nova* is the original look and the default. |
 | **Card size** | Small / Medium / Large posters and thumbnails, applied instantly. |
 | **Auto-play next episode** | Starts the next episode when one ends. |
 | **Rotate featured carousel** | Turns banner auto-rotation on or off. |
@@ -195,6 +180,7 @@ gradle assembleRelease
 > ⚠️ The signing key in `keystore/` exists so that sideloaded updates install over each other. If you fork this project for public distribution or store release, generate your own key and keep it private.
 
 ---
+
 ## 🤖 AI disclosure
 
 PHOENIXA was built with help from AI. I'm not a professional developer: I designed the app, decided how it should look and behave, and tested every build on my own Fire TV and Android TV. The Kotlin code was largely written by an AI assistant (Claude by Anthropic), working from my instructions and bug reports.
@@ -202,6 +188,7 @@ PHOENIXA was built with help from AI. I'm not a professional developer: I design
 The full source is here, so anyone can read or review it. Bug reports and pull requests are very welcome.
 
 ---
+
 ## 🙏 Credits
 
 - Created by **[Hanson](https://github.com/hansonds)**.

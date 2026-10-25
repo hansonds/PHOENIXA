@@ -392,14 +392,14 @@ private fun SelectorChip(caption: String, value: String, requester: FocusRequest
         Column(
             Modifier
                 .widthIn(min = 150.dp, max = 300.dp)
-                .background(if (focused) Color(0xFFF4F7FF) else Color(0x1FFFFFFF))
+                .background(if (focused) Nova.Focus else Color(0x1FFFFFFF))
                 .border(1.dp, if (focused) Color.Transparent else Nova.Stroke, RoundedCornerShape(14.dp))
                 .padding(horizontal = 16.dp, vertical = 9.dp)
         ) {
             Text(caption, style = NovaType.Caption.copy(fontSize = 10.sp), color = if (focused) Color(0xFF4A5068) else Nova.TextFaint)
             Text(
                 "$value  ▾", style = NovaType.Label.copy(fontSize = 14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                color = if (focused) Color(0xFF12152A) else Nova.Text,
+                color = if (focused) Nova.OnFocus else Nova.Text,
             )
         }
     }
@@ -451,15 +451,15 @@ private fun SeasonTab(name: String, selected: Boolean, onClick: () -> Unit) {
     FocusSurface(onClick = onClick, shape = RoundedCornerShape(20.dp), focusedScale = 1.05f, borderWidth = 0.dp, glow = false,
         onFocused = onClick) { focused ->
         val bg = when {
-            focused -> Brush.horizontalGradient(listOf(Color(0xFFF4F7FF), Color(0xFFE2E8FF)))
-            selected -> Brush.horizontalGradient(listOf(Color(0x556CE5F5), Color(0x55A58BFF)))
+            focused -> Brush.horizontalGradient(listOf(Nova.Focus, Nova.Focus))
+            selected -> Brush.horizontalGradient(listOf(Nova.Cyan.copy(alpha = 0.33f), Nova.Violet.copy(alpha = 0.33f)))
             else -> Brush.horizontalGradient(listOf(Color(0x1FFFFFFF), Color(0x14FFFFFF)))
         }
         Box(
             Modifier.background(bg).border(1.dp, if (selected && !focused) Nova.Cyan.copy(alpha = 0.5f) else Nova.Stroke, RoundedCornerShape(20.dp))
                 .padding(horizontal = 18.dp, vertical = 9.dp)
         ) {
-            Text(name, style = NovaType.Button, color = if (focused) Color(0xFF12152A) else Nova.Text)
+            Text(name, style = NovaType.Button, color = if (focused) Nova.OnFocus else Nova.Text)
         }
     }
 }

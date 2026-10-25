@@ -141,7 +141,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
             Modifier
                 .width(460.dp)
                 .background(
-                    Brush.verticalGradient(listOf(Color(0x33262C44), Color(0x661B2032))),
+                    Brush.verticalGradient(listOf(Nova.SurfaceHi.copy(alpha = 0.20f), Nova.Surface.copy(alpha = 0.40f))),
                     RoundedCornerShape(28.dp),
                 )
                 .border(1.dp, Nova.Stroke, RoundedCornerShape(28.dp))

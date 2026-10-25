@@ -55,6 +55,10 @@ class Prefs(context: Context) {
         get() = sp.getInt("cardSize", 1)
         set(v) = sp.edit().putInt("cardSize", v).apply()
 
+    var theme: Int
+        get() = sp.getInt("theme", 0)
+        set(v) = sp.edit().putInt("theme", v).apply()
+
     val deviceId: String
         get() {
             var id = sp.getString("deviceId", null)

@@ -74,7 +74,7 @@ fun BackdropLayer(url: String?, kenBurns: Boolean, dim: Float, modifier: Modifie
         // aurora tint
         Box(
             Modifier.fillMaxSize().background(
-                Brush.linearGradient(listOf(Color(0x1A6CE5F5), Color.Transparent, Color(0x1FA58BFF)))
+                Brush.linearGradient(listOf(Nova.Cyan.copy(alpha = 0.10f), Color.Transparent, Nova.Violet.copy(alpha = 0.12f)))
             )
         )
         Box(Modifier.fillMaxSize().background(Nova.BgDeep.copy(alpha = dimA)))

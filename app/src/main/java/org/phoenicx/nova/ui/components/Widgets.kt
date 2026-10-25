@@ -72,11 +72,11 @@ fun NovaButton(
         onFocused = onFocused,
     ) { focused ->
         val bg: Brush = when {
-            focused -> Brush.horizontalGradient(listOf(Color(0xFFF4F7FF), Color(0xFFE4E9FF)))
+            focused -> Brush.horizontalGradient(listOf(Nova.Focus, Nova.Focus))
             primary -> Brush.horizontalGradient(listOf(Color(0x40FFFFFF), Color(0x26FFFFFF)))
             else -> Brush.horizontalGradient(listOf(Color(0x24FFFFFF), Color(0x14FFFFFF)))
         }
-        val fg = if (focused) Color(0xFF12152A) else Nova.Text
+        val fg = if (focused) Nova.OnFocus else Nova.Text
         Row(
             Modifier
                 .fillMaxHeight()
@@ -196,13 +196,13 @@ fun PosterCard(
             if (item.played) {
                 Icon(Icons.Filled.CheckCircle, null, tint = Nova.Cyan,
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(22.dp)
-                        .background(Color(0x99121522), CircleShape))
+                        .background(Nova.Bg.copy(alpha = 0.60f), CircleShape))
             } else if ((item.unplayedCount ?: 0) > 0) {
                 Box(
                     Modifier.align(Alignment.TopEnd).padding(8.dp)
                         .background(Nova.AccentBrush, RoundedCornerShape(10.dp))
                         .padding(horizontal = 8.dp, vertical = 2.dp)
-                ) { Text("${item.unplayedCount}", style = NovaType.Label, color = Color(0xFF12152A), fontWeight = FontWeight.Bold) }
+                ) { Text("${item.unplayedCount}", style = NovaType.Label, color = Nova.OnFocus, fontWeight = FontWeight.Bold) }
             }
             if (item.progress > 0f && !item.played) {
                 ProgressBar(item.progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp))
@@ -241,7 +241,7 @@ fun LandscapeCard(
         )
         Box(
             Modifier.fillMaxSize().background(
-                Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color(0xE6101320))
+                Brush.verticalGradient(0.35f to Color.Transparent, 1f to Nova.BgDeep.copy(alpha = 0.90f))
             )
         )
         Column(Modifier.align(Alignment.BottomStart).padding(12.dp)) {

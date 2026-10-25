@@ -122,7 +122,7 @@ fun NovaTextField(
     val boxModifier = Modifier
         .fillMaxWidth()
         .height(52.dp)
-        .background(if (focused) Color(0x2E6CE5F5) else Color(0x1AFFFFFF), shape)
+        .background(if (focused) Nova.Cyan.copy(alpha = 0.18f) else Color(0x1AFFFFFF), shape)
         .border(if (focused) 2.dp else 1.dp, if (focused) Nova.AccentBrush else SolidColor(Nova.Stroke), shape)
         .padding(horizontal = 16.dp)
 

@@ -20,6 +20,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:banner="@drawable/banner_phoenixa"
+            android:icon="@mipmap/ic_phoenixa"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout"
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustNothing">

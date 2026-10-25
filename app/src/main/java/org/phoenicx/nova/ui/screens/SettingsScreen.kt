@@ -49,10 +49,17 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
     var autoNext by remember { mutableStateOf(prefs.autoPlayNext) }
     var heroRotate by remember { mutableStateOf(prefs.heroAutoRotate) }
     var directOnly by remember { mutableStateOf(prefs.directPlayOnly) }
+    var showThemes by remember { mutableStateOf(false) }
+    val themeRowRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    var refocusTheme by remember { mutableIntStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(refocusTheme) {
+        if (refocusTheme > 0) { kotlinx.coroutines.delay(80); runCatching { themeRowRequester.requestFocus() } }
+    }
     val app = NovaApp.instance
     var crash by remember { mutableStateOf(runCatching { app.crashFile().takeIf { it.exists() }?.readText() }.getOrNull()) }
     val version = remember { runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull() ?: "" }
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         TopNav(nav, Screen.Settings)
         Column(
@@ -78,6 +85,12 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
                 prefs.maxBitrateMbps = bitrates[bitrateIdx]
             }
             SettingRow(
+                "Theme",
+                "Change the colours of the whole app",
+                org.phoenicx.nova.ui.theme.NovaThemes.current.name,
+                requester = themeRowRequester,
+            ) { showThemes = true }
+            SettingRow(
                 "Card size",
                 "Make posters and thumbnails smaller or bigger",
                 UiScale.labels[UiScale.cardSizeIndex],
@@ -101,6 +114,18 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
             Spacer(Modifier.height(40.dp))
         }
     }
+    if (showThemes) {
+        val themes = org.phoenicx.nova.ui.theme.NovaThemes
+        org.phoenicx.nova.ui.components.OptionSheet(
+            title = "Theme",
+            options = themes.all.mapIndexed { i, t ->
+                org.phoenicx.nova.ui.components.SheetOption(t.name, if (i == 0) "Original PHOENIXA look" else "", i == themes.index)
+            },
+            onSelect = { i -> themes.set(i); showThemes = false; refocusTheme++ },
+            onDismiss = { showThemes = false; refocusTheme++ },
+        )
+    }
+    }
 }
 
 @Composable
@@ -113,7 +138,7 @@ private fun InfoCard(title: String, value: String, sub: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(48.dp).background(Nova.AccentBrush, CircleShape), contentAlignment = Alignment.Center) {
-            Text(value.take(1).uppercase(), style = NovaType.Title, color = Color(0xFF12152A))
+            Text(value.take(1).uppercase(), style = NovaType.Title, color = Nova.OnFocus)
         }
         Spacer(Modifier.width(16.dp))
         Column {
@@ -125,11 +150,15 @@ private fun InfoCard(title: String, value: String, sub: String) {
 }
 
 @Composable
-private fun SettingRow(title: String, sub: String, value: String, onClick: () -> Unit) {
-    FocusSurface(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), focusedScale = 1.02f) { focused ->
+private fun SettingRow(
+    title: String, sub: String, value: String,
+    requester: androidx.compose.ui.focus.FocusRequester? = null,
+    onClick: () -> Unit,
+) {
+    FocusSurface(onClick = onClick, modifier = Modifier.fillMaxWidth(), focusRequester = requester, shape = RoundedCornerShape(18.dp), focusedScale = 1.02f) { focused ->
         Row(
             Modifier.fillMaxWidth()
-                .background(if (focused) Color(0x336CE5F5) else Color(0x1AFFFFFF))
+                .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Color(0x1AFFFFFF))
                 .padding(horizontal = 22.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

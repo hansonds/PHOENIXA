@@ -336,7 +336,7 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
 
         c.error?.let { err ->
             Column(
-                Modifier.align(Alignment.Center).background(Color(0xE6121522), RoundedCornerShape(22.dp)).padding(32.dp),
+                Modifier.align(Alignment.Center).background(Nova.Bg.copy(alpha = 0.90f), RoundedCornerShape(22.dp)).padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text("Can't play this", style = NovaType.Title, color = Nova.Text)
@@ -367,12 +367,12 @@ private fun Overlay(
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    0f to Color(0xCC0B0D16), 0.25f to Color(0x330B0D16),
-                    0.55f to Color(0x330B0D16), 1f to Color(0xF20B0D16),
+                    0f to Nova.BgDeep.copy(alpha = 0.80f), 0.25f to Nova.BgDeep.copy(alpha = 0.20f),
+                    0.55f to Nova.BgDeep.copy(alpha = 0.20f), 1f to Nova.BgDeep.copy(alpha = 0.95f),
                 )
             )
         )
-        if (showInfo) Box(Modifier.fillMaxSize().background(Color(0x990B0D16)))
+        if (showInfo) Box(Modifier.fillMaxSize().background(Nova.BgDeep.copy(alpha = 0.60f)))
 
         // Top bar icons
         Row(
@@ -517,7 +517,7 @@ private fun PlayButton(playing: Boolean, requester: FocusRequester, onClick: () 
             contentAlignment = Alignment.Center,
         ) {
             Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, null,
-                tint = if (focused) Color(0xFF12152A) else Color.White, modifier = Modifier.size(38.dp))
+                tint = if (focused) Nova.OnFocus else Color.White, modifier = Modifier.size(38.dp))
         }
     }
 }
@@ -529,13 +529,13 @@ private fun RoundIcon(icon: ImageVector, label: String?, size: Int = 46, active:
             Modifier.size(size.dp).background(
                 when {
                     focused -> Color.White
-                    active -> Color(0x556CE5F5)
+                    active -> Nova.Cyan.copy(alpha = 0.33f)
                     else -> Color(0x1AFFFFFF)
                 }, CircleShape
             ),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, label, tint = if (focused) Color(0xFF12152A) else Color.White, modifier = Modifier.size((size * 0.5f).dp))
+            Icon(icon, label, tint = if (focused) Nova.OnFocus else Color.White, modifier = Modifier.size((size * 0.5f).dp))
         }
     }
 }
@@ -548,7 +548,7 @@ private fun SeekToast(c: PlayerController, trigger: Int) {
         Box(Modifier.fillMaxSize()) {
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC0B0D16))))
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Nova.BgDeep.copy(alpha = 0.80f))))
                     .padding(horizontal = 48.dp, vertical = 30.dp)
             ) {
                 val frac = if (c.duration > 0) (c.position.toFloat() / c.duration).coerceIn(0f, 1f) else 0f
@@ -571,7 +571,7 @@ private fun TrackPanel(c: PlayerController, type: Int, title: String, onDone: ()
         Modifier
             .fillMaxHeight()
             .width(400.dp)
-            .background(Brush.horizontalGradient(listOf(Color(0xE6121522), Color(0xFA121522))))
+            .background(Brush.horizontalGradient(listOf(Nova.Bg.copy(alpha = 0.90f), Nova.Bg.copy(alpha = 0.98f))))
             .border(1.dp, Nova.Stroke)
             .padding(28.dp)
     ) {
@@ -592,7 +592,7 @@ private fun TrackPanel(c: PlayerController, type: Int, title: String, onDone: ()
                 ) { focused ->
                     Row(
                         Modifier.fillMaxWidth()
-                            .background(if (focused) Color(0x336CE5F5) else Color(0x14FFFFFF))
+                            .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Color(0x14FFFFFF))
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -621,7 +621,7 @@ private fun SpeedPanel(c: PlayerController, onDone: () -> Unit) {
         Modifier
             .fillMaxHeight()
             .width(360.dp)
-            .background(Brush.horizontalGradient(listOf(Color(0xE6121522), Color(0xFA121522))))
+            .background(Brush.horizontalGradient(listOf(Nova.Bg.copy(alpha = 0.90f), Nova.Bg.copy(alpha = 0.98f))))
             .border(1.dp, Nova.Stroke)
             .padding(28.dp)
     ) {
@@ -640,7 +640,7 @@ private fun SpeedPanel(c: PlayerController, onDone: () -> Unit) {
                 ) { focused ->
                     Row(
                         Modifier.fillMaxWidth()
-                            .background(if (focused) Color(0x336CE5F5) else Color(0x14FFFFFF))
+                            .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Color(0x14FFFFFF))
                             .padding(horizontal = 16.dp, vertical = 13.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

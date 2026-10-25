@@ -223,7 +223,7 @@ private fun BioOverlay(name: String, bio: String, onClose: () -> Unit) {
     val req = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(60); runCatching { req.requestFocus() } }
     BackHandler { onClose() }
-    Box(Modifier.fillMaxSize().background(Color(0xE6090B12)), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(Nova.BgDeep.copy(alpha = 0.90f)), contentAlignment = Alignment.Center) {
         Column(
             Modifier
                 .widthIn(max = 900.dp)

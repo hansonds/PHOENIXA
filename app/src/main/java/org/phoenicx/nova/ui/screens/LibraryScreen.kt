@@ -155,15 +155,15 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
 fun SortChip(text: String, selected: Boolean, onClick: () -> Unit) {
     FocusSurface(onClick = onClick, shape = RoundedCornerShape(18.dp), focusedScale = 1.05f, borderWidth = 0.dp, glow = false) { focused ->
         val bg = when {
-            focused -> Brush.horizontalGradient(listOf(Color(0xFFF4F7FF), Color(0xFFE2E8FF)))
-            selected -> Brush.horizontalGradient(listOf(Color(0x556CE5F5), Color(0x55A58BFF)))
+            focused -> Brush.horizontalGradient(listOf(Nova.Focus, Nova.Focus))
+            selected -> Brush.horizontalGradient(listOf(Nova.Cyan.copy(alpha = 0.33f), Nova.Violet.copy(alpha = 0.33f)))
             else -> Brush.horizontalGradient(listOf(Color(0x1FFFFFFF), Color(0x14FFFFFF)))
         }
         Box(
             Modifier.background(bg).border(1.dp, Nova.Stroke, RoundedCornerShape(18.dp))
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            Text(text, style = NovaType.Label, color = if (focused) Color(0xFF12152A) else Nova.Text)
+            Text(text, style = NovaType.Label, color = if (focused) Nova.OnFocus else Nova.Text)
         }
     }
 }

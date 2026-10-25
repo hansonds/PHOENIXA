@@ -62,13 +62,13 @@ fun OptionSheet(
     LaunchedEffect(Unit) { delay(80); runCatching { requester.requestFocus() } }
     BackHandler { onDismiss() }
 
-    Box(Modifier.fillMaxSize().background(Color(0x99090B12))) {
+    Box(Modifier.fillMaxSize().background(Nova.BgDeep.copy(alpha = 0.60f))) {
         Column(
             Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
                 .width(440.dp)
-                .background(Brush.horizontalGradient(listOf(Color(0xF2141826), Color(0xFC121522))))
+                .background(Brush.horizontalGradient(listOf(Nova.Bg.copy(alpha = 0.95f), Nova.Bg.copy(alpha = 0.99f))))
                 .border(1.dp, Nova.Stroke)
                 .padding(28.dp)
                 .onPreviewKeyEvent { e ->
@@ -99,7 +99,7 @@ fun OptionSheet(
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .background(if (focused) Color(0x336CE5F5) else Color(0x14FFFFFF))
+                                .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Color(0x14FFFFFF))
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
