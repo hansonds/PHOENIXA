@@ -95,7 +95,7 @@ jobs:
       - name: Build Windows app
         run: gradle -p desktop createDistributable --stacktrace
 
-      - name: Add the mpv video player
+      - name: Add the video engine (libmpv)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -103,38 +103,18 @@ jobs:
           $app = "desktop/build/compose/binaries/main/app/PHOENIXA"
           $headers = @{ Authorization = "Bearer $env:GH_TOKEN" }
 
-          # mpv (Windows build by shinchiro)
+          # libmpv-2.dll from the mpv Windows builds by shinchiro
           $rel = Invoke-RestMethod -Headers $headers https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest
-          $asset = $rel.assets | Where-Object { $_.name -like 'mpv-x86_64-*.7z' -and $_.name -notlike '*v3*' } | Select-Object -First 1
-          if (-not $asset) { throw "mpv download not found" }
+          $asset = $rel.assets | Where-Object { $_.name -like 'mpv-dev-x86_64-*.7z' -and $_.name -notlike '*v3*' } | Select-Object -First 1
+          if (-not $asset) { throw "libmpv download not found" }
           Write-Host "Using $($asset.name)"
-          Invoke-WebRequest $asset.browser_download_url -OutFile mpv.7z
-          7z x mpv.7z "-o$app/mpv" -y | Out-Null
-          if (-not (Test-Path "$app/mpv/mpv.exe")) {
-            $exe = Get-ChildItem "$app/mpv" -Recurse -Filter mpv.exe | Select-Object -First 1
-            if (-not $exe) { throw "mpv.exe missing after extract" }
-            Get-ChildItem $exe.DirectoryName | Move-Item -Destination "$app/mpv" -Force
-          }
-          New-Item -ItemType Directory -Force "$app/mpv/portable_config" | Out-Null
-
-          # uosc: modern on-screen controls for mpv (optional)
-          $uosc = $false
-          try {
-            $u = Invoke-RestMethod -Headers $headers https://api.github.com/repos/tomasklaen/uosc/releases/latest
-            $z = $u.assets | Where-Object { $_.name -eq 'uosc.zip' } | Select-Object -First 1
-            Invoke-WebRequest $z.browser_download_url -OutFile uosc.zip
-            Expand-Archive uosc.zip -DestinationPath "$app/mpv/portable_config" -Force
-            $uosc = $true
-          } catch { Write-Host "uosc not added: $_" }
-
-          $conf = @(
-            'hwdec=auto-safe',
-            'vo=gpu-next',
-            'keep-open=no',
-            'screenshot-directory=~~desktop/'
-          )
-          if ($uosc) { $conf += @('osc=no', 'osd-bar=no', 'border=no') }
-          $conf | Set-Content -Encoding ascii "$app/mpv/portable_config/mpv.conf"
+          Invoke-WebRequest $asset.browser_download_url -OutFile mpv-dev.7z
+          7z x mpv-dev.7z -ompvdev -y | Out-Null
+          $dll = Get-ChildItem mpvdev -Recurse -Filter 'libmpv-2.dll' | Select-Object -First 1
+          if (-not $dll) { throw "libmpv-2.dll missing in $($asset.name)" }
+          New-Item -ItemType Directory -Force "$app/mpv" | Out-Null
+          Copy-Item $dll.FullName "$app/mpv/libmpv-2.dll"
+          Get-ChildItem "$app/mpv"
 
       - name: Make portable zip
         run: Compress-Archive -Path "desktop/build/compose/binaries/main/app/PHOENIXA" -DestinationPath PHOENIXA-Windows.zip
