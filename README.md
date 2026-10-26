@@ -4,13 +4,13 @@
 
 # PHOENIXA
 
-**A cinematic, remote-first Jellyfin client for Fire TV and Android TV.**
+**A cinematic Jellyfin client for Fire TV, Android TV and Windows.**
 
 Built for the couch: big artwork, calm navigation, and a player that plays your files exactly as they are.
 
 [![Build APK](https://github.com/hansonds/PHOENIXA/actions/workflows/build.yml/badge.svg)](https://github.com/hansonds/PHOENIXA/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/hansonds/PHOENIXA?label=download&color=ff5a2c)](https://github.com/hansonds/PHOENIXA/releases/latest)
-![Platform](https://img.shields.io/badge/platform-Fire%20TV%20%7C%20Android%20TV-6ce5f5)
+![Platform](https://img.shields.io/badge/platform-Fire%20TV%20%7C%20Android%20TV%20%7C%20Windows-6ce5f5)
 ![Min Android](https://img.shields.io/badge/Android-7.0%2B-a58bff)
 
 <img src="docs/banner.png" alt="PHOENIXA banner" width="640" />
@@ -75,6 +75,24 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 
 ### Android TV / Google TV / Android boxes
 Install **Downloader** from the Play Store and enter the same code **`4563854`**. You can also use **Send Files to TV**, or copy the APK over USB and open it with a file manager.
+
+### Windows 10 / 11
+1. Download **PHOENIXA-Windows.zip** from [Releases → latest](https://github.com/hansonds/PHOENIXA/releases/latest).
+2. Unzip it anywhere (for example to your Desktop or `C:\Apps`).
+3. Open the **PHOENIXA** folder and run **PHOENIXA.exe**. No installation needed.
+
+If Windows shows "Windows protected your PC", click **More info → Run anyway** (the app isn't code-signed yet).
+
+The Windows app is built for mouse and keyboard: hover a row to scroll it with the arrows, **Esc** or the mouse back button goes back. Videos open in **mpv**, a free open-source player bundled in the zip, so practically every format plays: HEVC, AV1, HDR (tone-mapped on SDR screens), Dolby Vision, DTS, TrueHD, PGS subtitles.
+
+| Player key | Action |
+|---|---|
+| **Space** | Pause / play |
+| **← / →** | Seek 5 s (hold Shift for 1 s) · **↑ / ↓** 1 min |
+| **F** or double-click | Full screen |
+| **J** | Next subtitle · **#** next audio track |
+| **[ / ]** | Slower / faster |
+| **Q** | Close the player (your position is saved) |
 
 ### Updating
 Download and install the new APK in the same way. It installs over the old version and keeps your login and settings.
@@ -168,7 +186,9 @@ Posters are cached (up to 250 MB) and the oldest are removed automatically. You 
 
 Every push to `main` builds a signed release APK with GitHub Actions and publishes it to **Releases → latest**.
 
-To build locally you need JDK 17 and the Android SDK (compileSdk 36):
+The same workflow also builds the **Windows app** (`desktop/` folder, Kotlin + Compose Multiplatform) on a Windows runner, adds the mpv player, and attaches **PHOENIXA-Windows.zip** to the release.
+
+To build the Android app locally you need JDK 17 and the Android SDK (compileSdk 36):
 
 ```bash
 gradle assembleRelease
@@ -194,6 +214,7 @@ The full source is here, so anyone can read or review it. Bug reports and pull r
 - Created by **[Hanson](https://github.com/hansonds)**.
 - Powered by **[Jellyfin](https://jellyfin.org)**, the free software media system.
 - Playback by **[AndroidX Media3 / ExoPlayer](https://github.com/androidx/media)** and the **[Jellyfin FFmpeg decoder](https://github.com/jellyfin/jellyfin-androidx-media)**.
+- Windows playback by **[mpv](https://mpv.io)** (builds by [shinchiro](https://github.com/shinchiro/mpv-winbuild-cmake)) with the **[uosc](https://github.com/tomasklaen/uosc)** interface. mpv runs as a separate program and keeps its own GPL licence; its source is at [github.com/mpv-player/mpv](https://github.com/mpv-player/mpv).
 
 PHOENIXA is an independent project and is not affiliated with or endorsed by the Jellyfin project or Amazon.
 
