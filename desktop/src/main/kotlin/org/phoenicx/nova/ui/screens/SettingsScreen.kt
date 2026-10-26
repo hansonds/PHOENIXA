@@ -67,7 +67,7 @@ fun SettingsScreen(nav: Navigator) {
     var rotate by remember { mutableStateOf(prefs.heroAutoRotate) }
     val bitrates = listOf(0, 120, 60, 40, 20, 10, 4)
     var bitrate by remember { mutableIntStateOf(prefs.maxBitrateMbps) }
-    val playerPath = remember { Player.playerInfo() }
+    val playerPath = remember { Player.engineInfo() }
 
     Column(
         Modifier
@@ -120,7 +120,7 @@ fun SettingsScreen(nav: Navigator) {
             SectionTitle("Playback")
             Spacer(Modifier.height(10.dp))
             Card {
-                SettingLine("Open player in full screen", "Press F or double-click in the player to switch") {
+                SettingLine("Full screen when playing", "The window goes full screen while a video plays. Press F or double-click to switch") {
                     Toggle(fullscreen) { fullscreen = it; prefs.playerFullscreen = it }
                 }
                 SettingLine("Auto-play next episode", "Start the next episode when one ends") {
@@ -145,7 +145,7 @@ fun SettingsScreen(nav: Navigator) {
                 SettingLine("Version", "PHOENIXA for Windows · made by Hanson") {
                     Text(App.version, style = NovaType.Button, color = Nova.Cyan)
                 }
-                SettingLine("Video player", playerPath) {
+                SettingLine("Video engine", playerPath) {
                     if (playerPath == "Not found") Text("Missing", style = NovaType.Button, color = Nova.Rose)
                     else Icon(Icons.Filled.CheckCircle, null, tint = Nova.Green)
                 }
@@ -157,8 +157,8 @@ fun SettingsScreen(nav: Navigator) {
             }
             Spacer(Modifier.height(16.dp))
             Text(
-                "Videos play in mpv, a free and open-source player bundled with PHOENIXA. " +
-                    "Player keys: Space pause · ←/→ seek · F full screen · J subtitles · # audio · Q close the player.",
+                "Videos are decoded by libmpv, the free and open-source engine of the mpv player, bundled with PHOENIXA. " +
+                    "Player keys: Space pause · ←/→ 10 s · ↑/↓ volume · M mute · F full screen · N next episode · Esc close.",
                 style = NovaType.Label, color = Nova.TextFaint,
             )
         }

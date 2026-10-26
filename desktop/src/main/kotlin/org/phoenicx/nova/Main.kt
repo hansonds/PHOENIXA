@@ -29,6 +29,7 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -40,6 +41,8 @@ import org.phoenicx.nova.player.Player
 import org.phoenicx.nova.ui.Nova
 import org.phoenicx.nova.ui.NovaTheme
 import org.phoenicx.nova.ui.NovaType
+import org.phoenicx.nova.ui.PlayerScreen
+import org.phoenicx.nova.ui.PlayerUi
 import org.phoenicx.nova.ui.TopBar
 import org.phoenicx.nova.ui.screens.DetailScreen
 import org.phoenicx.nova.ui.screens.FavoritesScreen
@@ -55,7 +58,7 @@ object App {
     val prefs = Prefs()
     val api = JellyfinApi(prefs)
     const val NAME = "PHOENIXA"
-    val version: String = System.getProperty("jpackage.app-version") ?: "1.0.0"
+    val version: String = System.getProperty("jpackage.app-version") ?: "1.1.0"
 
     /** Libraries of the signed-in user (shown in the top bar) */
     var libraries by mutableStateOf<List<Library>>(emptyList())
@@ -109,21 +112,48 @@ fun main() = application {
         position = WindowPosition(Alignment.Center),
     )
     val nav = androidx.compose.runtime.remember { Navigator() }
+    var placementBeforeFullscreen by androidx.compose.runtime.remember { mutableStateOf(WindowPlacement.Floating) }
+    val isFullscreen = windowState.placement == WindowPlacement.Fullscreen
+    fun toggleFullscreen() {
+        if (windowState.placement == WindowPlacement.Fullscreen) {
+            windowState.placement = placementBeforeFullscreen
+        } else {
+            placementBeforeFullscreen = windowState.placement
+            windowState.placement = WindowPlacement.Fullscreen
+        }
+    }
+
     Window(
         onCloseRequest = { Player.stop(); exitApplication() },
         title = App.NAME,
         icon = painterResource("app_icon.png"),
         state = windowState,
         onPreviewKeyEvent = { e ->
-            if (e.type == KeyEventType.KeyDown && e.key == Key.Escape && App.loggedIn) nav.back() else false
+            val now = Player.current
+            when {
+                e.type != KeyEventType.KeyDown -> false
+                now != null -> PlayerUi.onKey(e.key, now.session, ::toggleFullscreen, isFullscreen)
+                e.key == Key.Escape && App.loggedIn -> nav.back()
+                else -> false
+            }
         },
     ) {
         window.minimumSize = java.awt.Dimension(1024, 640)
+
+        // Full screen while a video plays (if chosen in Settings), back to normal afterwards
+        val playing = Player.current != null
+        LaunchedEffect(playing) {
+            if (playing && App.prefs.playerFullscreen && windowState.placement != WindowPlacement.Fullscreen) toggleFullscreen()
+            if (!playing && windowState.placement == WindowPlacement.Fullscreen) toggleFullscreen()
+        }
+
         NovaTheme {
             Box(
                 Modifier.fillMaxSize().onPointerEvent(PointerEventType.Press) { ev ->
                     // Mouse "back" side button
-                    if (ev.buttons.isBackPressed && App.loggedIn) nav.back()
+                    if (ev.buttons.isBackPressed && App.loggedIn) {
+                        if (Player.current != null) Player.close() else nav.back()
+                    }
                 }
             ) {
                 if (!App.loggedIn) {
@@ -134,6 +164,9 @@ fun main() = application {
                     }
                     Content(nav)
                     TopBar(nav)
+                }
+                Player.current?.let { now ->
+                    PlayerScreen(now, isFullscreen, ::toggleFullscreen)
                 }
                 PlayerToast(Modifier.align(Alignment.BottomCenter))
             }

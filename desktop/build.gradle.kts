@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "org.phoenicx"
-version = "1.0.0"
+version = "1.1.0"
 
 kotlin {
     jvmToolchain(17)
@@ -21,6 +21,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.json:json:20240303")
+    implementation("net.java.dev.jna:jna:5.15.0")
 
     implementation("io.coil-kt.coil3:coil-compose:3.0.4")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
@@ -33,7 +34,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "PHOENIXA"
-            packageVersion = "1.0.0"
+            packageVersion = "1.1.0"
             description = "PHOENIXA - Jellyfin client"
             vendor = "Hanson"
             modules(

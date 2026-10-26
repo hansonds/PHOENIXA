@@ -83,16 +83,16 @@ Install **Downloader** from the Play Store and enter the same code **`4563854`**
 
 If Windows shows "Windows protected your PC", click **More info → Run anyway** (the app isn't code-signed yet).
 
-The Windows app is built for mouse and keyboard: hover a row to scroll it with the arrows, **Esc** or the mouse back button goes back. Videos open in **mpv**, a free open-source player bundled in the zip, so practically every format plays: HEVC, AV1, HDR (tone-mapped on SDR screens), Dolby Vision, DTS, TrueHD, PGS subtitles.
+The Windows app is built for mouse and keyboard: hover a row to scroll it with the arrows, **Esc** or the mouse back button goes back. Videos play right inside the PHOENIXA window with the same controls as the TV app (subtitles, audio, speed, next episode, info), powered by **libmpv**, so practically every format plays: HEVC, AV1, HDR, Dolby Vision, DTS, TrueHD, PGS subtitles.
 
 | Player key | Action |
 |---|---|
-| **Space** | Pause / play |
-| **← / →** | Seek 5 s (hold Shift for 1 s) · **↑ / ↓** 1 min |
-| **F** or double-click | Full screen |
-| **J** | Next subtitle · **#** next audio track |
-| **[ / ]** | Slower / faster |
-| **Q** | Close the player (your position is saved) |
+| **Space** / click | Pause / play |
+| **← / →** | Back / forward 10 s |
+| **↑ / ↓** | Volume · **M** mute |
+| **F** / double-click | Full screen |
+| **N** | Next episode |
+| **Esc** | Leave full screen, then close the player (your position is saved) |
 
 ### Updating
 Download and install the new APK in the same way. It installs over the old version and keeps your login and settings.
@@ -186,7 +186,7 @@ Posters are cached (up to 250 MB) and the oldest are removed automatically. You 
 
 Every push to `main` builds a signed release APK with GitHub Actions and publishes it to **Releases → latest**.
 
-The same workflow also builds the **Windows app** (`desktop/` folder, Kotlin + Compose Multiplatform) on a Windows runner, adds the mpv player, and attaches **PHOENIXA-Windows.zip** to the release.
+The same workflow also builds the **Windows app** (`desktop/` folder, Kotlin + Compose Multiplatform) on a Windows runner, adds the libmpv video engine, and attaches **PHOENIXA-Windows.zip** to the release.
 
 To build the Android app locally you need JDK 17 and the Android SDK (compileSdk 36):
 
@@ -214,7 +214,7 @@ The full source is here, so anyone can read or review it. Bug reports and pull r
 - Created by **[Hanson](https://github.com/hansonds)**.
 - Powered by **[Jellyfin](https://jellyfin.org)**, the free software media system.
 - Playback by **[AndroidX Media3 / ExoPlayer](https://github.com/androidx/media)** and the **[Jellyfin FFmpeg decoder](https://github.com/jellyfin/jellyfin-androidx-media)**.
-- Windows playback by **[mpv](https://mpv.io)** (builds by [shinchiro](https://github.com/shinchiro/mpv-winbuild-cmake)) with the **[uosc](https://github.com/tomasklaen/uosc)** interface. mpv runs as a separate program and keeps its own GPL licence; its source is at [github.com/mpv-player/mpv](https://github.com/mpv-player/mpv).
+- Windows playback by **[libmpv](https://mpv.io)** (builds by [shinchiro](https://github.com/shinchiro/mpv-winbuild-cmake)) through [JNA](https://github.com/java-native-access/jna). libmpv keeps its own licence; its source is at [github.com/mpv-player/mpv](https://github.com/mpv-player/mpv).
 
 PHOENIXA is an independent project and is not affiliated with or endorsed by the Jellyfin project or Amazon.
 

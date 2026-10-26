@@ -150,8 +150,9 @@ fun open(nav: Navigator, item: Item, playIfEpisode: Boolean = false) {
 private fun Hero(items: List<Item>, height: Dp, nav: Navigator) {
     var index by remember { mutableIntStateOf(0) }
     val (src, hovered) = rememberHover()
-    LaunchedEffect(index, hovered, items.size) {
-        if (!App.prefs.heroAutoRotate || hovered || items.size < 2) return@LaunchedEffect
+    // Rotates every 9 s; clicking an arrow or dot restarts the timer
+    LaunchedEffect(index, items.size) {
+        if (!App.prefs.heroAutoRotate || items.size < 2) return@LaunchedEffect
         delay(9000)
         index = (index + 1) % items.size
     }
