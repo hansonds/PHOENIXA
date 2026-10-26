@@ -1,4 +1,4 @@
-name: Build APK
+name: Build PHOENIXA
 
 on:
   push:
@@ -65,10 +65,97 @@ jobs:
           tag_name: latest
           name: PHOENIXA (latest build)
           body: |
-            Latest PHOENIXA build for Fire TV and Android TV.
-            Download **PHOENIXA.apk** below and install it with Downloader (or any file manager).
-            It installs over older versions and keeps your login and settings.
+            Latest PHOENIXA builds.
+
+            **Fire TV / Android TV:** download **PHOENIXA.apk** and install it with Downloader (code **4563854**) or any file manager. It installs over older versions and keeps your login and settings.
+
+            **Windows 10 / 11:** download **PHOENIXA-Windows.zip**, unzip it anywhere and run **PHOENIXA.exe** inside the PHOENIXA folder. No installation needed.
           files: PHOENIXA.apk
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------- Windows desktop app (portable zip) ----------
+  windows:
+    needs: build
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+
+      - name: Build Windows app
+        run: gradle -p desktop createDistributable --stacktrace
+
+      - name: Add the mpv video player
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = "desktop/build/compose/binaries/main/app/PHOENIXA"
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN" }
+
+          # mpv (Windows build by shinchiro)
+          $rel = Invoke-RestMethod -Headers $headers https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest
+          $asset = $rel.assets | Where-Object { $_.name -like 'mpv-x86_64-*.7z' -and $_.name -notlike '*v3*' } | Select-Object -First 1
+          if (-not $asset) { throw "mpv download not found" }
+          Write-Host "Using $($asset.name)"
+          Invoke-WebRequest $asset.browser_download_url -OutFile mpv.7z
+          7z x mpv.7z "-o$app/mpv" -y | Out-Null
+          if (-not (Test-Path "$app/mpv/mpv.exe")) {
+            $exe = Get-ChildItem "$app/mpv" -Recurse -Filter mpv.exe | Select-Object -First 1
+            if (-not $exe) { throw "mpv.exe missing after extract" }
+            Get-ChildItem $exe.DirectoryName | Move-Item -Destination "$app/mpv" -Force
+          }
+          New-Item -ItemType Directory -Force "$app/mpv/portable_config" | Out-Null
+
+          # uosc: modern on-screen controls for mpv (optional)
+          $uosc = $false
+          try {
+            $u = Invoke-RestMethod -Headers $headers https://api.github.com/repos/tomasklaen/uosc/releases/latest
+            $z = $u.assets | Where-Object { $_.name -eq 'uosc.zip' } | Select-Object -First 1
+            Invoke-WebRequest $z.browser_download_url -OutFile uosc.zip
+            Expand-Archive uosc.zip -DestinationPath "$app/mpv/portable_config" -Force
+            $uosc = $true
+          } catch { Write-Host "uosc not added: $_" }
+
+          $conf = @(
+            'hwdec=auto-safe',
+            'vo=gpu-next',
+            'keep-open=no',
+            'screenshot-directory=~~desktop/'
+          )
+          if ($uosc) { $conf += @('osc=no', 'osd-bar=no', 'border=no') }
+          $conf | Set-Content -Encoding ascii "$app/mpv/portable_config/mpv.conf"
+
+      - name: Make portable zip
+        run: Compress-Archive -Path "desktop/build/compose/binaries/main/app/PHOENIXA" -DestinationPath PHOENIXA-Windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PHOENIXA-Windows
+          path: PHOENIXA-Windows.zip
+
+      - name: Add to latest release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: PHOENIXA (latest build)
+          body: |
+            Latest PHOENIXA builds.
+
+            **Fire TV / Android TV:** download **PHOENIXA.apk** and install it with Downloader (code **4563854**) or any file manager. It installs over older versions and keeps your login and settings.
+
+            **Windows 10 / 11:** download **PHOENIXA-Windows.zip**, unzip it anywhere and run **PHOENIXA.exe** inside the PHOENIXA folder. No installation needed.
+          files: PHOENIXA-Windows.zip
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
