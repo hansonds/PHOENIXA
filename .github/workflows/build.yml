@@ -93,7 +93,15 @@ jobs:
           gradle-version: 8.14.3
 
       - name: Build Windows app
-        run: gradle -p desktop createDistributable --stacktrace
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle -p desktop createDistributable --stacktrace 2>&1 | tee build.log || {
+            # Show compile errors as annotations on the run page
+            grep -E '^e: ' build.log | head -40 | sed 's/^/::error::/'
+            grep -A3 'What went wrong' build.log | head -12 | sed 's/^/::error::/'
+            exit 1
+          }
 
       - name: Add the video engine (libmpv)
         env:
