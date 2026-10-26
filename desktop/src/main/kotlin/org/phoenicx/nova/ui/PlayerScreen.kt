@@ -111,8 +111,8 @@ object PlayerUi {
             Key.Spacebar, Key.K, Key.MediaPlayPause -> { s.togglePause(); poke() }
             Key.DirectionLeft, Key.J -> { s.seekRelative(-10.0); seekFlash++ }
             Key.DirectionRight, Key.L -> { s.seekRelative(10.0); seekFlash++ }
-            Key.DirectionUp -> { s.setVolume(s.volume + 5f); poke() }
-            Key.DirectionDown -> { s.setVolume(s.volume - 5f); poke() }
+            Key.DirectionUp -> { s.changeVolume(s.volume + 5f); poke() }
+            Key.DirectionDown -> { s.changeVolume(s.volume - 5f); poke() }
             Key.M -> { s.toggleMute(); poke() }
             Key.F, Key.F11 -> toggleFullscreen()
             Key.N, Key.MediaNext -> Player.playNext()
@@ -360,7 +360,7 @@ private fun VolumeControl(s: MpvSession, modifier: Modifier) {
         Spacer(Modifier.width(8.dp))
         Slider(
             value = if (s.muted) 0f else s.volume.coerceIn(0f, 100f),
-            onValueChange = { s.setVolume(it); PlayerUi.poke() },
+            onValueChange = { s.changeVolume(it); PlayerUi.poke() },
             valueRange = 0f..100f,
             colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Nova.Cyan, inactiveTrackColor = Color(0x40FFFFFF)),
             modifier = Modifier.width(130.dp),

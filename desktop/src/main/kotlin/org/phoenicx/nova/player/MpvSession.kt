@@ -155,7 +155,7 @@ class MpvSession private constructor(private val lib: LibMpv, private val h: Poi
         position = sec
         command("seek", "%.2f".format(java.util.Locale.US, sec.coerceAtLeast(0.0)), "absolute")
     }
-    fun setVolume(v: Float) { volume = v.coerceIn(0f, 130f); set("volume", "%.0f".format(java.util.Locale.US, volume)); if (muted) toggleMute() }
+    fun changeVolume(v: Float) { volume = v.coerceIn(0f, 130f); set("volume", "%.0f".format(java.util.Locale.US, volume)); if (muted) toggleMute() }
     fun toggleMute() { muted = !muted; set("mute", if (muted) "yes" else "no") }
     fun changeSpeed(v: Float) { speed = v; set("speed", v.toString()) }
 
