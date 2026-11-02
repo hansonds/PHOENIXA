@@ -81,6 +81,7 @@ class JellyfinApi(private val prefs: Prefs) {
                 val msg = when (resp.code) {
                     401 -> "Wrong username or password"
                     404 -> "Not found"
+                    502, 503, 504 -> "The server is temporarily unavailable (${resp.code}). Please try again later."
                     else -> "Server error ${resp.code}"
                 }
                 throw ApiException(msg, resp.code)
@@ -142,6 +143,12 @@ class JellyfinApi(private val prefs: Prefs) {
     suspend fun quickConnectFinish(base: String, secret: String) {
         val o = JSONObject(call("POST", "/Users/AuthenticateWithQuickConnect", JSONObject().put("Secret", secret), base, null))
         saveAuth(base, o)
+    }
+
+    /** Ends this device's session on the server, so the saved sign-in token stops working. */
+    suspend fun logout(tok: String?) {
+        if (tok.isNullOrEmpty()) return
+        runCatching { call("POST", "/Sessions/Logout", tokenOverride = tok) }
     }
 
     // ---------- Images ----------

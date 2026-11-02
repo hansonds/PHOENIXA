@@ -1,5 +1,6 @@
 package org.phoenicx.nova
 
+import kotlinx.coroutines.launch
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -58,6 +59,8 @@ fun NovaRoot() {
             Screen.Search -> SearchScreen(nav)
             Screen.Favorites -> FavoritesScreen(nav)
             Screen.Settings -> SettingsScreen(nav, onSignOut = {
+                val tok = app.prefs.token
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { app.api.logout(tok) }
                 app.prefs.signOut()
                 homeState.loaded = false
                 homeState.featured = emptyList()

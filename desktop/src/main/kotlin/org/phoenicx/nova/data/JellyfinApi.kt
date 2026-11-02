@@ -146,6 +146,12 @@ class JellyfinApi(private val prefs: Prefs) {
         saveAuth(base, o)
     }
 
+    /** Ends this device's session on the server, so the saved sign-in token stops working. */
+    suspend fun logout(tok: String?) {
+        if (tok.isNullOrEmpty()) return
+        runCatching { call("POST", "/Sessions/Logout", tokenOverride = tok) }
+    }
+
     // ---------- Images ----------
 
     fun image(itemId: String?, type: String, tag: String?, maxWidth: Int): String? {

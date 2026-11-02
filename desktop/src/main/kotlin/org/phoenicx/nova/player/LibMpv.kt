@@ -5,7 +5,6 @@ import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.ptr.PointerByReference
-import org.phoenicx.nova.App
 import java.io.File
 
 /** The parts of libmpv (mpv's library, libmpv-2.dll) that PHOENIXA uses. */
@@ -61,8 +60,6 @@ interface LibMpv : Library {
             val dirs = mutableListOf<File>()
             System.getProperty("jpackage.app-path")?.let { dirs += File(it).parentFile.resolve("mpv") }
             System.getProperty("compose.application.resources.dir")?.let { dirs += File(it).resolve("mpv") }
-            dirs += File(System.getProperty("user.dir"), "mpv")
-            dirs += File(App.prefs.folder, "mpv")
             for (d in dirs) for (n in names) {
                 val f = File(d, n)
                 if (f.isFile) return f

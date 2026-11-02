@@ -34,6 +34,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.phoenicx.nova.data.JellyfinApi
 import org.phoenicx.nova.data.Library
 import org.phoenicx.nova.data.Prefs
@@ -69,6 +70,8 @@ object App {
     var loggedIn by mutableStateOf(api.isLoggedIn)
 
     fun signOut() {
+        val tok = prefs.token
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { api.logout(tok) }
         prefs.signOut()
         libraries = emptyList()
         loggedIn = false
