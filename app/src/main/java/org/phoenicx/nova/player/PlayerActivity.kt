@@ -298,6 +298,8 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
                     }
                 }
             },
+            // The player is rebuilt once if the device's decoder crashes: show the new one.
+            update = { view -> if (view.player !== c.player) view.player = c.player },
             modifier = Modifier.fillMaxSize(),
         )
 

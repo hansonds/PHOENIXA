@@ -50,12 +50,14 @@ data class TrackOption(
 /** How the video reaches the TV, tried in this order until one works. */
 enum class StreamMode(val label: String) { Direct("Direct play"), Hls("Transcoding"), Progressive("Transcoding (compat)") }
 
-class PlayerController(context: Context) {
+class PlayerController(private val context: Context) {
     private val api = NovaApp.instance.api
     private val prefs = NovaApp.instance.prefs
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    val player: ExoPlayer
+    /** Rebuilt once with the app's own (FFmpeg) audio decoders if the device's decoder crashes. */
+    var player: ExoPlayer by mutableStateOf(buildPlayer(preferExtensions = false)); private set
+    private var preferExtensions = false
 
     var item by mutableStateOf<Item?>(null); private set
     var nextEpisode by mutableStateOf<Item?>(null); private set
@@ -79,10 +81,13 @@ class PlayerController(context: Context) {
         player.setPlaybackSpeed(v)
     }
 
-    init {
+    private fun buildPlayer(preferExtensions: Boolean): ExoPlayer {
         val renderers = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            .setExtensionRendererMode(
+                if (preferExtensions) DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+                else DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
+            )
         val selector = DefaultTrackSelector(context).apply {
             setParameters(
                 buildUponParameters()
@@ -108,7 +113,7 @@ class PlayerController(context: Context) {
             .setTargetBufferBytes(bufferBytes)
             .setPrioritizeTimeOverSizeThresholds(false)
             .build()
-        player = ExoPlayer.Builder(context, renderers)
+        val player = ExoPlayer.Builder(context, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(http))
             .setLoadControl(loadControl)
             .setTrackSelector(selector)
@@ -134,6 +139,15 @@ class PlayerController(context: Context) {
 
             override fun onPlayerError(e: PlaybackException) {
                 val pos = player.currentPosition.coerceAtLeast(0)
+                // Some devices (e.g. Fire TV Stick 3rd gen) have a hardware decoder that crashes on
+                // certain files (Dolby Digital Plus, ...). Like the official Jellyfin app: rebuild the
+                // player once with the app's own decoders preferred and continue at the same spot.
+                val current = item
+                if (!preferExtensions && current != null && isDecoderCrash(e)) {
+                    lastErrors += "${mode.label}: ${e.errorCodeName} (retrying with app decoders)"
+                    switchToAppDecoders(current.id, pos * 10_000)
+                    return
+                }
                 val next = when (mode) {
                     StreamMode.Direct -> if (prefs.directPlayOnly) null else StreamMode.Hls
                     StreamMode.Hls -> StreamMode.Progressive
@@ -149,6 +163,31 @@ class PlayerController(context: Context) {
                 }
             }
         })
+        return player
+    }
+
+    private fun isDecoderCrash(e: PlaybackException): Boolean {
+        if (e.errorCode in PlaybackException.ERROR_CODE_DECODER_INIT_FAILED..PlaybackException.ERROR_CODE_DECODING_RESOURCES_RECLAIMED) return true
+        var c: Throwable? = e
+        while (c != null) {
+            if (c is android.media.MediaCodec.CodecException ||
+                c.javaClass.name.contains("MediaCodec", ignoreCase = true)
+            ) return true
+            c = c.cause
+        }
+        return false
+    }
+
+    private fun switchToAppDecoders(itemId: String, startTicks: Long) {
+        val keepMode = mode
+        val keepErrors = lastErrors.toList()
+        runCatching { player.release() }
+        preferExtensions = true
+        player = buildPlayer(preferExtensions = true)
+        player.setPlaybackSpeed(speed)
+        load(itemId, startTicks, keepMode)
+        lastErrors.clear()
+        lastErrors += keepErrors
     }
 
     /** Version / audio / subtitle chosen on the details page (null = server defaults) */
