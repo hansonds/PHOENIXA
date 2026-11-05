@@ -30,9 +30,15 @@ import org.phoenicx.nova.ui.theme.NovaTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        immersiveOnPhone()
         setContent {
             NovaTheme { NovaRoot() }
         }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) immersiveOnPhone()
     }
 }
 

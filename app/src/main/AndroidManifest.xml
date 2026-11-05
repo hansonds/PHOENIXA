@@ -25,7 +25,7 @@
             android:banner="@drawable/banner_phoenixa"
             android:icon="@mipmap/ic_phoenixa"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout"
-            android:screenOrientation="landscape"
+            android:screenOrientation="sensorLandscape"
             android:windowSoftInputMode="adjustNothing">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -38,6 +38,6 @@
             android:name=".player.PlayerActivity"
             android:exported="false"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="sensorLandscape" />
     </application>
 </manifest>

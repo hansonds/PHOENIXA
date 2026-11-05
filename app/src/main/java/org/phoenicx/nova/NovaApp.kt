@@ -15,6 +15,16 @@ class NovaApp : Application(), ImageLoaderFactory {
     lateinit var api: JellyfinApi
         private set
 
+    /** TV (remote control) or phone/tablet (touch). Fire TV doesn't always report "leanback", but has no touchscreen. */
+    val isTv: Boolean by lazy {
+        val pm = packageManager
+        val ui = getSystemService(UI_MODE_SERVICE) as android.app.UiModeManager
+        pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK) ||
+            pm.hasSystemFeature("amazon.hardware.fire_tv") ||
+            ui.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION ||
+            !pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN)
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -56,4 +66,12 @@ class NovaApp : Application(), ImageLoaderFactory {
         lateinit var instance: NovaApp
             private set
     }
+}
+
+/** Phones: hide the status and navigation bars for a full-screen cinema look (swipe from the edge to show them). */
+fun android.app.Activity.immersiveOnPhone() {
+    if (NovaApp.instance.isTv) return
+    val ctl = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+    ctl.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    ctl.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
 }

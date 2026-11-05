@@ -307,6 +307,14 @@ class PlayerController(private val context: Context) {
         player.playWhenReady = !player.playWhenReady
     }
 
+    /** Jump to a point of the video (0 = start, 1 = end); used by the touch seek bar */
+    fun seekTo(fraction: Float) {
+        if (duration <= 0) return
+        val target = (duration * fraction).toLong().coerceIn(0, duration - 1000)
+        player.seekTo(target)
+        position = target
+    }
+
     fun seekBy(ms: Long) {
         val target = (player.currentPosition + ms).coerceIn(0, if (duration > 0) duration - 1000 else Long.MAX_VALUE)
         player.seekTo(target)

@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,9 +48,12 @@ fun FocusSurface(
     content: @Composable BoxScope.(focused: Boolean) -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
+    val isFocused by interaction.collectIsFocusedAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    // TV: highlight follows the remote's focus. Phone: highlight while the finger is down.
+    val focused = if (org.phoenicx.nova.NovaApp.instance.isTv) isFocused else pressed
     val scale by animateFloatAsState(if (focused) focusedScale else 1f, tween(130, easing = FastOutSlowInEasing), label = "scale")
-    LaunchedEffect(focused) { if (focused) onFocused?.invoke() }
+    LaunchedEffect(isFocused) { if (isFocused) onFocused?.invoke() }
 
     Box(
         modifier

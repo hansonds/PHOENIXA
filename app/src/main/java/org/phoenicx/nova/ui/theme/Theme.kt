@@ -138,6 +138,25 @@ object NovaType {
 
 @Composable
 fun NovaTheme(content: @Composable () -> Unit) {
+    PhoneScale { NovaThemeInner(content) }
+}
+
+/**
+ * On phones and tablets the TV layout is scaled so the long side of the screen is 960 dp,
+ * exactly like a TV. Everything keeps the same proportions as on the big screen.
+ */
+@Composable
+private fun PhoneScale(content: @Composable () -> Unit) {
+    if (org.phoenicx.nova.NovaApp.instance.isTv) { content(); return }
+    val metrics = androidx.compose.ui.platform.LocalContext.current.resources.displayMetrics
+    val current = androidx.compose.ui.platform.LocalDensity.current
+    val longSide = maxOf(metrics.widthPixels, metrics.heightPixels).toFloat()
+    val density = androidx.compose.ui.unit.Density(longSide / 960f, current.fontScale.coerceIn(0.85f, 1.15f))
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides density) { content() }
+}
+
+@Composable
+private fun NovaThemeInner(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = Nova.Cyan,

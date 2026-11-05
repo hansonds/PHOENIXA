@@ -88,9 +88,14 @@ import androidx.media3.common.C
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import org.phoenicx.nova.NovaApp
+import org.phoenicx.nova.immersiveOnPhone
 import org.phoenicx.nova.data.Item
 import org.phoenicx.nova.ui.components.FocusSurface
 import org.phoenicx.nova.ui.components.NovaButton
@@ -111,6 +116,7 @@ class PlayerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        immersiveOnPhone()
         controller = PlayerController(this)
         val itemId = intent.getStringExtra(EXTRA_ID) ?: return finish()
         val sel = if (intent.hasExtra(EXTRA_SOURCE) || intent.hasExtra(EXTRA_AUDIO) || intent.hasExtra(EXTRA_SUB))
@@ -138,6 +144,11 @@ class PlayerActivity : ComponentActivity() {
         )
         if (nav && rescue != null) { rescue?.invoke(); return true }
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) immersiveOnPhone()
     }
 
     override fun onPause() {
@@ -301,6 +312,29 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
             // The player is rebuilt once if the device's decoder crashes: show the new one.
             update = { view -> if (view.player !== c.player) view.player = c.player },
             modifier = Modifier.fillMaxSize(),
+        )
+
+        // Touch: tap shows / hides the controls (or closes a panel), double-tap left / right side seeks 10 s
+        Box(
+            Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            lastInput = System.currentTimeMillis()
+                            when {
+                                panel != Panel.None -> panel = Panel.None
+                                showInfo -> showInfo = false
+                                else -> overlay = !overlay
+                            }
+                        },
+                        onDoubleTap = { o ->
+                            lastInput = System.currentTimeMillis()
+                            if (o.x < size.width / 2) c.seekBy(-10_000) else c.seekBy(10_000)
+                            if (!overlay) seekFlash++
+                        },
+                    )
+                }
         )
 
         if (c.buffering && c.error == null) {
@@ -476,10 +510,26 @@ private fun SeekBar(c: PlayerController, requester: FocusRequester) {
     val focused by interaction.collectIsFocusedAsState()
     val frac = if (c.duration > 0) (c.position.toFloat() / c.duration).coerceIn(0f, 1f) else 0f
     val buffered = if (c.duration > 0) (c.player.bufferedPosition.toFloat() / c.duration).coerceIn(0f, 1f) else 0f
+    var widthPx by remember { mutableIntStateOf(1) }
+    var dragFrac by remember { mutableStateOf<Float?>(null) }
+    val shown = dragFrac ?: frac
     Box(
         Modifier
             .fillMaxWidth()
-            .height(22.dp)
+            .height(36.dp)
+            .onSizeChanged { widthPx = it.width.coerceAtLeast(1) }
+            // Touch: tap a spot or drag the bar to jump there
+            .pointerInput(c) {
+                detectTapGestures { o -> c.seekTo((o.x / widthPx).coerceIn(0f, 1f)) }
+            }
+            .pointerInput(c) {
+                detectHorizontalDragGestures(
+                    onDragStart = { o -> dragFrac = (o.x / widthPx).coerceIn(0f, 1f) },
+                    onDragEnd = { dragFrac?.let { c.seekTo(it) }; dragFrac = null },
+                    onDragCancel = { dragFrac = null },
+                    onHorizontalDrag = { change, _ -> dragFrac = (change.position.x / widthPx).coerceIn(0f, 1f) },
+                )
+            }
             .focusRequester(requester)
             .onKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
@@ -494,12 +544,13 @@ private fun SeekBar(c: PlayerController, requester: FocusRequester) {
             .focusable(interactionSource = interaction),
         contentAlignment = Alignment.CenterStart,
     ) {
-        val h = if (focused) 8.dp else 4.dp
+        val active = focused || dragFrac != null
+        val h = if (active) 8.dp else 4.dp
         Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(4.dp)).background(Color(0x33FFFFFF)))
         Box(Modifier.fillMaxWidth(buffered).height(h).clip(RoundedCornerShape(4.dp)).background(Color(0x40FFFFFF)))
-        Box(Modifier.fillMaxWidth(frac).height(h).clip(RoundedCornerShape(4.dp)).background(Nova.AccentBrushH))
-        if (focused) {
-            Row(Modifier.fillMaxWidth(frac.coerceAtLeast(0.001f)), horizontalArrangement = Arrangement.End) {
+        Box(Modifier.fillMaxWidth(shown).height(h).clip(RoundedCornerShape(4.dp)).background(Nova.AccentBrushH))
+        if (active) {
+            Row(Modifier.fillMaxWidth(shown.coerceAtLeast(0.001f)), horizontalArrangement = Arrangement.End) {
                 Box(
                     Modifier.offset(x = 9.dp).size(18.dp).clip(CircleShape).background(Color.White)
                         .border(3.dp, Nova.Cyan, CircleShape)

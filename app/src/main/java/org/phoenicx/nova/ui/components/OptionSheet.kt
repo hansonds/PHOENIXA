@@ -1,6 +1,8 @@
 package org.phoenicx.nova.ui.components
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -62,12 +64,18 @@ fun OptionSheet(
     LaunchedEffect(Unit) { delay(80); runCatching { requester.requestFocus() } }
     BackHandler { onDismiss() }
 
-    Box(Modifier.fillMaxSize().background(Nova.BgDeep.copy(alpha = 0.60f))) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Nova.BgDeep.copy(alpha = 0.60f))
+            .pointerInput(Unit) { detectTapGestures { onDismiss() } } // touch: tap outside to close
+    ) {
         Column(
             Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
                 .width(440.dp)
+                .pointerInput(Unit) { detectTapGestures { } } // taps inside the panel don't close it
                 .background(Brush.horizontalGradient(listOf(Nova.Bg.copy(alpha = 0.95f), Nova.Bg.copy(alpha = 0.99f))))
                 .border(1.dp, Nova.Stroke)
                 .padding(28.dp)

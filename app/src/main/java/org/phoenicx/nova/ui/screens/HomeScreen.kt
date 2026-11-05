@@ -52,6 +52,8 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -260,6 +262,21 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
                                     .fillMaxWidth()
                                     .height(heroH)
                                     .onFocusChanged { if (it.hasFocus) { heroArea = true; state.heroMode = true } }
+                                    // Touch: swipe the banner left / right to change the featured title
+                                    .pointerInput(featured.size) {
+                                        var drag = 0f
+                                        detectHorizontalDragGestures(
+                                            onDragStart = { drag = 0f },
+                                            onHorizontalDrag = { _, dx -> drag += dx },
+                                            onDragEnd = {
+                                                if (featured.size > 1 && kotlin.math.abs(drag) > 60.dp.toPx()) {
+                                                    state.heroIndex = if (drag < 0) (state.heroIndex + 1) % featured.size
+                                                    else (state.heroIndex - 1 + featured.size) % featured.size
+                                                    interactions++
+                                                }
+                                            },
+                                        )
+                                    }
                                     .padding(horizontal = 56.dp),
                                 verticalArrangement = Arrangement.Bottom,
                             ) {

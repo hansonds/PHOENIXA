@@ -4,13 +4,13 @@
 
 # PHOENIXA
 
-**A cinematic Jellyfin client for Fire TV, Android TV and Windows.**
+**A cinematic Jellyfin client for Fire TV, Android TV, Android phones and Windows.**
 
 Built for the couch: big artwork, calm navigation, and a player that plays your files exactly as they are.
 
 [![Build APK](https://github.com/hansonds/PHOENIXA/actions/workflows/build.yml/badge.svg)](https://github.com/hansonds/PHOENIXA/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/hansonds/PHOENIXA?label=download&color=ff5a2c)](https://github.com/hansonds/PHOENIXA/releases/latest)
-![Platform](https://img.shields.io/badge/platform-Fire%20TV%20%7C%20Android%20TV%20%7C%20Windows-6ce5f5)
+![Platform](https://img.shields.io/badge/platform-Fire%20TV%20%7C%20Android%20TV%20%7C%20Phone%20%7C%20Windows-6ce5f5)
 ![Min Android](https://img.shields.io/badge/Android-7.0%2B-a58bff)
 
 <img src="docs/banner.png" alt="PHOENIXA banner" width="640" />
@@ -75,6 +75,11 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 
 ### Android TV / Google TV / Android boxes
 Install **Downloader** from the Play Store and enter the same code **`4563854`**. You can also use **Send Files to TV**, or copy the APK over USB and open it with a file manager.
+
+### Android phones and tablets
+The same **PHOENIXA.apk** works on phones: download it on your phone from [Releases → latest](https://github.com/hansonds/PHOENIXA/releases/latest) and open it to install (allow "Install unknown apps" for your browser when asked).
+
+On a phone the app shows the same TV design in landscape, made for touch: tap anything to open it, swipe the home banner to change the featured title, tap the video to show or hide the controls, double-tap the left or right side to skip 10 s, and drag the seek bar to jump.
 
 ### Windows 10 / 11
 1. Download **PHOENIXA-Windows.zip** from [Releases → latest](https://github.com/hansonds/PHOENIXA/releases/latest).

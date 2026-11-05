@@ -2,6 +2,8 @@ package org.phoenicx.nova.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -223,12 +225,17 @@ private fun BioOverlay(name: String, bio: String, onClose: () -> Unit) {
     val req = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(60); runCatching { req.requestFocus() } }
     BackHandler { onClose() }
-    Box(Modifier.fillMaxSize().background(Nova.BgDeep.copy(alpha = 0.90f)), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier.fillMaxSize().background(Nova.BgDeep.copy(alpha = 0.90f))
+            .pointerInput(Unit) { detectTapGestures { onClose() } },
+        contentAlignment = Alignment.Center,
+    ) {
         Column(
             Modifier
                 .widthIn(max = 900.dp)
                 .fillMaxWidth(0.8f)
                 .fillMaxHeight(0.82f)
+                .pointerInput(Unit) { detectTapGestures { } }
                 .clip(RoundedCornerShape(26.dp))
                 .background(Nova.Surface)
                 .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
@@ -236,7 +243,7 @@ private fun BioOverlay(name: String, bio: String, onClose: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(name, style = NovaType.Title, color = Nova.Text, modifier = Modifier.weight(1f))
-                Text("▲ ▼ scroll   ·   Back to close", style = NovaType.Label, color = Nova.TextFaint)
+                Text(if (org.phoenicx.nova.NovaApp.instance.isTv) "▲ ▼ scroll   ·   Back to close" else "Tap outside to close", style = NovaType.Label, color = Nova.TextFaint)
             }
             Spacer(Modifier.height(18.dp))
             Box(

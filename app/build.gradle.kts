@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Google Play build: run with -PplayStore=true (marks the app TV-only and signs with your private upload key)
+// Google Play build: run with -PplayStore=true (signs with your private upload key)
 val playStore = (project.findProperty("playStore") as String?) == "true"
 val uploadKeystore: String? = System.getenv("UPLOAD_KEYSTORE_FILE")
 
@@ -16,10 +16,10 @@ android {
         applicationId = "org.phoenicx.nova"
         minSdk = 24
         targetSdk = 34
-        versionCode = 21
-        versionName = "1.7.2"
-        // Google Play: TV-only. Sideload/Amazon: not required (some Fire TV models don't report it).
-        manifestPlaceholders["leanbackRequired"] = if (playStore) "true" else "false"
+        versionCode = 22
+        versionName = "1.8.0"
+        // One app for TV and phone: "leanback" (TV) is not required, so phones and tablets can install it too.
+        manifestPlaceholders["leanbackRequired"] = "false"
     }
 
     signingConfigs {
