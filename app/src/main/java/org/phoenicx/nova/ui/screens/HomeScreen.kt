@@ -44,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -232,6 +233,11 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
             heroItem?.let { api.backdrop(it) },
             kenBurns = false,
             dim = if (heroArea) 0f else 0.5f,
+            // Phone: the banner artwork scrolls away with the banner instead of staying behind the rows
+            modifier = if (Lay.phone) Modifier.graphicsLayer {
+                val list = state.listState
+                translationY = if (list.firstVisibleItemIndex == 0) -list.firstVisibleItemScrollOffset.toFloat() else -size.height
+            } else Modifier,
         )
 
         Column(Modifier.fillMaxSize()) {
