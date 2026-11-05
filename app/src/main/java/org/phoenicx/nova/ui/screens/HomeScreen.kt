@@ -44,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -226,6 +227,7 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
         goToHero()
     }
 
+    var navHeightPx by remember { mutableIntStateOf(0) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val heroH: Dp = if (Lay.phone) (maxHeight * 0.56f - 90.dp).coerceAtLeast(340.dp)
         else (maxHeight - 90.dp - 128.dp).coerceAtLeast(300.dp)
@@ -234,7 +236,8 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
             kenBurns = false,
             dim = if (heroArea) 0f else 0.5f,
             // Phone: the banner artwork scrolls away with the banner instead of staying behind the rows
-            modifier = if (Lay.phone) Modifier.graphicsLayer {
+            // Phone: the picture starts below the top menu (menu first, then the banner)
+            modifier = if (Lay.phone) Modifier.padding(top = with(androidx.compose.ui.platform.LocalDensity.current) { navHeightPx.toDp() }).graphicsLayer {
                 val list = state.listState
                 translationY = if (list.firstVisibleItemIndex == 0) -list.firstVisibleItemScrollOffset.toFloat() else -size.height
             } else Modifier,
@@ -242,7 +245,11 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
 
         Column(Modifier.fillMaxSize()) {
             // Top bar stays put, always reachable with UP
-            Box(Modifier.onFocusChanged { if (it.hasFocus) { heroArea = true; state.heroMode = true } }) {
+            Box(
+                Modifier
+                    .onSizeChanged { navHeightPx = it.height }
+                    .onFocusChanged { if (it.hasFocus) { heroArea = true; state.heroMode = true } }
+            ) {
                 TopNav(nav, Screen.Home)
             }
 
