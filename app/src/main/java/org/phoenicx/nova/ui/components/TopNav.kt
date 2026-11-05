@@ -84,7 +84,7 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
                 .clip(RoundedCornerShape(26.dp))
                 .background(Nova.Surface.copy(alpha = 0.36f))
                 .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
-                .horizontalScroll(rememberScrollState())
+                .horizontalScroll(nav.navScroll)
                 .padding(5.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,

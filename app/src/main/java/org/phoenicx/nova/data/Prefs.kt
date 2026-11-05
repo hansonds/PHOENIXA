@@ -55,6 +55,11 @@ class Prefs(context: Context) {
         get() = sp.getInt("cardSize", 1)
         set(v) = sp.edit().putInt("cardSize", v).apply()
 
+    /** Player picture size: 0 = Fit, 1 = Zoom, 2 = Stretch */
+    var videoFit: Int
+        get() = sp.getInt("videoFit", 0)
+        set(v) = sp.edit().putInt("videoFit", v).apply()
+
     var theme: Int
         get() = sp.getInt("theme", 0)
         set(v) = sp.edit().putInt("theme", v).apply()

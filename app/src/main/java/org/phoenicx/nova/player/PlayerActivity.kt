@@ -90,6 +90,8 @@ import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material.icons.outlined.AspectRatio
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import coil.compose.AsyncImage
@@ -310,14 +312,33 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
                 }
             },
             // The player is rebuilt once if the device's decoder crashes: show the new one.
-            update = { view -> if (view.player !== c.player) view.player = c.player },
+            update = { view ->
+                if (view.player !== c.player) view.player = c.player
+                view.resizeMode = when (c.videoFit) {
+                    1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                    else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                }
+            },
             modifier = Modifier.fillMaxSize(),
         )
 
-        // Touch: tap shows / hides the controls (or closes a panel), double-tap left / right side seeks 10 s
+        // Touch: tap shows / hides the controls (or closes a panel), double-tap left / right side seeks 10 s,
+        // pinch out to zoom the picture to fill the screen, pinch in to fit it again
+        var fitHint by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(fitHint) { if (fitHint != null) { delay(1400); fitHint = null } }
         Box(
             Modifier
                 .fillMaxSize()
+                .pointerInput(Unit) {
+                    var zoomAcc = 1f
+                    detectTransformGestures { _, _, zoom, _ ->
+                        zoomAcc *= zoom
+                        if (zoomAcc > 1.2f && c.videoFit == 0) { c.setFit(1); fitHint = c.videoFitLabel; zoomAcc = 1f }
+                        else if (zoomAcc < 0.83f && c.videoFit != 0) { c.setFit(0); fitHint = c.videoFitLabel; zoomAcc = 1f }
+                        else if (zoomAcc !in 0.6f..1.6f) zoomAcc = 1f
+                    }
+                }
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
@@ -336,6 +357,15 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
                     )
                 }
         )
+
+        fitHint?.let { hint ->
+            Text(
+                hint, style = NovaType.Button, color = Color.White,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 40.dp)
+                    .background(Nova.BgDeep.copy(alpha = 0.75f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
+            )
+        }
 
         if (c.buffering && c.error == null) {
             Box(Modifier.align(Alignment.Center).size(90.dp)) { NovaLoader() }
@@ -418,6 +448,11 @@ private fun Overlay(
             RoundIcon(Icons.Outlined.ClosedCaption, "Subtitles") { onPanel(Panel.Subtitles) }
             RoundIcon(Icons.Outlined.SurroundSound, "Audio") { onPanel(Panel.Audio) }
             RoundIcon(Icons.Outlined.Speed, "Speed", active = c.speed != 1f) { onPanel(Panel.Speed) }
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            RoundIcon(Icons.Outlined.AspectRatio, "Screen size", active = c.videoFit != 0) {
+                c.cycleFit()
+                android.widget.Toast.makeText(ctx, c.videoFitLabel, android.widget.Toast.LENGTH_SHORT).show()
+            }
             if (c.nextEpisode != null) RoundIcon(Icons.Filled.SkipNext, "Next episode") { c.playNext() }
             RoundIcon(Icons.Outlined.Info, "Info", active = showInfo) { onInfo() }
         }

@@ -19,6 +19,9 @@ class Navigator(start: Screen) {
     val stack = mutableStateListOf(start)
     val libraries = mutableStateOf<List<Library>>(emptyList())
 
+    /** Scroll position of the top menu bar, shared by every page so it stays where you left it */
+    val navScroll = androidx.compose.foundation.ScrollState(0)
+
     val current: Screen get() = stack.last()
 
     /** Set when a screen was opened from the top bar, so it keeps focus on the top bar. */

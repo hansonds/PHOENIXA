@@ -76,6 +76,17 @@ class PlayerController(private val context: Context) {
     private val lastErrors = mutableListOf<String>()
     var speed by mutableStateOf(1f); private set
 
+    /** Picture size: 0 = Fit (whole picture), 1 = Zoom (fills the screen, edges cut), 2 = Stretch */
+    var videoFit by mutableStateOf(prefs.videoFit.coerceIn(0, 2)); private set
+    val videoFitLabel: String get() = listOf("Fit to screen", "Zoom to fill", "Stretch")[videoFit]
+
+    fun setFit(mode: Int) {
+        videoFit = mode.coerceIn(0, 2)
+        prefs.videoFit = videoFit
+    }
+
+    fun cycleFit() = setFit((videoFit + 1) % 3)
+
     fun changeSpeed(v: Float) {
         speed = v
         player.setPlaybackSpeed(v)
