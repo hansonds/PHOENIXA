@@ -186,6 +186,10 @@ fun NovaTextField(
                     .onPreviewKeyEvent { e ->
                         if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                         when (e.key) {
+                            Key.Backspace -> {
+                                if (value.isNotEmpty()) onValueChange(value.dropLast(1))
+                                true
+                            }
                             Key.DirectionDown -> { finish(next = true); true }
                             Key.DirectionUp -> { kb?.hide(); editing = false; true }
                             else -> false

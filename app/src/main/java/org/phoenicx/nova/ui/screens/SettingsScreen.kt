@@ -37,6 +37,7 @@ import org.phoenicx.nova.ui.Screen
 import org.phoenicx.nova.ui.components.FocusSurface
 import org.phoenicx.nova.ui.components.NovaButton
 import org.phoenicx.nova.ui.components.TopNav
+import org.phoenicx.nova.ui.theme.Lay
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
 import org.phoenicx.nova.ui.theme.UiScale
@@ -63,7 +64,7 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         TopNav(nav, Screen.Settings)
         Column(
-            Modifier.padding(horizontal = 56.dp).widthIn(max = 760.dp).verticalScroll(rememberScrollState()),
+            Modifier.padding(horizontal = Lay.side).widthIn(max = 760.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text("Settings", style = NovaType.Title, color = Nova.Text)

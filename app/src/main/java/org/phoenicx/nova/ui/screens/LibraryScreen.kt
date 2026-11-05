@@ -3,6 +3,8 @@ package org.phoenicx.nova.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,6 +42,7 @@ import org.phoenicx.nova.ui.components.NovaLoader
 import org.phoenicx.nova.ui.components.PosterCard
 import org.phoenicx.nova.ui.components.TopNav
 import org.phoenicx.nova.ui.components.api
+import org.phoenicx.nova.ui.theme.Lay
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
 import org.phoenicx.nova.ui.theme.UiScale
@@ -110,16 +113,9 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
 
     Column(Modifier.fillMaxSize()) {
         TopNav(nav, Screen.Lib(lib))
-        Row(Modifier.padding(start = 56.dp, end = 56.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text(lib.name, style = NovaType.Title, color = Nova.Text)
-                if (total >= 0) Text("$total titles", style = NovaType.Label, color = Nova.TextFaint)
-            }
-            Spacer(Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                sorts.forEachIndexed { i, s ->
-                    SortChip(s.label, i == sortIdx) { sortIdx = i }
-                }
+        PageHeader(lib.name, if (total >= 0) "$total titles" else null) {
+            sorts.forEachIndexed { i, s ->
+                SortChip(s.label, i == sortIdx) { sortIdx = i }
             }
         }
         when {
@@ -129,8 +125,8 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
             else -> LazyVerticalGrid(
                 state = grid,
                 columns = GridCells.Adaptive(UiScale.posterWidth.dp),
-                contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 18.dp, bottom = 60.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 18.dp, bottom = 60.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (Lay.phone) 12.dp else 20.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
@@ -147,6 +143,31 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
                     )
                 }
             }
+        }
+    }
+}
+
+/** Page title with filter chips: beside it on TV, below it (scrolling sideways) on phones */
+@Composable
+fun PageHeader(title: String, subtitle: String?, chips: @Composable () -> Unit) {
+    if (Lay.phone) {
+        Column(Modifier.padding(start = Lay.side, end = Lay.side, bottom = 4.dp)) {
+            Text(title, style = NovaType.Title, color = Nova.Text)
+            if (subtitle != null) Text(subtitle, style = NovaType.Label, color = Nova.TextFaint)
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) { chips() }
+        }
+    } else {
+        Row(Modifier.padding(start = Lay.side, end = Lay.side, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text(title, style = NovaType.Title, color = Nova.Text)
+                if (subtitle != null) Text(subtitle, style = NovaType.Label, color = Nova.TextFaint)
+            }
+            Spacer(Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { chips() }
         }
     }
 }

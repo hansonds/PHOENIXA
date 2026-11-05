@@ -30,6 +30,11 @@ import org.phoenicx.nova.ui.theme.NovaTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!NovaApp.instance.isTv) {
+            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            @Suppress("DEPRECATION")
+            window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
         immersiveOnPhone()
         setContent {
             NovaTheme { NovaRoot() }

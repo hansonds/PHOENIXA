@@ -29,6 +29,7 @@ import org.phoenicx.nova.ui.components.NovaLoader
 import org.phoenicx.nova.ui.components.PosterCard
 import org.phoenicx.nova.ui.components.TopNav
 import org.phoenicx.nova.ui.components.api
+import org.phoenicx.nova.ui.theme.Lay
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
 import org.phoenicx.nova.ui.theme.UiScale
@@ -55,15 +56,8 @@ fun FavoritesScreen(nav: Navigator) {
 
     Column(Modifier.fillMaxSize()) {
         TopNav(nav, Screen.Favorites)
-        Row(Modifier.padding(start = 56.dp, end = 56.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Favorites", style = NovaType.Title, color = Nova.Text)
-                items?.let { Text("${it.size} titles", style = NovaType.Label, color = Nova.TextFaint) }
-            }
-            Spacer(Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                filters.forEachIndexed { i, f -> SortChip(f.first, i == filter) { filter = i } }
-            }
+        PageHeader("Favorites", items?.let { "${it.size} titles" }) {
+            filters.forEachIndexed { i, f -> SortChip(f.first, i == filter) { filter = i } }
         }
         val list = items
         when {
@@ -72,8 +66,8 @@ fun FavoritesScreen(nav: Navigator) {
             list.isEmpty() -> CenterMessage("No favorites yet", "Press ♥ on any movie or show to save it here")
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(UiScale.posterWidth.dp),
-                contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 18.dp, bottom = 60.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 18.dp, bottom = 60.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (Lay.phone) 12.dp else 20.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {

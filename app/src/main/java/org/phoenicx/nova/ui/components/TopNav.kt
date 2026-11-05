@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -72,19 +73,10 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
         }
     }
     val libs = nav.libraries.value.filter { it.collectionType in setOf("movies", "tvshows", "boxsets", null, "homevideos") }
-    Box(modifier.fillMaxWidth()) {
-    // Small clock in the top-right corner, above the bar
-    Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 52.dp)) { Clock() }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = 44.dp, end = 48.dp, top = 18.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        NovaWordmark()
-        Spacer(Modifier.width(22.dp))
-        // Takes the free space; the pill bar scrolls sideways if there are many libraries
-        Box(Modifier.weight(1f)) {
+    val phone = org.phoenicx.nova.ui.theme.Lay.phone
+
+    // The pill bar: search, home, favorites and every library (scrolls sideways if there are many)
+    val pills: @Composable () -> Unit = {
         Row(
             Modifier
                 .clip(RoundedCornerShape(26.dp))
@@ -107,14 +99,50 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
                 NavPill(lib.name, isSel, if (isSel) selReq else null) { if (!isSel) nav.tab(Screen.Lib(lib)) }
             }
         }
-        }
-        Spacer(Modifier.width(16.dp))
+    }
+    val settingsAndAvatar: @Composable () -> Unit = {
         NavIcon(Icons.Outlined.Settings, selected == Screen.Settings, if (selected == Screen.Settings) selReq else null) { if (selected != Screen.Settings) nav.tab(Screen.Settings) }
         Spacer(Modifier.width(10.dp))
         Box(Modifier.size(38.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {
             Text((org.phoenicx.nova.NovaApp.instance.prefs.userName ?: "?").take(1).uppercase(), style = NovaType.Button, color = Nova.OnFocus)
             AsyncImage(api.userImage(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
+    }
+
+    if (phone) {
+        // Phone (portrait): logo, clock, settings and profile on top; the pill bar full width below
+        Column(modifier.fillMaxWidth().padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 6.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_stacked),
+                    contentDescription = "PHOENIXA",
+                    modifier = Modifier.size(52.dp),
+                )
+                Spacer(Modifier.weight(1f))
+                Clock()
+                Spacer(Modifier.width(14.dp))
+                settingsAndAvatar()
+            }
+            Spacer(Modifier.height(6.dp))
+            Box(Modifier.padding(start = 4.dp)) { pills() }
+        }
+        return
+    }
+
+    Box(modifier.fillMaxWidth()) {
+    // Small clock in the top-right corner, above the bar
+    Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 52.dp)) { Clock() }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 44.dp, end = 48.dp, top = 18.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NovaWordmark()
+        Spacer(Modifier.width(22.dp))
+        Box(Modifier.weight(1f)) { pills() }
+        Spacer(Modifier.width(16.dp))
+        settingsAndAvatar()
     }
     }
 }

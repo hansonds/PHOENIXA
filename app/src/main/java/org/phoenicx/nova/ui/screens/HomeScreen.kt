@@ -83,6 +83,7 @@ import org.phoenicx.nova.ui.components.SectionTitle
 import org.phoenicx.nova.ui.components.TopNav
 import org.phoenicx.nova.ui.components.api
 import org.phoenicx.nova.ui.theme.UiScale
+import org.phoenicx.nova.ui.theme.Lay
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
 
@@ -225,7 +226,8 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val heroH: Dp = (maxHeight - 90.dp - 128.dp).coerceAtLeast(300.dp)
+        val heroH: Dp = if (Lay.phone) (maxHeight * 0.56f - 90.dp).coerceAtLeast(340.dp)
+        else (maxHeight - 90.dp - 128.dp).coerceAtLeast(300.dp)
         BackdropLayer(
             heroItem?.let { api.backdrop(it) },
             kenBurns = false,
@@ -277,7 +279,7 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
                                             },
                                         )
                                     }
-                                    .padding(horizontal = 56.dp),
+                                    .padding(horizontal = Lay.side),
                                 verticalArrangement = Arrangement.Bottom,
                             ) {
                                 HeroInfo(heroItem)
@@ -315,8 +317,14 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
                                             scope.launch { runCatching { api.setFavorite(heroItem.id, fav) } }
                                         }
                                     }
-                                    Spacer(Modifier.weight(1f))
+                                    if (!Lay.phone) {
+                                        Spacer(Modifier.weight(1f))
+                                        SlideIndicator(featured.size, state.heroIndex, slideProgress.value)
+                                    }
+                                }
+                                if (Lay.phone) {
                                     SlideIndicator(featured.size, state.heroIndex, slideProgress.value)
+                                    Spacer(Modifier.height(8.dp))
                                 }
                             }
                         } else {
@@ -368,11 +376,11 @@ private fun ContentRow(
             .padding(top = 4.dp)
             .onFocusChanged { if (it.hasFocus) { state.focusedRow = rowIndex; onRowFocused() } }
     ) {
-        SectionTitle(row.title, Modifier.padding(start = 56.dp))
-        EdgeScroll(56.dp, 56.dp) {
+        SectionTitle(row.title, Modifier.padding(start = Lay.side))
+        EdgeScroll(Lay.side, Lay.side) {
             LazyRow(
                 state = state.rowState(row.key),
-                contentPadding = PaddingValues(horizontal = 56.dp, vertical = 12.dp),
+                contentPadding = PaddingValues(horizontal = Lay.side, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(if (row.landscape) 18.dp else 16.dp),
             ) {
                 itemsIndexed(row.items, key = { _, it -> it.id }) { _, item ->

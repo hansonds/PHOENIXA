@@ -1,6 +1,7 @@
 package org.phoenicx.nova.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -75,6 +76,7 @@ import org.phoenicx.nova.ui.components.ProgressBar
 import org.phoenicx.nova.ui.components.SectionTitle
 import org.phoenicx.nova.ui.components.api
 import org.phoenicx.nova.ui.components.formatRuntime
+import org.phoenicx.nova.ui.theme.Lay
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
 import org.phoenicx.nova.ui.theme.UiScale
@@ -162,9 +164,10 @@ fun DetailScreen(nav: Navigator, itemId: String) {
         EdgeScroll(70.dp, 40.dp) {
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 80.dp)) {
                 item("header") {
-                    Box(Modifier.fillMaxWidth().height(headerH)) {
+                    // TV: the header fills the screen above the rows. Phone: it starts below the artwork and grows with its content.
+                    Box(Modifier.fillMaxWidth().then(if (Lay.phone) Modifier.padding(top = maxHeight * 0.27f) else Modifier.height(headerH))) {
                         Column(
-                            Modifier.align(Alignment.BottomStart).padding(start = 56.dp, end = 56.dp, bottom = 24.dp).widthIn(max = 720.dp)
+                            Modifier.align(Alignment.BottomStart).padding(start = Lay.side, end = Lay.side, bottom = 24.dp).widthIn(max = 720.dp)
                         ) {
                             if (it.isEpisode && it.seriesName != null) {
                                 Text(it.seriesName.uppercase(), style = NovaType.Caption, color = Nova.Cyan)
@@ -176,10 +179,10 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                 Text(listOfNotNull(it.episodeLabel, it.name).joinToString("  ·  "), style = NovaType.Section, color = Nova.Text)
                             }
                             Spacer(Modifier.height(16.dp))
-                            MetaRow(it, showEpisode = false)
+                            MetaRow(it, Modifier.phoneScroll(), showEpisode = false)
                             if (it.genres.isNotEmpty()) {
                                 Spacer(Modifier.height(12.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { it.genres.take(5).forEach { g -> GlassChip(g) } }
+                                Row(Modifier.phoneScroll(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { it.genres.take(5).forEach { g -> GlassChip(g) } }
                             }
                             it.taglines.firstOrNull()?.let { tag ->
                                 Spacer(Modifier.height(14.dp))
@@ -220,7 +223,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                             val src = it.mediaSources.getOrNull(srcIdx)
                             if (!it.isSeries && src != null) {
                                 Spacer(Modifier.height(16.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(Modifier.phoneScroll(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     if (it.mediaSources.size > 1) {
                                         SelectorChip("VERSION", src.label, chipRequesters.getValue("version")) {
                                             lastSheet = "version"; sheet = "version"
@@ -256,10 +259,10 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                 if (it.isCollection && children.isNotEmpty()) {
                     item("children") {
                         Column(Modifier.padding(top = 8.dp)) {
-                            SectionTitle("In this collection · ${children.size}", Modifier.padding(start = 56.dp))
-                            EdgeScroll(56.dp, 56.dp) {
+                            SectionTitle("In this collection · ${children.size}", Modifier.padding(start = Lay.side))
+                            EdgeScroll(Lay.side, Lay.side) {
                                 LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 56.dp, vertical = 16.dp),
+                                    contentPadding = PaddingValues(horizontal = Lay.side, vertical = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                                 ) {
                                     items(children, key = { c -> c.id }) { c ->
@@ -274,18 +277,18 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                 if (it.isSeries && seasons.isNotEmpty()) {
                     item("seasons") {
                         Column {
-                            SectionTitle("Episodes", Modifier.padding(start = 56.dp, top = 8.dp))
+                            SectionTitle("Episodes", Modifier.padding(start = Lay.side, top = 8.dp))
                             LazyRow(
-                                contentPadding = PaddingValues(horizontal = 56.dp, vertical = 12.dp),
+                                contentPadding = PaddingValues(horizontal = Lay.side, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
                                 items(seasons, key = { s -> s.id }) { s ->
                                     SeasonTab(s.name, s.id == selectedSeason?.id) { selectedSeason = s }
                                 }
                             }
-                            EdgeScroll(56.dp, 56.dp) {
+                            EdgeScroll(Lay.side, Lay.side) {
                                 LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 56.dp, vertical = 14.dp),
+                                    contentPadding = PaddingValues(horizontal = Lay.side, vertical = 14.dp),
                                     horizontalArrangement = Arrangement.spacedBy(20.dp),
                                 ) {
                                     items(episodes, key = { e -> e.id }) { e ->
@@ -314,10 +317,10 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                 if (cast.isNotEmpty()) {
                     item("cast") {
                         Column(Modifier.padding(top = 12.dp)) {
-                            SectionTitle("Cast & Crew", Modifier.padding(start = 56.dp))
-                            EdgeScroll(56.dp, 56.dp) {
+                            SectionTitle("Cast & Crew", Modifier.padding(start = Lay.side))
+                            EdgeScroll(Lay.side, Lay.side) {
                                 LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 56.dp, vertical = 16.dp),
+                                    contentPadding = PaddingValues(horizontal = Lay.side, vertical = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 ) {
                                     items(cast.take(30), key = { p -> p.id + p.role }) { p -> PersonCard(p) { nav.push(Screen.Person(p.id, p.name)) } }
@@ -330,10 +333,10 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                 if (similar.isNotEmpty()) {
                     item("similar") {
                         Column(Modifier.padding(top = 12.dp)) {
-                            SectionTitle("More Like This", Modifier.padding(start = 56.dp))
-                            EdgeScroll(56.dp, 56.dp) {
+                            SectionTitle("More Like This", Modifier.padding(start = Lay.side))
+                            EdgeScroll(Lay.side, Lay.side) {
                                 LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 56.dp, vertical = 16.dp),
+                                    contentPadding = PaddingValues(horizontal = Lay.side, vertical = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                                 ) {
                                     items(similar, key = { s -> s.id }) { s ->
@@ -416,7 +419,7 @@ private fun ActionRow(
     onFocusRow: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
-    Row(Modifier.onFocusChanged { f -> if (f.hasFocus) onFocusRow() }, horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.onFocusChanged { f -> if (f.hasFocus) onFocusRow() }.phoneScroll(), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         val label = when {
             item.isSeries && nextUp != null -> {
                 val resume = nextUp.playbackPositionTicks > 0
@@ -463,3 +466,8 @@ private fun SeasonTab(name: String, selected: Boolean, onClick: () -> Unit) {
         }
     }
 }
+
+/** On phones, rows of buttons / chips that don't fit scroll sideways */
+@Composable
+private fun Modifier.phoneScroll(): Modifier =
+    if (Lay.phone) this.horizontalScroll(androidx.compose.foundation.rememberScrollState()) else this

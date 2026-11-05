@@ -24,3 +24,12 @@ object UiScale {
         NovaApp.instance.prefs.cardSize = cardSizeIndex
     }
 }
+
+/** Layout values that differ between TV (landscape, remote) and phone (portrait, touch). */
+object Lay {
+    /** Phones and tablets show the app in portrait */
+    val phone: Boolean get() = !NovaApp.instance.isTv
+
+    /** Space between the screen edge and the content */
+    val side: androidx.compose.ui.unit.Dp get() = if (phone) androidx.compose.ui.unit.Dp(16f) else androidx.compose.ui.unit.Dp(56f)
+}

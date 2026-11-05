@@ -133,8 +133,8 @@ fun PersonScreen(nav: Navigator, personId: String, name: String) {
 
     Box(Modifier.fillMaxSize()) {
     // Fixed info panel on the left (never scrolls away) + movies grid on the right
-    Row(Modifier.fillMaxSize().padding(start = 56.dp, top = 36.dp)) {
-        Column(Modifier.width(360.dp).padding(end = 28.dp)) {
+    // Photo, dates and biography (TV: fixed panel on the left; phone: on top of the list)
+    val infoPanel: @Composable () -> Unit = {
             Box(
                 Modifier
                     .size(width = 170.dp, height = 220.dp)
@@ -180,6 +180,36 @@ fun PersonScreen(nav: Navigator, personId: String, name: String) {
                 Spacer(Modifier.height(12.dp))
                 NovaButton("Read more", Icons.Outlined.MenuBook, focusRequester = readMoreReq) { showBio = true }
             }
+    }
+
+    if (org.phoenicx.nova.ui.theme.Lay.phone) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(UiScale.posterWidth.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 60.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column {
+                    infoPanel()
+                    Spacer(Modifier.height(22.dp))
+                    SectionTitle("Movies & Shows · ${list.size}")
+                    if (list.isEmpty()) {
+                        Spacer(Modifier.height(16.dp))
+                        Text("Nothing on your server with this person yet.", style = NovaType.Body, color = Nova.TextDim)
+                    }
+                }
+            }
+            items(list.size, key = { list[it].id }) { i ->
+                val item = list[i]
+                PosterCard(item, onClick = { nav.push(Screen.Detail(item.id)) }, width = UiScale.posterWidth, showTitle = true)
+            }
+        }
+    } else {
+    Row(Modifier.fillMaxSize().padding(start = 56.dp, top = 36.dp)) {
+        Column(Modifier.width(360.dp).padding(end = 28.dp)) {
+            infoPanel()
         }
 
         Column(Modifier.weight(1f)) {
@@ -212,6 +242,7 @@ fun PersonScreen(nav: Navigator, personId: String, name: String) {
                 }
             }
         }
+    }
     }
     if (showBio) BioOverlay(p?.name ?: name, p?.overview ?: "", onClose = { showBio = false })
     }

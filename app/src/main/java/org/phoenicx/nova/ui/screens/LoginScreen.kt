@@ -1,6 +1,9 @@
 package org.phoenicx.nova.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -123,13 +126,14 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
         }
     }
 
-    Row(Modifier.fillMaxSize().padding(horizontal = 80.dp), verticalAlignment = Alignment.CenterVertically) {
+    val phone = org.phoenicx.nova.ui.theme.Lay.phone
+    val layout: @Composable (brandMod: Modifier, cardMod: Modifier) -> Unit = { brandMod, cardMod ->
         // Brand side
-        Column(Modifier.weight(1f)) {
+        Column(brandMod, horizontalAlignment = if (phone) Alignment.CenterHorizontally else Alignment.Start) {
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_stacked),
                 contentDescription = null,
-                modifier = Modifier.size(230.dp),
+                modifier = Modifier.size(if (phone) 150.dp else 230.dp),
             )
             Spacer(Modifier.height(12.dp))
             Spacer(Modifier.height(12.dp))
@@ -139,13 +143,13 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
         // Glass card
         Box(
             Modifier
-                .width(460.dp)
+                .then(cardMod)
                 .background(
                     Brush.verticalGradient(listOf(Nova.SurfaceHi.copy(alpha = 0.20f), Nova.Surface.copy(alpha = 0.40f))),
                     RoundedCornerShape(28.dp),
                 )
                 .border(1.dp, Nova.Stroke, RoundedCornerShape(28.dp))
-                .padding(36.dp)
+                .padding(if (phone) 22.dp else 36.dp)
         ) {
             if (qcCode != null) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -181,5 +185,20 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                 }
             }
         }
+        }
+    if (phone) {
+        // Phone (portrait): logo on top, sign-in card below; scrolls when the keyboard is open
+        Column(
+            Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
+        ) {
+            layout(Modifier, Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(Modifier.fillMaxSize().padding(horizontal = 80.dp), verticalAlignment = Alignment.CenterVertically) {
+            layout(Modifier.weight(1f), Modifier.width(460.dp))
+        }
     }
+
 }

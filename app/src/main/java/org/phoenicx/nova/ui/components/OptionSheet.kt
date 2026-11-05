@@ -74,7 +74,7 @@ fun OptionSheet(
             Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .width(440.dp)
+                .then(if (org.phoenicx.nova.ui.theme.Lay.phone) Modifier.fillMaxWidth(0.88f) else Modifier.width(440.dp))
                 .pointerInput(Unit) { detectTapGestures { } } // taps inside the panel don't close it
                 .background(Brush.horizontalGradient(listOf(Nova.Bg.copy(alpha = 0.95f), Nova.Bg.copy(alpha = 0.99f))))
                 .border(1.dp, Nova.Stroke)

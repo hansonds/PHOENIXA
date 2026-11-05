@@ -11,6 +11,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -31,6 +33,37 @@ fun BackdropLayer(url: String?, kenBurns: Boolean, dim: Float, modifier: Modifie
         label = "drift",
     )
     val dimA by animateFloatAsState(dim, tween(500), label = "dim")
+
+    if (org.phoenicx.nova.ui.theme.Lay.phone) {
+        // Portrait phone: the wide artwork sits at the top and fades into the page
+        Box(modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxWidth().fillMaxHeight(0.42f)) {
+                Crossfade(targetState = url, animationSpec = tween(800), label = "backdrop") { u ->
+                    if (u != null) {
+                        AsyncImage(
+                            model = u, contentDescription = null, contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().graphicsLayer {
+                                val s = if (kenBurns) drift else 1.0f
+                                scaleX = s; scaleY = s
+                            },
+                        )
+                    }
+                }
+                Box(
+                    Modifier.fillMaxSize().background(
+                        Brush.verticalGradient(
+                            0f to Nova.Bg.copy(alpha = 0.55f),
+                            0.25f to Color.Transparent,
+                            0.6f to Color.Transparent,
+                            1f to Nova.Bg,
+                        )
+                    )
+                )
+            }
+            Box(Modifier.fillMaxSize().background(Nova.BgDeep.copy(alpha = dimA)))
+        }
+        return
+    }
 
     Box(modifier.fillMaxSize()) {
         Crossfade(targetState = url, animationSpec = tween(800), label = "backdrop") { u ->

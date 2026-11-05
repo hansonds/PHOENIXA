@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -32,6 +33,7 @@ import org.phoenicx.nova.ui.components.NovaTextField
 import org.phoenicx.nova.ui.components.PosterCard
 import org.phoenicx.nova.ui.components.TopNav
 import org.phoenicx.nova.ui.components.api
+import org.phoenicx.nova.ui.theme.Lay
 import org.phoenicx.nova.ui.theme.UiScale
 
 @Composable
@@ -59,7 +61,7 @@ fun SearchScreen(nav: Navigator) {
             icon = Icons.Outlined.Search,
             imeAction = ImeAction.Search,
             focusRequester = fieldRequester,
-            modifier = Modifier.padding(horizontal = 56.dp).width(620.dp),
+            modifier = Modifier.padding(horizontal = Lay.side).then(if (Lay.phone) Modifier.fillMaxWidth() else Modifier.width(620.dp)),
         )
         when {
             loading && results.isEmpty() -> NovaLoader()
@@ -67,8 +69,8 @@ fun SearchScreen(nav: Navigator) {
             results.isEmpty() -> CenterMessage("Find something to watch", "Start typing a title, actor or genre")
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(UiScale.posterWidth.dp),
-                contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 24.dp, bottom = 60.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 24.dp, bottom = 60.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (Lay.phone) 12.dp else 20.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
