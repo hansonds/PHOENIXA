@@ -34,6 +34,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -188,7 +190,7 @@ fun PersonScreen(nav: Navigator, personId: String, name: String) {
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 60.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column {

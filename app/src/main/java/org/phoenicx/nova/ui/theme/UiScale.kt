@@ -16,7 +16,7 @@ object UiScale {
     val factor: Float get() = factors[cardSizeIndex]
 
     /** Base sizes at Medium (dp) */
-    val posterWidth: Int get() = (128 * factor).toInt()
+    val posterWidth: Int get() = ((if (Lay.phone) 108 else 128) * factor).toInt()
     val landscapeWidth: Int get() = (232 * factor).toInt()
 
     fun set(i: Int) {

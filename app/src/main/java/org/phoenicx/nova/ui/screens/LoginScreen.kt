@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -189,7 +191,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
     if (phone) {
         // Phone (portrait): logo on top, sign-in card below; scrolls when the keyboard is open
         Column(
-            Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 28.dp),
+            Modifier.fillMaxSize().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
         ) {

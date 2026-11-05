@@ -15,8 +15,8 @@ object DeviceProfile {
         false
     }
 
-    private var cached: JSONObject? = null
-    private var cachedProgressive: JSONObject? = null
+    @Volatile private var cached: JSONObject? = null
+    @Volatile private var cachedProgressive: JSONObject? = null
 
     /** Built once per app run — scanning the TV's decoders is slow. */
     @Synchronized

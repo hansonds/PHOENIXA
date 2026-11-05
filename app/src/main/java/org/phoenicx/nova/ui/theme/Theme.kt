@@ -151,7 +151,8 @@ private fun PhoneScale(content: @Composable () -> Unit) {
     val metrics = androidx.compose.ui.platform.LocalContext.current.resources.displayMetrics
     val current = androidx.compose.ui.platform.LocalDensity.current
     val longSide = maxOf(metrics.widthPixels, metrics.heightPixels).toFloat()
-    val density = androidx.compose.ui.unit.Density(longSide / 960f, current.fontScale.coerceIn(0.85f, 1.15f))
+    // Phones are held close, so everything is drawn ~12% larger than the TV layout, with text a little larger still
+    val density = androidx.compose.ui.unit.Density(longSide / 860f, (current.fontScale * 1.08f).coerceIn(0.95f, 1.25f))
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides density) { content() }
 }
 

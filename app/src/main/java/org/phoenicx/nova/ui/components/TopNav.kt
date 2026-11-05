@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -111,7 +113,11 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
 
     if (phone) {
         // Phone (portrait): logo, clock, settings and profile on top; the pill bar full width below
-        Column(modifier.fillMaxWidth().padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 6.dp)) {
+        Column(
+            modifier.fillMaxWidth()
+                .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout)
+                .padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 6.dp)
+        ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.foundation.Image(
                     painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_stacked),
