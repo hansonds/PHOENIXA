@@ -16,7 +16,7 @@ object UiScale {
     val factor: Float get() = factors[cardSizeIndex]
 
     /** Base sizes at Medium (dp) */
-    val posterWidth: Int get() = ((if (Lay.phone) 108 else 128) * factor).toInt()
+    val posterWidth: Int get() = ((if (Lay.phone && !Lay.tablet) 108 else 128) * factor).toInt()
     val landscapeWidth: Int get() = (232 * factor).toInt()
 
     fun set(i: Int) {
@@ -25,11 +25,25 @@ object UiScale {
     }
 }
 
-/** Layout values that differ between TV (landscape, remote) and phone (portrait, touch). */
+/** Layout values that differ between TV / landscape (wide) and phone / portrait (narrow, touch). */
 object Lay {
-    /** Phones and tablets show the app in portrait */
-    val phone: Boolean get() = !NovaApp.instance.isTv
+    /**
+     * Narrow portrait layout. Phones always use it; tablets use it when held upright and the
+     * wide TV-style layout when turned sideways. Updated by MainActivity when the screen rotates.
+     */
+    var phone: Boolean by androidx.compose.runtime.mutableStateOf(!NovaApp.instance.isTv)
+        private set
+
+    val tablet: Boolean get() = NovaApp.instance.isTablet
+
+    fun update(config: android.content.res.Configuration) {
+        phone = !NovaApp.instance.isTv && config.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    }
 
     /** Space between the screen edge and the content */
-    val side: androidx.compose.ui.unit.Dp get() = if (phone) androidx.compose.ui.unit.Dp(16f) else androidx.compose.ui.unit.Dp(56f)
+    val side: androidx.compose.ui.unit.Dp get() = when {
+        !phone -> androidx.compose.ui.unit.Dp(56f)
+        tablet -> androidx.compose.ui.unit.Dp(28f)
+        else -> androidx.compose.ui.unit.Dp(16f)
+    }
 }

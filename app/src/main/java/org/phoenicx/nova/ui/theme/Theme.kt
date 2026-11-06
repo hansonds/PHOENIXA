@@ -148,6 +148,14 @@ fun NovaTheme(content: @Composable () -> Unit) {
 @Composable
 private fun PhoneScale(content: @Composable () -> Unit) {
     if (org.phoenicx.nova.NovaApp.instance.isTv) { content(); return }
+    val cur = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.ui.platform.LocalConfiguration.current // re-run when the screen rotates
+    if (org.phoenicx.nova.NovaApp.instance.isTablet) {
+        // Tablets: show more items rather than bigger ones (just 10% larger than the system size)
+        val d = androidx.compose.ui.unit.Density(cur.density * 1.1f, cur.fontScale.coerceIn(0.9f, 1.2f))
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides d) { content() }
+        return
+    }
     val metrics = androidx.compose.ui.platform.LocalContext.current.resources.displayMetrics
     val current = androidx.compose.ui.platform.LocalDensity.current
     val longSide = maxOf(metrics.widthPixels, metrics.heightPixels).toFloat()

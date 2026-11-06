@@ -237,7 +237,9 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
             dim = if (heroArea) 0f else 0.5f,
             // Phone: the banner artwork scrolls away with the banner instead of staying behind the rows
             // Phone: the picture starts below the top menu (menu first, then the banner)
-            modifier = if (Lay.phone) Modifier.padding(top = with(androidx.compose.ui.platform.LocalDensity.current) { navHeightPx.toDp() }).graphicsLayer {
+            modifier = if (!org.phoenicx.nova.NovaApp.instance.isTv) Modifier
+                .then(if (Lay.phone) Modifier.padding(top = with(androidx.compose.ui.platform.LocalDensity.current) { navHeightPx.toDp() }) else Modifier)
+                .graphicsLayer {
                 val list = state.listState
                 translationY = if (list.firstVisibleItemIndex == 0) -list.firstVisibleItemScrollOffset.toFloat() else -size.height
             } else Modifier,

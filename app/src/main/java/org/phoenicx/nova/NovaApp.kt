@@ -15,6 +15,9 @@ class NovaApp : Application(), ImageLoaderFactory {
     lateinit var api: JellyfinApi
         private set
 
+    /** A touch device with a big screen (7 inches and up): rotates freely */
+    val isTablet: Boolean get() = !isTv && resources.configuration.smallestScreenWidthDp >= 600
+
     /** TV (remote control) or phone/tablet (touch). Fire TV doesn't always report "leanback", but has no touchscreen. */
     val isTv: Boolean by lazy {
         val pm = packageManager

@@ -30,8 +30,10 @@ import org.phoenicx.nova.ui.theme.NovaTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        org.phoenicx.nova.ui.theme.Lay.update(resources.configuration)
         if (!NovaApp.instance.isTv) {
-            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            requestedOrientation = if (NovaApp.instance.isTablet) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+            else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             @Suppress("DEPRECATION")
             window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
@@ -39,6 +41,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             NovaTheme { NovaRoot() }
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        org.phoenicx.nova.ui.theme.Lay.update(newConfig)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

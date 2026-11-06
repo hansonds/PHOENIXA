@@ -79,7 +79,7 @@ Install **Downloader** from the Play Store and enter the same code **`4563854`**
 ### Android phones and tablets
 The same **PHOENIXA.apk** works on phones: download it on your phone from [Releases → latest](https://github.com/hansonds/PHOENIXA/releases/latest) and open it to install (allow "Install unknown apps" for your browser when asked).
 
-On a phone the app uses the same design in **portrait**, made for touch (videos open in landscape): tap anything to open it, swipe the home banner to change the featured title, tap the video to show or hide the controls, double-tap the left or right side to skip 10 s, and drag the seek bar to jump.
+On a phone the app uses the same design in **portrait**, made for touch (videos open in landscape). On a **tablet** it rotates freely: the wide TV-style layout when held sideways, the portrait layout when held upright. Touch controls: tap anything to open it, swipe the home banner to change the featured title, tap the video to show or hide the controls, double-tap the left or right side to skip 10 s, and drag the seek bar to jump.
 
 ### Windows 10 / 11
 1. Download **PHOENIXA-Windows.zip** from [Releases → latest](https://github.com/hansonds/PHOENIXA/releases/latest).
