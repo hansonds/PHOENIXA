@@ -90,8 +90,14 @@ import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.VolumeOff
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.material.icons.outlined.AspectRatio
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import coil.compose.AsyncImage
@@ -326,17 +332,46 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
         // Touch: tap shows / hides the controls (or closes a panel), double-tap left / right side seeks 10 s,
         // pinch out to zoom the picture to fill the screen, pinch in to fit it again
         var fitHint by remember { mutableStateOf<String?>(null) }
+        val activity = androidx.compose.ui.platform.LocalContext.current as android.app.Activity
+        val gestures = remember { SwipeLevels(activity) }
         LaunchedEffect(fitHint) { if (fitHint != null) { delay(1400); fitHint = null } }
         Box(
             Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    var zoomAcc = 1f
-                    detectTransformGestures { _, _, zoom, _ ->
-                        zoomAcc *= zoom
-                        if (zoomAcc > 1.2f && c.videoFit == 0) { c.setFit(1); fitHint = c.videoFitLabel; zoomAcc = 1f }
-                        else if (zoomAcc < 0.83f && c.videoFit != 0) { c.setFit(0); fitHint = c.videoFitLabel; zoomAcc = 1f }
-                        else if (zoomAcc !in 0.6f..1.6f) zoomAcc = 1f
+                    // One finger up/down: right half = volume, left half = brightness (phones only).
+                    // Two fingers: pinch out to zoom the picture, pinch in to fit it again.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var zoomAcc = 1f
+                        var swipe: String? = null // "volume" or "brightness" once decided
+                        var totalY = 0f
+                        var totalX = 0f
+                        val slop = viewConfiguration.touchSlop
+                        val leftSide = down.position.x < size.width / 2
+                        do {
+                            val ev = awaitPointerEvent()
+                            val pressed = ev.changes.filter { it.pressed }
+                            if (pressed.size >= 2) {
+                                zoomAcc *= ev.calculateZoom()
+                                if (zoomAcc > 1.2f && c.videoFit == 0) { c.setFit(1); fitHint = c.videoFitLabel; zoomAcc = 1f }
+                                else if (zoomAcc < 0.83f && c.videoFit != 0) { c.setFit(0); fitHint = c.videoFitLabel; zoomAcc = 1f }
+                                ev.changes.forEach { it.consume() }
+                            } else if (!NovaApp.instance.isTv && pressed.size == 1) {
+                                val ch = pressed[0]
+                                val d = ch.position - ch.previousPosition
+                                totalY += d.y; totalX += d.x
+                                if (swipe == null && kotlin.math.abs(totalY) > slop && kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.5f) {
+                                    swipe = if (leftSide) "brightness" else "volume"
+                                }
+                                if (swipe != null) {
+                                    // Full screen height = full range
+                                    val delta = -d.y / (size.height * 0.85f)
+                                    if (swipe == "volume") gestures.changeVolume(delta) else gestures.changeBrightness(delta)
+                                    ch.consume()
+                                }
+                            }
+                        } while (ev.changes.any { it.pressed })
                     }
                 }
                 .pointerInput(Unit) {
@@ -357,6 +392,8 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
                     )
                 }
         )
+
+        SwipeIndicator(gestures)
 
         fitHint?.let { hint ->
             Text(
@@ -737,6 +774,69 @@ private fun SpeedPanel(c: PlayerController, onDone: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** Volume and screen brightness changed by swiping up/down on the phone player */
+private class SwipeLevels(private val activity: android.app.Activity) {
+    private val audio = activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+    private val maxVol = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+    private var vol = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC).toFloat() / maxVol
+    private var bright: Float = activity.window.attributes.screenBrightness.takeIf { it >= 0f }
+        ?: runCatching {
+            android.provider.Settings.System.getInt(activity.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS) / 255f
+        }.getOrDefault(0.5f)
+
+    /** What to show: "volume" or "brightness", its level 0..1, and when it last changed */
+    var kind by mutableStateOf<String?>(null)
+    var level by mutableStateOf(0f)
+    var changedAt by mutableStateOf(0L)
+
+    fun changeVolume(delta: Float) {
+        vol = (vol + delta).coerceIn(0f, 1f)
+        audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, kotlin.math.round(vol * maxVol).toInt(), 0)
+        show("volume", vol)
+    }
+
+    fun changeBrightness(delta: Float) {
+        bright = (bright + delta).coerceIn(0.01f, 1f)
+        activity.window.attributes = activity.window.attributes.apply { screenBrightness = bright }
+        show("brightness", bright)
+    }
+
+    private fun show(k: String, v: Float) { kind = k; level = v; changedAt = System.currentTimeMillis() }
+}
+
+@Composable
+private fun BoxScope.SwipeIndicator(g: SwipeLevels) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(g.changedAt) {
+        if (g.changedAt == 0L) return@LaunchedEffect
+        visible = true
+        delay(900)
+        visible = false
+    }
+    val kind = g.kind ?: return
+    androidx.compose.animation.AnimatedVisibility(
+        visible,
+        modifier = Modifier.align(if (kind == "volume") Alignment.CenterEnd else Alignment.CenterStart).padding(horizontal = 56.dp),
+        enter = fadeIn(), exit = fadeOut(),
+    ) {
+        Column(
+            Modifier.background(Nova.BgDeep.copy(alpha = 0.75f), RoundedCornerShape(24.dp)).padding(horizontal = 14.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                if (kind == "volume") (if (g.level <= 0f) Icons.Outlined.VolumeOff else Icons.Outlined.VolumeUp) else Icons.Outlined.LightMode,
+                null, tint = Color.White, modifier = Modifier.size(26.dp),
+            )
+            Spacer(Modifier.height(10.dp))
+            Box(Modifier.width(8.dp).height(140.dp).clip(RoundedCornerShape(4.dp)).background(Color(0x40FFFFFF)), contentAlignment = Alignment.BottomCenter) {
+                Box(Modifier.fillMaxWidth().fillMaxHeight(g.level.coerceIn(0f, 1f)).background(Nova.AccentBrush))
+            }
+            Spacer(Modifier.height(10.dp))
+            Text("${(g.level * 100).toInt()}", style = NovaType.Label, color = Color.White)
         }
     }
 }
