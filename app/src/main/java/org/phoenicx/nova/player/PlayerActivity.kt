@@ -389,6 +389,9 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
                         var totalX = 0f
                         val slop = viewConfiguration.touchSlop
                         val leftSide = down.position.x < size.width / 2
+                        // Leave the top and bottom edges to Android's own swipe gestures (home, recent apps, notifications)
+                        val edge = maxOf(size.height * 0.15f, 72.dp.toPx())
+                        val nearEdge = down.position.y < edge || down.position.y > size.height - edge
                         do {
                             val ev = awaitPointerEvent()
                             val pressed = ev.changes.filter { it.pressed }
@@ -397,7 +400,7 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
                                 if (zoomAcc > 1.2f && c.videoFit == 0) { c.setFit(1); fitHint = c.videoFitLabel; zoomAcc = 1f }
                                 else if (zoomAcc < 0.83f && c.videoFit != 0) { c.setFit(0); fitHint = c.videoFitLabel; zoomAcc = 1f }
                                 ev.changes.forEach { it.consume() }
-                            } else if (!NovaApp.instance.isTv && pressed.size == 1) {
+                            } else if (!NovaApp.instance.isTv && !nearEdge && pressed.size == 1) {
                                 val ch = pressed[0]
                                 val d = ch.position - ch.previousPosition
                                 totalY += d.y; totalX += d.x

@@ -179,7 +179,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                 Text(listOfNotNull(it.episodeLabel, it.name).joinToString("  ·  "), style = NovaType.Section, color = Nova.Text)
                             }
                             Spacer(Modifier.height(16.dp))
-                            MetaRow(it, Modifier.phoneScroll(), showEpisode = false)
+                            MetaRow(it, showEpisode = false)
                             if (it.genres.isNotEmpty()) {
                                 Spacer(Modifier.height(12.dp))
                                 Row(Modifier.phoneScroll(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { it.genres.take(5).forEach { g -> GlassChip(g) } }

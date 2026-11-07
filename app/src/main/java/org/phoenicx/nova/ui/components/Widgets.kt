@@ -101,13 +101,20 @@ fun GlassChip(text: String, modifier: Modifier = Modifier, accent: Color? = null
             .border(1.dp, accent?.copy(alpha = 0.45f) ?: Nova.Stroke, RoundedCornerShape(8.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
-        Text(text, style = NovaType.Label, color = accent ?: Nova.Text)
+        Text(text, style = NovaType.Label, color = accent ?: Nova.Text, maxLines = 1, softWrap = false)
     }
 }
 
 @Composable
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 fun MetaRow(item: Item, modifier: Modifier = Modifier, showEpisode: Boolean = true) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    // Phones: tags that don't fit move to a second line instead of being squeezed
+    androidx.compose.foundation.layout.FlowRow(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(if (org.phoenicx.nova.ui.theme.Lay.phone) 10.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
         item.communityRating?.let {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Star, null, tint = Nova.Gold, modifier = Modifier.size(16.dp))
