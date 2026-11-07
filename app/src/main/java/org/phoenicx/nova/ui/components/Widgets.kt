@@ -122,17 +122,17 @@ fun MetaRow(item: Item, modifier: Modifier = Modifier, showEpisode: Boolean = tr
             }
         }
         item.criticRating?.let {
-            Text("🍅 $it%", style = NovaType.Label, color = Nova.Text)
+            Text("🍅 $it%", modifier = Modifier.align(Alignment.CenterVertically), style = NovaType.Label, color = Nova.Text)
         }
-        item.year?.let { Text("$it", style = NovaType.Label, color = Nova.TextDim) }
-        if (showEpisode) item.episodeLabel?.let { Text(it, style = NovaType.Label, color = Nova.Cyan) }
+        item.year?.let { Text("$it", modifier = Modifier.align(Alignment.CenterVertically), style = NovaType.Label, color = Nova.TextDim) }
+        if (showEpisode) item.episodeLabel?.let { Text(it, modifier = Modifier.align(Alignment.CenterVertically), style = NovaType.Label, color = Nova.Cyan) }
         when {
             item.isSeries && item.childCount != null ->
-                Text("${item.childCount} Season${if (item.childCount == 1) "" else "s"}", style = NovaType.Label, color = Nova.TextDim)
-            item.runtimeMinutes > 0 -> Text(formatRuntime(item.runtimeMinutes), style = NovaType.Label, color = Nova.TextDim)
+                Text("${item.childCount} Season${if (item.childCount == 1) "" else "s"}", modifier = Modifier.align(Alignment.CenterVertically), style = NovaType.Label, color = Nova.TextDim)
+            item.runtimeMinutes > 0 -> Text(formatRuntime(item.runtimeMinutes), modifier = Modifier.align(Alignment.CenterVertically), style = NovaType.Label, color = Nova.TextDim)
         }
-        item.officialRating?.let { GlassChip(it) }
-        item.qualityBadges.forEach { GlassChip(it, accent = Nova.Cyan) }
+        item.officialRating?.let { GlassChip(it, Modifier.align(Alignment.CenterVertically)) }
+        item.qualityBadges.forEach { GlassChip(it, Modifier.align(Alignment.CenterVertically), accent = Nova.Cyan) }
     }
 }
 
