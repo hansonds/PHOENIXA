@@ -76,6 +76,9 @@ class PlayerController(private val context: Context) {
     private val lastErrors = mutableListOf<String>()
     var speed by mutableStateOf(1f); private set
 
+    /** True while the video is in the small picture-in-picture window (no controls shown) */
+    var inPip by mutableStateOf(false)
+
     /** Picture size: 0 = Fit (whole picture), 1 = Zoom (fills the screen, edges cut), 2 = Stretch */
     var videoFit by mutableStateOf(prefs.videoFit.coerceIn(0, 2)); private set
     val videoFitLabel: String get() = listOf("Fit to screen", "Zoom to fill", "Stretch")[videoFit]

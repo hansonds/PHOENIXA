@@ -3,6 +3,7 @@ package org.phoenicx.nova
 import kotlinx.coroutines.launch
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
@@ -29,6 +30,8 @@ import org.phoenicx.nova.ui.theme.NovaTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Draw behind the system bars and camera cut-out (Android 15+ default), handled with insets
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         org.phoenicx.nova.ui.theme.Lay.update(resources.configuration)
         if (!NovaApp.instance.isTv) {

@@ -76,12 +76,6 @@ class NovaApp : Application(), ImageLoaderFactory {
 /** Phones: hide the status and navigation bars for a full-screen cinema look (swipe from the edge to show them). */
 fun android.app.Activity.immersiveOnPhone() {
     if (NovaApp.instance.isTv) return
-    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
-    if (android.os.Build.VERSION.SDK_INT >= 28) {
-        window.attributes = window.attributes.apply {
-            layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-        }
-    }
     val ctl = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
     ctl.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     ctl.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())

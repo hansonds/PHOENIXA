@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.view.KeyEvent as AKeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -122,6 +123,8 @@ class PlayerActivity : ComponentActivity() {
     private lateinit var controller: PlayerController
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Draw behind the system bars and camera cut-out (Android 15+ default), handled with insets
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         immersiveOnPhone()
@@ -159,8 +162,42 @@ class PlayerActivity : ComponentActivity() {
         if (hasFocus) immersiveOnPhone()
     }
 
+    /** Phones / tablets: pressing Home while a video plays keeps it going in a small floating window */
+    private fun pipParams(): android.app.PictureInPictureParams? {
+        if (android.os.Build.VERSION.SDK_INT < 26 || NovaApp.instance.isTv) return null
+        val vs = controller.player.videoSize
+        val ratio = if (vs.width > 0 && vs.height > 0) vs.width.toFloat() * vs.pixelWidthHeightRatio / vs.height else 16f / 9f
+        // Android only allows shapes between 1:2.39 and 2.39:1
+        val r = ratio.coerceIn(1f / 2.39f + 0.01f, 2.39f - 0.01f)
+        val b = android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational((r * 1000).toInt(), 1000))
+        if (android.os.Build.VERSION.SDK_INT >= 31) b.setSeamlessResizeEnabled(true)
+        return b.build()
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (!::controller.isInitialized || !controller.player.isPlaying) return
+        val p = pipParams() ?: return
+        if (packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+            runCatching { enterPictureInPictureMode(p) }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (::controller.isInitialized) controller.inPip = isInPictureInPictureMode
+    }
+
     override fun onPause() {
         super.onPause()
+        // Keep playing in the floating window; pause otherwise
+        val pip = android.os.Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode
+        if (::controller.isInitialized && !pip) controller.player.pause()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // The floating window was closed, or the app went to the background: pause
         if (::controller.isInitialized) controller.player.pause()
     }
 
@@ -192,8 +229,11 @@ private enum class Panel { None, Subtitles, Audio, Speed }
 @Composable
 private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue: ((() -> Unit)) -> Unit) {
     var overlay by remember { mutableStateOf(true) }
+    // Picture-in-picture: only the video, no controls or panels
+    LaunchedEffect(c.inPip) { if (c.inPip) overlay = false }
     var showInfo by remember { mutableStateOf(false) }
     var panel by remember { mutableStateOf(Panel.None) }
+    LaunchedEffect(c.inPip) { if (c.inPip) { panel = Panel.None; showInfo = false } }
     var lastInput by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var seekFlash by remember { mutableIntStateOf(0) }
     val rootRequester = remember { FocusRequester() }
