@@ -113,10 +113,9 @@ fun MetaRow(item: Item, modifier: Modifier = Modifier, showEpisode: Boolean = tr
         modifier,
         horizontalArrangement = Arrangement.spacedBy(if (org.phoenicx.nova.ui.theme.Lay.phone) 10.dp else 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         item.communityRating?.let {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.align(Alignment.CenterVertically), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Star, null, tint = Nova.Gold, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(String.format("%.1f", it), style = NovaType.Label, color = Nova.Text)
