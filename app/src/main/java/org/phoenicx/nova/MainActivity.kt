@@ -90,6 +90,8 @@ fun NovaRoot() {
             })
             is Screen.Detail -> DetailScreen(nav, screen.itemId)
             is Screen.Person -> PersonScreen(nav, screen.id, screen.name)
+            Screen.Torvia -> org.phoenicx.nova.ui.screens.TorviaScreen(nav)
+            is Screen.TorviaTitle -> org.phoenicx.nova.ui.screens.TorviaTitleScreen(nav, screen.type, screen.tmdbId, screen.name)
         }
     }
 }

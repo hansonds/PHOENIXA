@@ -90,6 +90,28 @@ class JellyfinApi(private val prefs: Prefs) {
         }
     }
 
+    /** Raw call for plugin APIs: returns the HTTP status and body instead of throwing on errors */
+    suspend fun raw(method: String, path: String, body: JSONObject? = null): Pair<Int, String> = withContext(Dispatchers.IO) {
+        val rb = when {
+            body != null -> body.toString().toRequestBody(json)
+            method == "POST" || method == "DELETE" -> "".toRequestBody(json)
+            else -> null
+        }
+        val req = Request.Builder()
+            .url(server + path)
+            .header("Authorization", authHeader())
+            .header("X-Emby-Authorization", authHeader())
+            .header("Accept", "application/json")
+            .method(method, if (method == "GET") null else rb)
+            .build()
+        slowHttp.newCall(req).execute().use { resp -> resp.code to (resp.body?.string() ?: "") }
+    }
+
+    /** Plugin calls can take up to ~25 s (adding waits for TorBox) */
+    private val slowHttp by lazy {
+        http.newBuilder().readTimeout(60, java.util.concurrent.TimeUnit.SECONDS).callTimeout(75, java.util.concurrent.TimeUnit.SECONDS).build()
+    }
+
     private suspend fun getObj(path: String) = JSONObject(call("GET", path))
     private suspend fun getItems(path: String): List<Item> {
         val txt = call("GET", path).trim()

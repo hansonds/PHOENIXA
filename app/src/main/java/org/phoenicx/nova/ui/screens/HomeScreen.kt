@@ -176,6 +176,8 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
             state.load(full = true)
             nav.libraries.value = state.libsCache
         }
+        // Search & Add: only when the server has the Torvia plugin and this user may use it
+        nav.refreshTorvia()
     }
     LifecycleResumeEffect(Unit) {
         if (state.loaded && System.currentTimeMillis() - state.lastRefresh > 4000) {

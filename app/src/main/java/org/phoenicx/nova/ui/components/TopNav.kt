@@ -96,6 +96,10 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
                 selected == Screen.Favorites,
                 if (selected == Screen.Favorites) selReq else null,
             ) { if (selected != Screen.Favorites) nav.tab(Screen.Favorites) }
+            nav.torvia.value?.let { tv ->
+                val isSel = selected == Screen.Torvia
+                NavPill(tv.buttonLabel, isSel, if (isSel) selReq else null) { if (!isSel) nav.tab(Screen.Torvia) }
+            }
             libs.forEach { lib ->
                 val isSel = (selected as? Screen.Lib)?.library?.id == lib.id
                 NavPill(lib.name, isSel, if (isSel) selReq else null) { if (!isSel) nav.tab(Screen.Lib(lib)) }
