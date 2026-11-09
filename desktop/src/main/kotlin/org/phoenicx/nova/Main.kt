@@ -59,7 +59,7 @@ object App {
     val prefs = Prefs()
     val api = JellyfinApi(prefs)
     const val NAME = "PHOENIXA"
-    val version: String = System.getProperty("jpackage.app-version") ?: "1.1.0"
+    val version: String = System.getProperty("jpackage.app-version") ?: "1.2.0"
 
     /** Libraries of the signed-in user (shown in the top bar) */
     var libraries by mutableStateOf<List<Library>>(emptyList())
@@ -69,11 +69,19 @@ object App {
 
     var loggedIn by mutableStateOf(api.isLoggedIn)
 
+    /** Search & Add status from the server's Torvia plugin; null = not available (button hidden) */
+    var torvia by mutableStateOf<org.phoenicx.nova.data.TorviaStatus?>(null)
+
+    suspend fun refreshTorvia() {
+        torvia = runCatching { org.phoenicx.nova.data.TorviaApi(api).status() }.getOrNull()?.takeIf { it.enabled }
+    }
+
     fun signOut() {
         val tok = prefs.token
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { api.logout(tok) }
         prefs.signOut()
         libraries = emptyList()
+        torvia = null
         loggedIn = false
     }
 }
@@ -87,6 +95,9 @@ sealed interface Screen {
     data class Lib(val library: Library) : Screen
     data class Detail(val id: String) : Screen
     data class Person(val id: String, val name: String) : Screen
+    /** Search & Add (Torvia plugin) */
+    data object Torvia : Screen
+    data class TorviaTitle(val type: String, val tmdbId: Int, val name: String) : Screen
 }
 
 class Navigator {
@@ -164,6 +175,7 @@ fun main() = application {
                 } else {
                     LaunchedEffect(Unit) {
                         runCatching { App.libraries = App.api.libraries() }
+                        App.refreshTorvia()
                     }
                     Content(nav)
                     TopBar(nav)
@@ -187,6 +199,8 @@ private fun Content(nav: Navigator) {
         is Screen.Lib -> LibraryScreen(nav, s.library)
         is Screen.Detail -> DetailScreen(nav, s.id)
         is Screen.Person -> PersonScreen(nav, s.id, s.name)
+        Screen.Torvia -> org.phoenicx.nova.ui.screens.TorviaScreen(nav)
+        is Screen.TorviaTitle -> org.phoenicx.nova.ui.screens.TorviaTitleScreen(nav, s.type, s.tmdbId, s.name)
     }
 }
 

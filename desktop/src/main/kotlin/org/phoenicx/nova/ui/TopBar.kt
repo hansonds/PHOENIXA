@@ -82,6 +82,7 @@ fun TopBar(nav: Navigator) {
         ) {
             NavPill("Home", cur == Screen.Home) { nav.go(Screen.Home) }
             IconPill(Icons.Outlined.FavoriteBorder, "Favorites", cur == Screen.Favorites) { nav.go(Screen.Favorites) }
+            App.torvia?.let { tv -> NavPill(tv.buttonLabel, cur == Screen.Torvia || cur is Screen.TorviaTitle) { nav.go(Screen.Torvia) } }
             App.libraries.forEach { lib ->
                 NavPill(lib.name, cur is Screen.Lib && cur.library.id == lib.id) { nav.go(Screen.Lib(lib)) }
             }

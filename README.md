@@ -54,6 +54,12 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - Synopsis and cast overlay, a seek bar with hold-to-scrub, skip ±10 s, and **auto-play next episode**.
 - Watch progress syncs to your server, so you can continue on any device.
 
+### Search & Add (Torvia servers)
+- If your Jellyfin server runs the **[Torvia](https://github.com/hansonds/Torvia-Jellyfin)** plugin, a **Search & Add** tab appears for allowed users (TV, phone, tablet and Windows).
+- Search by name or a TMDB / IMDb link, pick a season and episode (or the whole season), filter releases by quality, 10-bit, HDR or CAM, and add one to TorBox. PHOENIXA waits for it to appear in Jellyfin and opens it.
+- **My adds** lists what you added, with Open and Remove. Admins can see everyone's. Daily limits and permissions come from the server.
+- Servers without the plugin don't show the tab at all.
+
 ### Comfort
 - **Quick Connect** sign-in, so there's no typing on the remote.
 - The keyboard opens only when you press OK on a text box.
