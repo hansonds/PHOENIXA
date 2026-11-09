@@ -2,6 +2,7 @@ package org.phoenicx.nova.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -565,14 +566,14 @@ private fun Tag(text: String, color: Color) {
 private fun Dialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     Box(
         Modifier.fillMaxSize().background(Nova.BgDeep.copy(alpha = 0.78f))
-            .pointerInput(onDismiss) { androidx.compose.foundation.gestures.detectTapGestures { onDismiss() } },
+            .pointerInput(onDismiss) { detectTapGestures { onDismiss() } },
         contentAlignment = Alignment.Center,
     ) {
         Column(
             Modifier.widthIn(max = 640.dp).fillMaxWidth(0.9f)
                 .background(Nova.Surface, RoundedCornerShape(24.dp))
                 .border(1.dp, Nova.Stroke, RoundedCornerShape(24.dp))
-                .pointerInput(Unit) { androidx.compose.foundation.gestures.detectTapGestures { } }
+                .pointerInput(Unit) { detectTapGestures { } }
                 .padding(28.dp)
         ) { content() }
     }
