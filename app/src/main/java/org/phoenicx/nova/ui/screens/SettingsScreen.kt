@@ -120,7 +120,7 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
         org.phoenicx.nova.ui.components.OptionSheet(
             title = "Theme",
             options = themes.all.mapIndexed { i, t ->
-                org.phoenicx.nova.ui.components.SheetOption(t.name, if (i == 0) "Original PHOENIXA look" else "", i == themes.index)
+                org.phoenicx.nova.ui.components.SheetOption(t.name, if (i == 1) "Default" else if (i == 0) "Original cyan & violet look" else "", i == themes.index)
             },
             onSelect = { i -> themes.set(i); showThemes = false; refocusTheme++ },
             onDismiss = { showThemes = false; refocusTheme++ },

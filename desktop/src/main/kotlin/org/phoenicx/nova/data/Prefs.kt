@@ -80,7 +80,7 @@ class Prefs {
         set(v) = put("cardSize", v.toString())
 
     var theme: Int
-        get() = int("theme", 0)
+        get() = int("theme", 1) // 1 = Phoenix Ember
         set(v) = put("theme", v.toString())
 
     val deviceId: String

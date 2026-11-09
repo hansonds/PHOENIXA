@@ -63,7 +63,7 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 ### Comfort
 - **Quick Connect** sign-in, so there's no typing on the remote.
 - The keyboard opens only when you press OK on a text box.
-- **11 colour themes** (Nova, Phoenix Ember, Midnight Blue, Emerald, Royal Purple, Crimson Noir, Ocean Teal, Sunset Gold, Rose Quartz, Graphite, Cyber Neon), changed instantly from Settings.
+- **11 colour themes** (Phoenix Ember, Nova, Midnight Blue, Emerald, Royal Purple, Crimson Noir, Ocean Teal, Sunset Gold, Rose Quartz, Graphite, Cyber Neon), changed instantly from Settings.
 - Card size setting (Small, Medium or Large) and a streaming quality limit.
 - Calm, snappy scrolling tuned for Fire TV Sticks.
 - Small app size (about 13 MB) and a self-managing image cache.
@@ -143,7 +143,7 @@ Download and install the new APK in the same way. It installs over the old versi
 |---|---|
 | **Direct play only** | *On (default):* always play the original file. *Off:* let the server transcode files the TV can't play (requires transcoding enabled on the server). |
 | **Streaming quality** | Caps bitrate for slow connections (Maximum → 4 Mbps). |
-| **Theme** | Pick one of 11 colour themes. *Nova* is the original look and the default. |
+| **Theme** | Pick one of 11 colour themes. *Phoenix Ember* is the default. |
 | **Card size** | Small / Medium / Large posters and thumbnails, applied instantly. |
 | **Auto-play next episode** | Starts the next episode when one ends. |
 | **Rotate featured carousel** | Turns banner auto-rotation on or off. |

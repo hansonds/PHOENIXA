@@ -98,7 +98,7 @@ fun SettingsScreen(nav: Navigator) {
             Spacer(Modifier.height(14.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 NovaThemes.all.forEachIndexed { i, t ->
-                    ThemeSwatch(t, i == NovaThemes.index, i == 0) { NovaThemes.set(i) }
+                    ThemeSwatch(t, i == NovaThemes.index, i == 1) { NovaThemes.set(i) }
                 }
             }
 

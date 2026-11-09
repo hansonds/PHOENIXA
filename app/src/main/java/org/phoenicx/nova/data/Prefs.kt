@@ -61,7 +61,7 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putInt("videoFit", v).apply()
 
     var theme: Int
-        get() = sp.getInt("theme", 0)
+        get() = sp.getInt("theme", 1) // 1 = Phoenix Ember
         set(v) = sp.edit().putInt("theme", v).apply()
 
     val deviceId: String

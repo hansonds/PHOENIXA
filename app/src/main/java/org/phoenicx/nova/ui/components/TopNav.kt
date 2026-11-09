@@ -34,6 +34,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
@@ -80,12 +83,31 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
     // The pill bar: search, home, favorites and every library (scrolls sideways if there are many)
     val pills: @Composable () -> Unit = {
         Row(
-            Modifier
+            (if (phone) Modifier
+                .fillMaxWidth()
+                // Soft fade at the left/right edges where pills scroll out of view
+                .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    val f = 28.dp.toPx() / size.width
+                    val left = if (nav.navScroll.value > 0) 0f else 1f
+                    val right = if (nav.navScroll.value < nav.navScroll.maxValue) 0f else 1f
+                    drawRect(
+                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            0f to Color.Black.copy(alpha = left), f to Color.Black,
+                            1f - f to Color.Black, 1f to Color.Black.copy(alpha = right),
+                        ),
+                        blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                    )
+                }
+                .horizontalScroll(nav.navScroll)
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+            else Modifier
                 .clip(RoundedCornerShape(26.dp))
                 .background(Nova.Surface.copy(alpha = 0.36f))
                 .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
                 .horizontalScroll(nav.navScroll)
-                .padding(5.dp),
+                .padding(5.dp)),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -133,8 +155,13 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
                 Spacer(Modifier.width(14.dp))
                 settingsAndAvatar()
             }
-            Spacer(Modifier.height(6.dp))
-            Box(Modifier.padding(start = 4.dp)) { pills() }
+            Spacer(Modifier.height(4.dp))
+            // Edge to edge so pills scroll under the soft fades, not against a border
+            Box(Modifier.padding(start = 0.dp).layout { m, c ->
+                val extra = 28.dp.roundToPx() // undo the column's side padding
+                val p = m.measure(c.copy(maxWidth = c.maxWidth + extra, minWidth = c.minWidth))
+                layout(c.maxWidth, p.height) { p.place(-12.dp.roundToPx(), 0) }
+            }) { pills() }
         }
         return
     }

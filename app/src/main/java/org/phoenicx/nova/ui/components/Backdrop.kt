@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -37,7 +38,18 @@ fun BackdropLayer(url: String?, kenBurns: Boolean, dim: Float, modifier: Modifie
     if (org.phoenicx.nova.ui.theme.Lay.phone) {
         // Portrait phone: the wide artwork sits at the top and fades into the page
         Box(modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxWidth().fillMaxHeight(0.42f)) {
+            Box(
+                Modifier.fillMaxWidth().fillMaxHeight(0.5f)
+                    // Fade the picture to see-through at the bottom, so it melts into the page behind it
+                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(
+                            Brush.verticalGradient(0f to Color.Black, 0.5f to Color.Black, 1f to Color.Transparent),
+                            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                        )
+                    }
+            ) {
                 Crossfade(targetState = url, animationSpec = tween(800), label = "backdrop") { u ->
                     if (u != null) {
                         AsyncImage(
@@ -53,9 +65,9 @@ fun BackdropLayer(url: String?, kenBurns: Boolean, dim: Float, modifier: Modifie
                     Modifier.fillMaxSize().background(
                         Brush.verticalGradient(
                             0f to Nova.Bg.copy(alpha = 0.55f),
-                            0.25f to Color.Transparent,
-                            0.6f to Color.Transparent,
-                            1f to Nova.Bg,
+                            0.22f to Color.Transparent,
+                            0.45f to Color.Transparent,
+                            1f to Nova.Bg.copy(alpha = 0.85f), // keeps text over the picture readable
                         )
                     )
                 )

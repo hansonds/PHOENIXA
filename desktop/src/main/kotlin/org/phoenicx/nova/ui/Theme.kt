@@ -36,12 +36,12 @@ data class NovaPalette(
     val onFocus: Color = Color(0xFF12152A),
 )
 
-/** All themes. The first one is the original PHOENIXA look and stays the default. */
+/** All themes. The first is the original cyan & violet look; Phoenix Ember (second) is the default. */
 object NovaThemes {
     val all = listOf(
-        NovaPalette("Nova (default)", Color(0xFF121522), Color(0xFF0D0F19), Color(0xFF1B2032), Color(0xFF262C44),
+        NovaPalette("Nova", Color(0xFF121522), Color(0xFF0D0F19), Color(0xFF1B2032), Color(0xFF262C44),
             Color(0xFF6CE5F5), Color(0xFFA58BFF), Color(0x332A3A7A), Color(0x22533A8A)),
-        NovaPalette("Phoenix Ember", Color(0xFF181012), Color(0xFF100A0B), Color(0xFF241719), Color(0xFF332022),
+        NovaPalette("Phoenix Ember (default)", Color(0xFF181012), Color(0xFF100A0B), Color(0xFF241719), Color(0xFF332022),
             Color(0xFFFF8A4C), Color(0xFFFFC857), Color(0x337A2A1A), Color(0x228A4A1A),
             text = Color(0xFFFAF0EC), textDim = Color(0xFFC8B0A9), textFaint = Color(0xFF8A7470),
             focus = Color(0xFFFFF4EC), onFocus = Color(0xFF2A1210)),
