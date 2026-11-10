@@ -6,6 +6,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -61,6 +63,7 @@ import kotlinx.coroutines.launch
 import org.phoenicx.nova.App
 import org.phoenicx.nova.Navigator
 import org.phoenicx.nova.Screen
+import org.phoenicx.nova.data.ReleaseFilter
 import org.phoenicx.nova.data.TorviaAdd
 import org.phoenicx.nova.data.TorviaAdds
 import org.phoenicx.nova.data.TorviaApi
@@ -307,8 +310,6 @@ private fun AddRow(a: TorviaAdd, showUser: Boolean, onOpen: (() -> Unit)?, onRem
 
 // ============================================================================ One title: releases & add
 
-private val qualityOrder = listOf("4K", "1080p", "720p", "480p", "?")
-private val sortNames = listOf("Best", "Smallest", "Largest", "Seeders")
 
 @Composable
 fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
@@ -321,11 +322,8 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
     var relError by remember(type, tmdbId) { mutableStateOf<String?>(null) }
     var inLibraryId by remember(type, tmdbId) { mutableStateOf<String?>(null) }
 
-    var quality by remember { mutableStateOf("1080p") }
-    var tenBit by remember { mutableStateOf(false) }
-    var hdr by remember { mutableStateOf(false) }
-    var hideCam by remember { mutableStateOf(true) }
-    var sort by remember { mutableIntStateOf(0) }
+    var f by remember { mutableStateOf(ReleaseFilter()) }
+    var note by remember { mutableStateOf<String?>(null) }
 
     var picked by remember { mutableStateOf<TorviaRelease?>(null) }
     var adding by remember { mutableStateOf(false) }
@@ -351,7 +349,7 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
         }.onSuccess { r ->
             releases = r.releases
             if (r.jellyfinItemId != null) inLibraryId = r.jellyfinItemId
-            if (quality != "all" && r.releases.none { it.quality == quality }) quality = "all"
+            ReleaseFilter.start(r.releases).let { (start, n) -> f = start; note = n }
         }.onFailure { relError = it.message }
     }
     LaunchedEffect(waiting) {
@@ -364,19 +362,8 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
     }
 
     val all = releases.orEmpty()
-    val shown = all
-        .filter { quality == "all" || it.quality == quality }
-        .filter { !tenBit || it.isTenBit }
-        .filter { !hdr || it.isHdr }
-        .filter { !hideCam || !it.isCam }
-        .let { list ->
-            when (sort) {
-                1 -> list.sortedBy { it.sizeBytes }
-                2 -> list.sortedByDescending { it.sizeBytes }
-                3 -> list.sortedByDescending { it.seeders }
-                else -> list
-            }
-        }
+    val shown = f.apply(all)
+    fun set(n: ReleaseFilter) { f = n; note = null }
 
     Box(Modifier.fillMaxSize()) {
         val d = details
@@ -398,18 +385,8 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
                     }
                 }
             }
+            if (all.isNotEmpty()) item { FilterPanel(all, f, note, ::set) }
             item {
-                val qualities = qualityOrder.filter { q -> all.any { it.quality == q } }
-                ChipLine("Quality") {
-                    Chip("All", quality == "all") { quality = "all" }
-                    qualities.forEach { q -> Chip("$q (${all.count { it.quality == q }})", quality == q) { quality = q } }
-                }
-                ChipLine("Filter") {
-                    if (all.any { it.isTenBit }) Chip("10-bit", tenBit) { tenBit = !tenBit }
-                    if (all.any { it.isHdr }) Chip("HDR", hdr) { hdr = !hdr }
-                    if (all.any { it.isCam }) Chip("Hide CAM", hideCam) { hideCam = !hideCam }
-                    sortNames.forEachIndexed { i, s -> Chip(s, sort == i) { sort = i } }
-                }
                 Spacer(Modifier.height(10.dp))
                 SectionTitle(if (releases == null) "Releases" else "Releases · ${shown.size} of ${all.size}", Modifier.padding(horizontal = 48.dp))
                 Spacer(Modifier.height(10.dp))
@@ -424,7 +401,7 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
                 }
                 all.isEmpty() -> item { Text("No cached releases found on TorBox for this.", style = NovaType.Body, color = Nova.TextDim, modifier = Modifier.padding(horizontal = 48.dp)) }
                 shown.isEmpty() -> item { Text("No releases match these filters.", style = NovaType.Body, color = Nova.TextDim, modifier = Modifier.padding(horizontal = 48.dp)) }
-                else -> items(shown) { r -> ReleaseRow(r) { picked = r } }
+                else -> items(shown) { r -> ReleaseRow(r, best = f.sort == "best" && !r.isCam && r === shown.first()) { picked = r } }
             }
         }
 
@@ -505,6 +482,93 @@ private fun Header(t: TorviaTitle, inLibraryId: String?, waiting: Boolean, resul
     }
 }
 
+/** The same filter box as the Torvia web page: Quality, Type, Video, Language, Sort and Reset */
+@Composable
+private fun FilterPanel(all: List<TorviaRelease>, f: ReleaseFilter, note: String?, set: (ReleaseFilter) -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 6.dp)
+            .background(Color(0x0FFFFFFF), RoundedCornerShape(14.dp))
+            .border(1.dp, Nova.Stroke, RoundedCornerShape(14.dp))
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+    ) {
+        FilterLine("Quality") {
+            FilterChip("All", all.size, f.quality == "all") { set(f.copy(quality = "all")) }
+            ReleaseFilter.qualities.filter { q -> all.any { it.quality == q } }.forEach { q ->
+                FilterChip(q, all.count { it.quality == q }, f.quality == q) { set(f.copy(quality = q)) }
+            }
+        }
+        val eps = all.count { !it.isSeasonPack && it.kind.isNotBlank() }
+        val packs = all.count { it.isSeasonPack }
+        if (eps > 0 && packs > 0) FilterLine("Type") {
+            FilterChip("All", all.size, f.kind == "all") { set(f.copy(kind = "all")) }
+            FilterChip("This episode only", eps, f.kind == "episode") { set(f.copy(kind = "episode")) }
+            FilterChip("Packs", packs, f.kind == "pack") { set(f.copy(kind = "pack")) }
+        }
+        val nTen = all.count { it.isTenBit }
+        val nHdr = all.count { it.isHdr }
+        val anyCam = all.any { it.isCam }
+        if (nTen > 0 || nHdr > 0 || anyCam) FilterLine("Video") {
+            if (nTen > 0) FilterChip("10-bit", nTen, f.tenBit) { set(f.copy(tenBit = !f.tenBit)) }
+            if (nHdr > 0) FilterChip("HDR / DV", nHdr, f.hdr) { set(f.copy(hdr = !f.hdr)) }
+            if (anyCam) FilterChip("Hide CAM/TS", null, f.hideCam) { set(f.copy(hideCam = !f.hideCam)) }
+        }
+        val langs = ReleaseFilter.languages(all)
+        if (langs.isNotEmpty()) FilterLine("Language") {
+            langs.forEach { (l, n) ->
+                FilterChip(l, n, l in f.langs) { set(f.copy(langs = if (l in f.langs) f.langs - l else f.langs + l)) }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                FilterLine("Sort") {
+                    ReleaseFilter.sorts.forEach { (k, label) -> FilterChip(label, null, f.sort == k) { set(f.copy(sort = k)) } }
+                }
+            }
+            FilterChip("Reset", null, false, outlined = true) { set(ReleaseFilter()) }
+        }
+        if (note != null) Text(note, style = NovaType.Caption, color = Nova.TextFaint, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FilterLine(label: String, chips: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(label, style = NovaType.Label, color = Nova.TextDim, modifier = Modifier.width(120.dp).padding(top = 8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { chips() }
+    }
+}
+
+/** A filter pill with a small count after the name, like "1080p 4" on the web page */
+@Composable
+private fun FilterChip(text: String, count: Int?, selected: Boolean, outlined: Boolean = false, onClick: () -> Unit) {
+    val (src, hovered) = rememberHover()
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        Modifier.clip(shape)
+            .background(
+                when {
+                    selected -> Nova.Cyan.copy(alpha = 0.22f)
+                    hovered -> Color(0x26FFFFFF)
+                    outlined -> Color.Transparent
+                    else -> Color(0x12FFFFFF)
+                }, shape
+            )
+            .border(1.dp, if (selected) Nova.Cyan.copy(alpha = 0.8f) else Nova.Stroke, shape)
+            .hoverable(src)
+            .clickableHand(onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text, style = NovaType.Label, color = if (selected) Nova.Cyan else Nova.Text, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        if (count != null) {
+            Spacer(Modifier.width(6.dp))
+            Text(count.toString(), style = NovaType.Caption, color = Nova.TextFaint, maxLines = 1)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChipLine(label: String, chips: @Composable () -> Unit) {
     Row(
@@ -517,8 +581,9 @@ private fun ChipLine(label: String, chips: @Composable () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReleaseRow(r: TorviaRelease, onClick: () -> Unit) {
+private fun ReleaseRow(r: TorviaRelease, best: Boolean, onClick: () -> Unit) {
     val (src, hovered) = rememberHover()
     val shape = RoundedCornerShape(16.dp)
     Row(
@@ -532,14 +597,19 @@ private fun ReleaseRow(r: TorviaRelease, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Tag(r.quality.ifBlank { "?" }, Nova.Cyan)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (best) Tag("Best", Nova.Cyan)
                 if (r.label.isNotBlank()) Tag(r.label, Nova.TextDim)
-                if (r.isCam) Tag("⚠ CAM", Nova.Rose)
+                if (r.isCam) Tag("⚠ CAM/TS", Nova.Rose) else if (r.source.isNotBlank()) Tag(r.source, Nova.TextDim)
+                if (r.quality.isNotBlank() && r.quality != "?") Tag(r.quality, Nova.Cyan)
+                listOf(
+                    r.codec, r.hdr, if (r.bitDepth > 0) "${r.bitDepth}-bit" else "",
+                    r.audio, r.languages.joinToString(" / "), r.subtitles, r.container,
+                ).filter { it.isNotBlank() }.forEach { Tag(it, Nova.TextDim) }
             }
             Spacer(Modifier.height(6.dp))
             Text(r.name, style = NovaType.Label, color = Nova.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(r.summary, style = NovaType.Label, color = Nova.TextDim, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (r.source.isBlank() && r.codec.isBlank()) Text(r.summary, style = NovaType.Label, color = Nova.TextDim, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (r.playsLabel.isNotBlank()) Text(
                 "Plays ${r.playsLabel}" + if (r.fileName.isNotBlank()) " · ${r.fileName}" else "",
                 style = NovaType.Label, color = Nova.TextFaint, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -547,7 +617,7 @@ private fun ReleaseRow(r: TorviaRelease, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Column(horizontalAlignment = Alignment.End) {
-            Text(r.size, style = NovaType.Section, color = Nova.Text, fontWeight = FontWeight.Bold)
+            Text(if (r.isSeasonPack && r.playsLabel.isNotBlank()) "Episode ${r.size}" else r.size, style = NovaType.Section, color = Nova.Text, fontWeight = FontWeight.Bold)
             if (r.packSize.isNotBlank()) Text("pack ${r.packSize}", style = NovaType.Label, color = Nova.TextFaint)
             Text(listOf(r.speed, "${r.seeders} seeds").filter { it.isNotBlank() }.joinToString(" · "), style = NovaType.Label, color = Nova.TextDim)
         }

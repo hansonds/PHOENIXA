@@ -59,9 +59,60 @@ data class TorviaRelease(
     val playsLabel: String,
     val packSize: String,
     val summary: String,
+    val source: String = "",
+    val codec: String = "",
+    val audio: String = "",
+    val subtitles: String = "",
+    val container: String = "",
+    val isSeasonPack: Boolean = false,
 ) {
     val isHdr get() = hdr.isNotBlank() && !hdr.equals("SDR", true)
     val isTenBit get() = bitDepth >= 10
+}
+
+/** The release filters, worked the same way as the Torvia web page */
+data class ReleaseFilter(
+    val quality: String = "all",
+    val kind: String = "all",            // all / episode / pack
+    val tenBit: Boolean = false,
+    val hdr: Boolean = false,
+    val hideCam: Boolean = false,
+    val langs: Set<String> = emptySet(),
+    val sort: String = "best",           // best / smallest / largest / seeders
+) {
+    fun apply(all: List<TorviaRelease>): List<TorviaRelease> {
+        val list = all.filter { r ->
+            (quality == "all" || r.quality == quality) &&
+                (!tenBit || r.isTenBit) &&
+                (!hdr || r.isHdr) &&
+                (!hideCam || !r.isCam) &&
+                (kind != "episode" || !r.isSeasonPack) &&
+                (kind != "pack" || r.isSeasonPack) &&
+                (langs.isEmpty() || r.languages.any { it in langs })
+        }
+        val camLast = compareBy<TorviaRelease> { if (it.isCam) 1 else 0 }
+        return when (sort) {
+            "smallest" -> list.sortedWith(camLast.thenBy { if (it.sizeBytes > 0) it.sizeBytes else Long.MAX_VALUE })
+            "largest" -> list.sortedWith(camLast.thenByDescending { it.sizeBytes })
+            "seeders" -> list.sortedWith(camLast.thenByDescending { it.seeders })
+            else -> list // "best" keeps the server's order
+        }
+    }
+
+    companion object {
+        val qualities = listOf("4K", "1080p", "720p", "480p")
+        val sorts = listOf("best" to "Best", "smallest" to "Small file", "largest" to "Large file", "seeders" to "Most seeders")
+
+        /** 1080p when there is any, otherwise every quality (and a note saying so) */
+        fun start(all: List<TorviaRelease>): Pair<ReleaseFilter, String?> =
+            if (all.any { it.quality == "1080p" }) ReleaseFilter(quality = "1080p") to null
+            else ReleaseFilter() to "No 1080p releases, so all qualities are shown."
+
+        /** Languages with how many releases have each, most common first */
+        fun languages(all: List<TorviaRelease>): List<Pair<String, Int>> =
+            all.flatMap { it.languages }.groupingBy { it }.eachCount().entries
+                .sortedByDescending { it.value }.map { it.key to it.value }
+    }
 }
 
 data class TorviaReleases(
@@ -183,6 +234,9 @@ class TorviaApi(private val api: JellyfinApi) {
                     languages = it.optJSONArray("languages").strings(),
                     kind = it.str("kind"), label = it.str("label"), playsLabel = it.str("playsLabel"),
                     packSize = it.str("packSize"), summary = it.str("summary"),
+                    source = it.str("source"), codec = it.str("codec"), audio = it.str("audio"),
+                    subtitles = it.str("subtitles"), container = it.str("container"),
+                    isSeasonPack = it.optBoolean("isSeasonPack"),
                 )
             },
             jellyfinItemId = o.strOrNull("jellyfinItemId"),
