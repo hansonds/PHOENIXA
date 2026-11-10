@@ -59,7 +59,7 @@ object App {
     val prefs = Prefs()
     val api = JellyfinApi(prefs)
     const val NAME = "PHOENIXA"
-    val version: String = System.getProperty("jpackage.app-version") ?: "1.2.2"
+    val version: String = System.getProperty("jpackage.app-version") ?: "1.2.3"
 
     /** Libraries of the signed-in user (shown in the top bar) */
     var libraries by mutableStateOf<List<Library>>(emptyList())

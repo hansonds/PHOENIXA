@@ -317,7 +317,7 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
     var details by remember(type, tmdbId) { mutableStateOf<TorviaDetails?>(null) }
     var error by remember(type, tmdbId) { mutableStateOf<String?>(null) }
     var season by remember(type, tmdbId) { mutableIntStateOf(-1) }
-    var episode by remember(type, tmdbId) { mutableIntStateOf(1) }
+    var episode by remember(type, tmdbId) { mutableIntStateOf(0) }
     var releases by remember(type, tmdbId) { mutableStateOf<List<TorviaRelease>?>(null) }
     var relError by remember(type, tmdbId) { mutableStateOf<String?>(null) }
     var inLibraryId by remember(type, tmdbId) { mutableStateOf<String?>(null) }
@@ -376,7 +376,7 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
             if (d.title.isTv && d.seasons.isNotEmpty()) {
                 item {
                     ChipLine("Season") {
-                        d.seasons.forEach { s -> Chip(s.name.ifBlank { "Season ${s.season}" }, s.season == season) { season = s.season; episode = 1 } }
+                        d.seasons.forEach { s -> Chip(s.name.ifBlank { "Season ${s.season}" }, s.season == season) { season = s.season; episode = 0 } }
                     }
                     val count = d.seasons.firstOrNull { it.season == season }?.episodes ?: 0
                     ChipLine("Episode") {
@@ -399,7 +399,7 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
                         Text("Looking for cached releases… this can take a few seconds", style = NovaType.Label, color = Nova.TextDim)
                     }
                 }
-                all.isEmpty() -> item { Text("No cached releases found on TorBox for this.", style = NovaType.Body, color = Nova.TextDim, modifier = Modifier.padding(horizontal = 48.dp)) }
+                all.isEmpty() -> item { Text(if (d.title.isTv && episode == 0) "No whole-season packs cached on TorBox right now. Pick an episode above to see single episodes." else "No cached releases found on TorBox for this.", style = NovaType.Body, color = Nova.TextDim, modifier = Modifier.padding(horizontal = 48.dp)) }
                 shown.isEmpty() -> item { Text("No releases match these filters.", style = NovaType.Body, color = Nova.TextDim, modifier = Modifier.padding(horizontal = 48.dp)) }
                 else -> items(shown) { r -> ReleaseRow(r, best = f.sort == "best" && !r.isCam && r === shown.first()) { picked = r } }
             }

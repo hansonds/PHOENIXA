@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "org.phoenicx"
-version = "1.2.2"
+version = "1.2.3"
 
 kotlin {
     jvmToolchain(17)
@@ -34,7 +34,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "PHOENIXA"
-            packageVersion = "1.2.2"
+            packageVersion = "1.2.3"
             description = "PHOENIXA - Jellyfin client"
             vendor = "Hanson"
             modules(

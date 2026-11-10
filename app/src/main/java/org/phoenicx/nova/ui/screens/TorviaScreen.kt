@@ -322,7 +322,7 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
 
     // TV shows: chosen season and episode (0 = whole season)
     var season by rememberSaveable { mutableIntStateOf(-1) }
-    var episode by rememberSaveable { mutableIntStateOf(1) }
+    var episode by rememberSaveable { mutableIntStateOf(0) }
 
     var releases by remember { mutableStateOf<List<TorviaRelease>?>(null) }
     var relError by remember { mutableStateOf<String?>(null) }
@@ -389,7 +389,7 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
             if (d.title.isTv && d.seasons.isNotEmpty()) {
                 item {
                     ChipRow("Season") {
-                        d.seasons.forEach { s -> SortChip(s.name.ifBlank { "Season ${s.season}" }, s.season == season) { season = s.season; episode = 1 } }
+                        d.seasons.forEach { s -> SortChip(s.name.ifBlank { "Season ${s.season}" }, s.season == season) { season = s.season; episode = 0 } }
                     }
                     val count = d.seasons.firstOrNull { it.season == season }?.episodes ?: 0
                     ChipRow("Episode") {
@@ -421,7 +421,7 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
                         Text("Looking for cached releases… this can take a few seconds", style = NovaType.Label, color = Nova.TextDim)
                     }
                 }
-                all.isEmpty() -> item { Text("No cached releases found on TorBox for this.", style = NovaType.Body, color = Nova.TextDim, modifier = Modifier.padding(horizontal = Lay.side)) }
+                all.isEmpty() -> item { Text(if (d.title.isTv && episode == 0) "No whole-season packs cached on TorBox right now. Pick an episode above to see single episodes." else "No cached releases found on TorBox for this.", style = NovaType.Body, color = Nova.TextDim, modifier = Modifier.padding(horizontal = Lay.side)) }
                 shown.isEmpty() -> item { Text("No releases match these filters.", style = NovaType.Body, color = Nova.TextDim, modifier = Modifier.padding(horizontal = Lay.side)) }
                 else -> items(shown, key = { it.hash + it.fileName }) { r ->
                     ReleaseRow(r, best = f.sort == "best" && !r.isCam && r === shown.first()) { picked = r }
