@@ -297,9 +297,17 @@ private fun AddRow(a: TorviaAdd, showUser: Boolean, onOpen: (() -> Unit)?, onRem
             val meta = listOfNotNull(
                 if (showUser && a.userName.isNotBlank()) "by ${a.userName}" else null,
                 a.whenText.take(10).takeIf { it.isNotBlank() },
-                if (a.jellyfinItemId == null) "Not in Jellyfin yet" else "In Jellyfin",
+                when {
+                    a.jellyfinItemId != null -> "In Jellyfin"
+                    a.downloadPercent != null -> null
+                    else -> "Not in Jellyfin yet"
+                },
             ).joinToString(" · ")
             Text(meta, style = NovaType.Label, color = Nova.TextFaint, maxLines = 1)
+            a.downloadPercent?.let { pct ->
+                Spacer(Modifier.height(6.dp))
+                Tag("TorBox is downloading · $pct%", Nova.Cyan)
+            }
         }
         Spacer(Modifier.width(12.dp))
         if (onOpen != null) NovaButton("Open", Icons.Outlined.PlayArrow, onClick = onOpen)

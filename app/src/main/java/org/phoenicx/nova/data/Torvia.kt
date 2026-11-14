@@ -18,6 +18,8 @@ data class TorviaStatus(
     val remainingToday: Int?,
     val dailyLimit: Int?,
     val buttonLabel: String,
+    /** Torvia 1.15+: users may add their own magnet link or .torrent file */
+    val ownTorrents: Boolean = false,
 )
 
 data class TorviaTitle(
@@ -135,6 +137,8 @@ data class TorviaAdd(
     val tag: String,
     val canRemove: Boolean,
     val jellyfinItemId: String?,
+    /** 0–100 while TorBox is still downloading it, otherwise null */
+    val downloadPercent: Int? = null,
 )
 
 data class TorviaUser(val id: String, val name: String, val count: Int)
@@ -142,7 +146,7 @@ data class TorviaUser(val id: String, val name: String, val count: Int)
 data class TorviaAdds(val isAdmin: Boolean, val items: List<TorviaAdd>, val users: List<TorviaUser>)
 
 /** Result of an add or a remove: shown to the user as is */
-data class TorviaResult(val ok: Boolean, val message: String, val remainingToday: Int? = null)
+data class TorviaResult(val ok: Boolean, val message: String, val remainingToday: Int? = null, val downloading: Boolean = false)
 
 class TorviaException(message: String) : Exception(message)
 
@@ -190,6 +194,7 @@ class TorviaApi(private val api: JellyfinApi) {
             remainingToday = o.intOrNull("remainingToday"),
             dailyLimit = o.intOrNull("dailyLimit"),
             buttonLabel = o.strOrNull("buttonLabel") ?: "Search & Add",
+            ownTorrents = o.optBoolean("ownTorrents", false),
         )
     }
 
@@ -255,6 +260,28 @@ class TorviaApi(private val api: JellyfinApi) {
         fail(code, text)
     }
 
+    /**
+     * Adds the user's own magnet link or .torrent file (base64) under the picked title.
+     * Only this server ever sees the link or file.
+     */
+    suspend fun addOwn(magnet: String?, fileBase64: String?, type: String, tmdbId: Int, tag: String?): TorviaResult {
+        val body = JSONObject().put("type", type).put("tmdbId", tmdbId)
+        if (!magnet.isNullOrBlank()) body.put("magnet", magnet.trim()) else body.put("file", fileBase64 ?: "")
+        if (!tag.isNullOrBlank()) body.put("tag", tag)
+        val (code, text) = api.raw("POST", "/TorviaSearch/AddOwn", body)
+        val o = runCatching { JSONObject(text) }.getOrNull()
+        if (code in 200..299 && o != null) {
+            return TorviaResult(
+                ok = o.optBoolean("ok", true),
+                message = o.strOrNull("message") ?: "Added.",
+                remainingToday = o.intOrNull("remainingToday"),
+                downloading = o.optBoolean("downloading"),
+            )
+        }
+        if (code == 400 && o != null) return TorviaResult(false, o.strOrNull("message") ?: o.strOrNull("error") ?: "Couldn't add it.")
+        fail(code, text)
+    }
+
     /** The Jellyfin item id once Torvia has synced the title, otherwise null */
     suspend fun inLibrary(type: String, tmdbId: Int): String? {
         val (code, text) = runCatching { api.raw("GET", "/TorviaSearch/InLibrary/$type/$tmdbId") }.getOrNull() ?: return null
@@ -278,6 +305,8 @@ class TorviaApi(private val api: JellyfinApi) {
                     label = it.str("label"), quality = it.str("quality"), size = it.str("size"),
                     tag = it.str("tag"), canRemove = it.optBoolean("canRemove"),
                     jellyfinItemId = it.strOrNull("jellyfinItemId"),
+                    downloadPercent = if (it.isNull("downloadPercent") || !it.has("downloadPercent")) null
+                        else it.optDouble("downloadPercent").takeIf { p -> !p.isNaN() }?.toInt()?.coerceIn(0, 100),
                 )
             },
             users = o.optJSONArray("users").objects().map { TorviaUser(it.str("id"), it.str("name"), it.optInt("count")) },

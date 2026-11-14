@@ -2,6 +2,11 @@ package org.phoenicx.nova.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -85,6 +90,7 @@ private object TorviaMemory {
     var lastSearched = ""
     var results: List<TorviaTitle> = emptyList()
     var tab = 0
+    var ownPicked: TorviaTitle? = null
 }
 
 /** "8 of 10 left today" (nothing when there is no limit) */
@@ -101,15 +107,23 @@ fun TorviaScreen(nav: Navigator) {
     var tab by rememberSaveable { mutableIntStateOf(TorviaMemory.tab) }
     LaunchedEffect(tab) { TorviaMemory.tab = tab }
     val label = nav.torvia.value?.buttonLabel ?: "Search & Add"
+    // "Add a link" is for phones and tablets only (typing a magnet link with a TV remote is no fun)
+    val ownLinks = nav.torvia.value?.ownTorrents == true && !org.phoenicx.nova.NovaApp.instance.isTv
+    val shown = if (tab == 2 && !ownLinks) 0 else tab
 
     Column(Modifier.fillMaxSize()) {
         TopNav(nav, Screen.Torvia)
         PageHeader(label, allowanceText(nav)) {
-            SortChip("Search", tab == 0) { tab = 0 }
-            SortChip("My adds", tab == 1) { tab = 1 }
+            SortChip("Search", shown == 0) { tab = 0 }
+            if (ownLinks) SortChip("Add a link", shown == 2) { tab = 2 }
+            SortChip("My adds", shown == 1) { tab = 1 }
         }
         Spacer(Modifier.height(8.dp))
-        if (tab == 0) TorviaSearchTab(nav) else TorviaAddsTab(nav)
+        when (shown) {
+            1 -> TorviaAddsTab(nav)
+            2 -> TorviaAddLinkTab(nav) { tab = 1 }
+            else -> TorviaSearchTab(nav)
+        }
     }
 }
 
@@ -166,6 +180,270 @@ private fun TorviaSearchTab(nav: Navigator) {
             }
         }
     }
+}
+
+// ============================================================================ Add a link (phones & tablets)
+
+private const val MAX_TORRENT_BYTES = 5 * 1024 * 1024
+
+@Composable
+private fun TorviaAddLinkTab(nav: Navigator, openMyAdds: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    val status = nav.torvia.value
+
+    // 1. The link or the file (only one is used)
+    var magnet by rememberSaveable { mutableStateOf("") }
+    var fileName by remember { mutableStateOf<String?>(null) }
+    var fileB64 by remember { mutableStateOf<String?>(null) }
+    var fileError by remember { mutableStateOf<String?>(null) }
+
+    // 2. Which movie or show
+    var picked by remember { mutableStateOf(TorviaMemory.ownPicked) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<TorviaTitle>>(emptyList()) }
+    var searching by remember { mutableStateOf(false) }
+    var searchError by remember { mutableStateOf<String?>(null) }
+
+    // 3. Tag
+    val tags = status?.tags.orEmpty()
+    var tag by remember { mutableStateOf("") }
+    LaunchedEffect(picked) {
+        TorviaMemory.ownPicked = picked
+        val p = picked ?: return@LaunchedEffect
+        val def = if (p.isTv) status?.tvTag else status?.movieTag
+        tag = def?.takeIf { it.isNotBlank() } ?: tags.firstOrNull().orEmpty()
+    }
+
+    var busy by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<org.phoenicx.nova.data.TorviaResult?>(null) }
+    var waiting by remember { mutableStateOf<TorviaTitle?>(null) }
+    var openId by remember { mutableStateOf<String?>(null) }
+
+    val pickFile = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            fileError = null
+            val read = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val cr = context.contentResolver
+                    val name = cr.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                        if (c.moveToFirst()) c.getString(0) else null
+                    } ?: "file.torrent"
+                    val bytes = cr.openInputStream(uri)?.use { input ->
+                        val out = java.io.ByteArrayOutputStream()
+                        val buf = ByteArray(64 * 1024)
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            out.write(buf, 0, n)
+                            if (out.size() > MAX_TORRENT_BYTES) error("big")
+                        }
+                        out.toByteArray()
+                    } ?: error("unreadable")
+                    name to bytes
+                }
+            }
+            read.onSuccess { (name, bytes) ->
+                if (bytes.isEmpty()) { fileError = "That file is empty."; return@onSuccess }
+                fileName = name
+                fileB64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                magnet = ""          // choosing a file clears the text box
+                result = null
+            }.onFailure {
+                fileName = null; fileB64 = null
+                fileError = if (it.message == "big") "That file is bigger than 5 MB." else "Couldn't read that file."
+            }
+        }
+    }
+
+    // Search for the title (same search as the Search tab)
+    LaunchedEffect(query) {
+        val q = query.trim()
+        if (q.length < 2) { results = emptyList(); searchError = null; return@LaunchedEffect }
+        delay(600)
+        searching = true; searchError = null
+        runCatching { torvia.search(q) }
+            .onSuccess { results = it }
+            .onFailure { searchError = it.message }
+        searching = false
+    }
+
+    // A cached add: watch for it in Jellyfin (every 10 s, up to 3 min)
+    LaunchedEffect(waiting) {
+        val w = waiting ?: return@LaunchedEffect
+        repeat(18) {
+            delay(10_000)
+            torvia.inLibrary(w.type, w.tmdbId)?.let { openId = it; waiting = null; return@LaunchedEffect }
+        }
+        waiting = null
+    }
+
+    val hasSource = magnet.isNotBlank() || fileB64 != null
+    val canAdd = hasSource && picked != null && !busy
+
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = Lay.side, end = Lay.side, bottom = 60.dp)
+            .widthIn(max = 760.dp),
+    ) {
+        Text("Add your own magnet link or .torrent file to TorBox.", style = NovaType.Body, color = Nova.TextDim)
+        allowanceText(nav)?.let { Text(it, style = NovaType.Label, color = Nova.Cyan) }
+
+        // ---- 1. Link or file
+        StepTitle("1", "The link or file")
+        NovaTextField(
+            magnet,
+            { magnet = it; if (it.isNotEmpty()) { fileName = null; fileB64 = null; fileError = null }; result = null },
+            label = "",
+            placeholder = "magnet:?xt=urn:btih:…",
+            icon = Icons.Outlined.Link,
+            imeAction = ImeAction.Done,
+            keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            NovaButton("Paste", Icons.Outlined.ContentPaste) {
+                val t = clipboard.getText()?.text?.trim().orEmpty()
+                if (t.isNotEmpty()) { magnet = t; fileName = null; fileB64 = null; fileError = null; result = null }
+            }
+            NovaButton("Choose a .torrent file", Icons.Outlined.AttachFile) {
+                runCatching { pickFile.launch(arrayOf("application/x-bittorrent", "application/octet-stream")) }
+                    .onFailure { fileError = "No file picker on this device." }
+            }
+        }
+        fileName?.let {
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GlassChip("📄 $it", accent = Nova.Cyan)
+                Spacer(Modifier.width(10.dp))
+                NovaButton("Clear") { fileName = null; fileB64 = null }
+            }
+        }
+        fileError?.let { Text(it, style = NovaType.Label, color = Nova.Rose, modifier = Modifier.padding(top = 6.dp)) }
+
+        // ---- 2. Which title
+        StepTitle("2", "Which movie or show is it?")
+        val p = picked
+        if (p != null) {
+            Row(
+                Modifier.fillMaxWidth()
+                    .background(Color(0x12FFFFFF), RoundedCornerShape(16.dp))
+                    .border(1.dp, Nova.Stroke, RoundedCornerShape(16.dp))
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(56.dp, 84.dp).background(Nova.Surface, RoundedCornerShape(8.dp))) {
+                    if (p.poster != null) AsyncImage(p.poster, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(p.title, style = NovaType.Section, color = Nova.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(listOfNotNull(p.year?.toString(), if (p.isTv) "TV show" else "Movie").joinToString(" · "),
+                        style = NovaType.Label, color = Nova.TextDim)
+                }
+                NovaButton("Change") { picked = null; openId = null; waiting = null }
+            }
+        } else {
+            NovaTextField(
+                query, { query = it }, label = "",
+                placeholder = "Name, TMDB or IMDb link…",
+                icon = Icons.Outlined.Search,
+                imeAction = ImeAction.Search,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(10.dp))
+            when {
+                searching && results.isEmpty() -> Box(Modifier.fillMaxWidth().height(90.dp)) { NovaLoader() }
+                searchError != null -> Text(searchError!!, style = NovaType.Label, color = Nova.Rose)
+                query.trim().length >= 2 && results.isEmpty() && !searching ->
+                    Text("Nothing found. Try another name, or paste a TMDB or IMDb link.", style = NovaType.Label, color = Nova.TextDim)
+                results.isNotEmpty() -> androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(results, key = { "${it.type}-${it.tmdbId}" }) { t ->
+                        TmdbPosterCard(t.title, t.year, t.poster, if (t.isTv) "Series" else "Movie") {
+                            picked = t; query = ""; results = emptyList()
+                        }
+                    }
+                }
+            }
+            if (picked == null && hasSource) Text("Pick the title so it lands in the right place in Jellyfin.",
+                style = NovaType.Label, color = Nova.TextFaint, modifier = Modifier.padding(top = 6.dp))
+        }
+
+        // ---- 3. Tag
+        if (tags.isNotEmpty()) {
+            StepTitle("3", "Tag")
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                tags.forEach { t -> SortChip(t, t == tag) { tag = t } }
+            }
+        }
+
+        // ---- Add
+        Spacer(Modifier.height(22.dp))
+        if (busy) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(56.dp)) { NovaLoader() }
+                Spacer(Modifier.width(8.dp))
+                Text("Adding to TorBox… this can take up to 20 seconds", style = NovaType.Label, color = Nova.TextDim)
+            }
+        } else {
+            Box(Modifier.then(if (canAdd) Modifier else Modifier.graphicsLayer { alpha = 0.4f })) {
+                NovaButton("Add to TorBox", Icons.Outlined.Add, primary = true) {
+                    val title = picked ?: return@NovaButton
+                    if (!canAdd) return@NovaButton
+                    busy = true; result = null; openId = null; waiting = null
+                    val link = magnet.takeIf { it.isNotBlank() }
+                    val file = if (link == null) fileB64 else null
+                    scope.launch {
+                        val res = runCatching { torvia.addOwn(link, file, title.type, title.tmdbId, tag.ifBlank { null }) }
+                            .getOrElse { org.phoenicx.nova.data.TorviaResult(false, it.message ?: "Couldn't add it.") }
+                        busy = false
+                        result = res
+                        if (res.ok) {
+                            magnet = ""; fileName = null; fileB64 = null   // ready for another one; keep the title
+                            nav.refreshTorvia()
+                            if (!res.downloading) waiting = title
+                        }
+                    }
+                }
+            }
+        }
+
+        result?.let { r ->
+            Spacer(Modifier.height(14.dp))
+            Text(r.message, style = NovaType.Body, color = if (r.ok) Nova.Cyan else Nova.Rose)
+            if (r.ok && r.downloading) {
+                Spacer(Modifier.height(6.dp))
+                Text("TorBox is downloading it. You can follow the progress under My adds, and it appears in Jellyfin by itself when it's done.",
+                    style = NovaType.Label, color = Nova.TextDim)
+                Spacer(Modifier.height(10.dp))
+                NovaButton("Go to My adds", onClick = openMyAdds)
+            }
+        }
+        when {
+            openId != null -> { Spacer(Modifier.height(10.dp)); NovaButton("Open", Icons.Outlined.PlayArrow, primary = true) { nav.push(Screen.Detail(openId!!)) } }
+            waiting != null -> Text("Waiting for it to appear in Jellyfin…", style = NovaType.Label, color = Nova.TextDim, modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun StepTitle(n: String, text: String) {
+    Spacer(Modifier.height(22.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(26.dp).background(Nova.Cyan.copy(alpha = 0.22f), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+            Text(n, style = NovaType.Label, color = Nova.Cyan, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(text, style = NovaType.Section, color = Nova.Text)
+    }
+    Spacer(Modifier.height(10.dp))
 }
 
 @Composable
@@ -291,9 +569,17 @@ private fun AddRow(a: TorviaAdd, showUser: Boolean, onOpen: (() -> Unit)?, onRem
             val meta = listOfNotNull(
                 if (showUser && a.userName.isNotBlank()) "by ${a.userName}" else null,
                 a.whenText.take(10).takeIf { it.isNotBlank() },
-                if (a.jellyfinItemId == null) "Not in Jellyfin yet" else "In Jellyfin",
+                when {
+                    a.jellyfinItemId != null -> "In Jellyfin"
+                    a.downloadPercent != null -> null
+                    else -> "Not in Jellyfin yet"
+                },
             ).joinToString(" · ")
             Text(meta, style = NovaType.Label, color = Nova.TextFaint, maxLines = 1)
+            a.downloadPercent?.let { pct ->
+                Spacer(Modifier.height(6.dp))
+                GlassChip("TorBox is downloading · $pct%", accent = Nova.Cyan)
+            }
             if (Lay.phone && (onOpen != null || onRemove != null)) {
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
