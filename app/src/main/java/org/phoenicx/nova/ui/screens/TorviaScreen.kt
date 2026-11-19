@@ -106,7 +106,7 @@ private fun allowanceText(nav: Navigator): String? {
 fun TorviaScreen(nav: Navigator) {
     var tab by rememberSaveable { mutableIntStateOf(TorviaMemory.tab) }
     LaunchedEffect(tab) { TorviaMemory.tab = tab }
-    val label = nav.torvia.value?.buttonLabel ?: "Search & Add"
+    val label = "Add"
     // "Add a link" is for phones and tablets only (typing a magnet link with a TV remote is no fun)
     val ownLinks = nav.torvia.value?.ownTorrents == true && !org.phoenicx.nova.NovaApp.instance.isTv
     val shown = if (tab == 2 && !ownLinks) 0 else tab

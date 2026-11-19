@@ -50,7 +50,7 @@ import org.phoenicx.nova.ui.Screen
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
 
-/** Phones (portrait): Home · Library · Search & Add · Search · Profile at the bottom, easy to reach with a thumb */
+/** Phones (portrait): Home · Library · Search · Add · Profile at the bottom, easy to reach with a thumb */
 @Composable
 fun BottomNav(nav: Navigator) {
     val current = nav.current
@@ -73,11 +73,11 @@ fun BottomNav(nav: Navigator) {
         Tab("Library", Icons.Filled.VideoLibrary, Icons.Outlined.VideoLibrary, inLibrary) {
             if (current != Screen.Libraries) nav.tab(Screen.Libraries)
         }
-        // Only on servers with the Torvia plugin
-        if (torvia != null) {
-            Tab(torvia.buttonLabel, Icons.Filled.AddCircle, Icons.Outlined.AddCircleOutline, inAdd) { if (current != Screen.Torvia) nav.tab(Screen.Torvia) }
-        }
         Tab("Search", Icons.Filled.Search, Icons.Outlined.Search, current == Screen.Search) { if (current != Screen.Search) nav.tab(Screen.Search) }
+        // "Add", right after Search: only on servers with the Torvia plugin
+        if (torvia != null) {
+            Tab("Add", Icons.Filled.AddCircle, Icons.Outlined.AddCircleOutline, inAdd) { if (current != Screen.Torvia) nav.tab(Screen.Torvia) }
+        }
         ProfileTab(current == Screen.Settings || current == Screen.Profiles) { if (current != Screen.Settings) nav.tab(Screen.Settings) }
     }
 }

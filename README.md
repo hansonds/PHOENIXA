@@ -29,7 +29,7 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - **Featured carousel**: full-screen backdrops with title logos, rating, year, runtime and quality badges. It auto-rotates, and you can flip slides with left and right.
 - **Continue Watching**, **Next Up**, **Recently Added** for each library, and **My Favorites** rows.
 - An always-visible top bar with Search, Home, Favorites, every library (it scrolls sideways if you have many), Settings and a small clock.
-- On phones, a **bottom bar** (Home · Library · Search & Add · Search · Profile) within reach of your thumb. **Library** shows every library and Favorites on one page.
+- On phones, a **bottom bar** (Home · Library · Search · Add · Profile) within reach of your thumb. **Library** shows every library and Favorites on one page.
 - Grey **placeholder cards** while pages load, and **pull down to refresh** on phones and tablets.
 - **Android TV / Google TV:** what you're watching appears in the TV home screen's **Continue watching** row. Pick it there and it plays straight away.
 
