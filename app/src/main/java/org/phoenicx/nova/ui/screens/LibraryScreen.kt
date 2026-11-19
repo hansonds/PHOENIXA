@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -151,12 +152,13 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
 @Composable
 fun PageHeader(title: String, subtitle: String?, chips: @Composable () -> Unit) {
     if (Lay.phone) {
-        Column(Modifier.padding(start = Lay.side, end = Lay.side, bottom = 4.dp)) {
-            Text(title, style = NovaType.Title, color = Nova.Text)
-            if (subtitle != null) Text(subtitle, style = NovaType.Label, color = Nova.TextFaint)
+        Column(Modifier.padding(bottom = 4.dp)) {
+            Text(title, style = NovaType.Title, color = Nova.Text, modifier = Modifier.padding(horizontal = Lay.side))
+            if (subtitle != null) Text(subtitle, style = NovaType.Label, color = Nova.TextFaint, modifier = Modifier.padding(horizontal = Lay.side))
             Spacer(Modifier.height(10.dp))
+            // Scrolls from screen edge to screen edge, so the last chip isn't cut off
             Row(
-                Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = Lay.side),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) { chips() }
         }

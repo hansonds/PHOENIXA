@@ -163,13 +163,7 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
                 Spacer(Modifier.width(14.dp))
                 settingsAndAvatar()
             }
-            Spacer(Modifier.height(4.dp))
-            // Edge to edge so pills scroll under the soft fades, not against a border
-            Box(Modifier.padding(start = 0.dp).layout { m, c ->
-                val extra = 28.dp.roundToPx() // undo the column's side padding
-                val p = m.measure(c.copy(maxWidth = c.maxWidth + extra, minWidth = c.minWidth))
-                layout(c.maxWidth, p.height) { p.place(-12.dp.roundToPx(), 0) }
-            }) { pills() }
+            // Libraries, Favorites and Search & Add are in the bottom bar on phones
         }
         return
     }

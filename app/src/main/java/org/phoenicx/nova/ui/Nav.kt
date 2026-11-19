@@ -12,6 +12,8 @@ sealed class Screen {
     data class Lib(val library: Library) : Screen()
     data object Search : Screen()
     data object Favorites : Screen()
+    /** Phones: all libraries on one page */
+    data object Libraries : Screen()
     data object Settings : Screen()
     data class Detail(val itemId: String) : Screen()
     data class Person(val id: String, val name: String) : Screen()

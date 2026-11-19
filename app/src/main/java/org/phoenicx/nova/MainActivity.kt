@@ -139,6 +139,7 @@ fun NovaRoot() {
             is Screen.Lib -> LibraryScreen(nav, screen.library)
             Screen.Search -> SearchScreen(nav)
             Screen.Favorites -> FavoritesScreen(nav)
+            Screen.Libraries -> org.phoenicx.nova.ui.screens.LibrariesScreen(nav)
             Screen.Settings -> SettingsScreen(nav, onSignOut = {
                 val tok = prefs.token
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { app.api.logout(tok) }

@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
 import org.phoenicx.nova.NovaApp
 import org.phoenicx.nova.ui.Navigator
 import org.phoenicx.nova.ui.Screen
@@ -65,18 +66,14 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
         TopNav(nav, Screen.Settings)
         Column(
             Modifier.padding(horizontal = Lay.side).widthIn(max = 760.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("Settings", style = NovaType.Title, color = Nova.Text)
-            SettingRow(
-                "Profile",
-                "Switch to someone else, or add a person to this device",
-                prefs.userName ?: "",
-            ) { nav.push(Screen.Profiles) }
-            Spacer(Modifier.height(4.dp))
 
-            InfoCard("Signed in as", prefs.userName ?: "—", prefs.server)
+            // Who's signed in, with a quick way to switch
+            ProfileCard(prefs.userName ?: "—", prefs.server) { nav.push(Screen.Profiles) }
 
+            SectionLabel("Playback")
             SettingRow(
                 "Direct play only",
                 "Always play the original file. Turn off to let the server transcode if a file won't play",
@@ -90,10 +87,15 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
                 bitrateIdx = (bitrateIdx + 1) % bitrates.size
                 prefs.maxBitrateMbps = bitrates[bitrateIdx]
             }
+            SettingRow("Auto-play next episode", "Start the next episode when one ends", if (autoNext) "On" else "Off") {
+                autoNext = !autoNext; prefs.autoPlayNext = autoNext
+            }
+
+            SectionLabel("Appearance")
             SettingRow(
                 "Theme",
                 "Change the colours of the whole app",
-                org.phoenicx.nova.ui.theme.NovaThemes.current.name,
+                org.phoenicx.nova.ui.theme.NovaThemes.current.name.substringBefore(" (default)"),
                 requester = themeRowRequester,
             ) { showThemes = true }
             SettingRow(
@@ -101,13 +103,11 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
                 "Make posters and thumbnails smaller or bigger",
                 UiScale.labels[UiScale.cardSizeIndex],
             ) { UiScale.set((UiScale.cardSizeIndex + 1) % 3) }
-            SettingRow("Auto-play next episode", "Start the next episode when one ends", if (autoNext) "On" else "Off") {
-                autoNext = !autoNext; prefs.autoPlayNext = autoNext
-            }
             SettingRow("Rotate featured carousel", "Cycle the home banner automatically", if (heroRotate) "On" else "Off") {
                 heroRotate = !heroRotate; prefs.heroAutoRotate = heroRotate
             }
-            Spacer(Modifier.height(8.dp))
+
+            SectionLabel("Account")
             NovaButton("Sign out", Icons.Outlined.Logout) { onSignOut() }
             Spacer(Modifier.height(10.dp))
             Text("PHOENIXA $version · made by Hanson", style = NovaType.Label, color = Nova.TextFaint)
@@ -135,26 +135,50 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
 }
 
 @Composable
-private fun InfoCard(title: String, value: String, sub: String) {
-    Row(
-        Modifier.fillMaxWidth()
-            .background(Color(0x1FFFFFFF), RoundedCornerShape(18.dp))
-            .border(1.dp, Nova.Stroke, RoundedCornerShape(18.dp))
-            .padding(20.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(48.dp).background(Nova.AccentBrush, CircleShape), contentAlignment = Alignment.Center) {
-            Text(value.take(1).uppercase(), style = NovaType.Title, color = Nova.OnFocus)
-        }
-        Spacer(Modifier.width(16.dp))
-        Column {
-            Text(title.uppercase(), style = NovaType.Caption, color = Nova.TextFaint)
-            Text(value, style = NovaType.Section, color = Nova.Text)
-            Text(sub, style = NovaType.Label, color = Nova.TextDim)
+private fun SectionLabel(text: String) {
+    Text(
+        text.uppercase(), style = NovaType.Caption, color = Nova.TextFaint,
+        modifier = Modifier.padding(start = 6.dp, top = 14.dp, bottom = 2.dp),
+    )
+}
+
+/** Your picture, name and server, with a Switch button */
+@Composable
+private fun ProfileCard(name: String, server: String, onSwitch: () -> Unit) {
+    val api = NovaApp.instance.api
+    FocusSurface(onClick = onSwitch, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), focusedScale = 1.02f) { focused ->
+        Row(
+            Modifier.fillMaxWidth()
+                .background(
+                    androidx.compose.ui.graphics.Brush.horizontalGradient(
+                        listOf(Nova.Cyan.copy(alpha = if (focused) 0.30f else 0.16f), Color(0x14FFFFFF))
+                    )
+                )
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(56.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {
+                Text(name.take(1).uppercase(), style = NovaType.Title, color = Nova.OnFocus)
+                coil.compose.AsyncImage(api.userImage(), null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text("SIGNED IN AS", style = NovaType.Caption, color = Nova.TextFaint)
+                Text(name, style = NovaType.Section, color = Nova.Text, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(server.substringAfter("://"), style = NovaType.Label, color = Nova.TextDim, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.width(12.dp))
+            Box(
+                Modifier.clip(RoundedCornerShape(18.dp)).background(if (focused) Nova.Focus else Color(0x22FFFFFF))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text("Switch", style = NovaType.Button, color = if (focused) Nova.OnFocus else Nova.Text)
+            }
         }
     }
 }
 
+/** One setting: title and value on the first line, the explanation below (lines up on every screen size) */
 @Composable
 private fun SettingRow(
     title: String, sub: String, value: String,
@@ -162,17 +186,24 @@ private fun SettingRow(
     onClick: () -> Unit,
 ) {
     FocusSurface(onClick = onClick, modifier = Modifier.fillMaxWidth(), focusRequester = requester, shape = RoundedCornerShape(18.dp), focusedScale = 1.02f) { focused ->
-        Row(
+        Column(
             Modifier.fillMaxWidth()
                 .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Color(0x1AFFFFFF))
-                .padding(horizontal = 22.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 20.dp, vertical = 14.dp),
         ) {
-            Column(Modifier.weight(1f)) {
-                Text(title, style = NovaType.Section, color = Nova.Text)
-                Text(sub, style = NovaType.Label, color = Nova.TextDim)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = NovaType.Section, color = Nova.Text, modifier = Modifier.weight(1f), maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Spacer(Modifier.width(12.dp))
+                Box(
+                    Modifier.clip(RoundedCornerShape(14.dp)).background(Nova.Cyan.copy(alpha = 0.16f))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text(value, style = NovaType.Button, color = Nova.Cyan, maxLines = 1)
+                }
             }
-            Text(value, style = NovaType.Button, color = Nova.Cyan)
+            Spacer(Modifier.height(4.dp))
+            Text(sub, style = NovaType.Label, color = Nova.TextDim)
         }
     }
 }

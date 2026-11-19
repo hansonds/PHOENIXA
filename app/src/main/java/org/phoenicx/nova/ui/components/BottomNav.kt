@@ -22,14 +22,14 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Tv
+import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,34 +50,32 @@ import org.phoenicx.nova.ui.Screen
 import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
 
-/** Phones (portrait): Home · Movies · Shows · Search · Profile at the bottom, easy to reach with a thumb */
+/** Phones (portrait): Home · Library · Search & Add · Search · Profile at the bottom, easy to reach with a thumb */
 @Composable
 fun BottomNav(nav: Navigator) {
     val current = nav.current
-    val libs = nav.libraries.value
-    val movies = libs.firstOrNull { it.collectionType == "movies" }
-    val shows = libs.firstOrNull { it.collectionType == "tvshows" }
-    val curLib = (current as? Screen.Lib)?.library
+    val torvia = nav.torvia.value
+    val inLibrary = current == Screen.Libraries || current is Screen.Lib || current == Screen.Favorites
+    val inAdd = current == Screen.Torvia || current is Screen.TorviaTitle
 
     Row(
         Modifier
             .fillMaxWidth()
             .background(Nova.BgDeep.copy(alpha = 0.97f))
-            .border(width = 0.5.dp, color = Nova.Stroke, shape = RoundedCornerShape(0.dp))
             .windowInsetsPadding(WindowInsets.navigationBars)
             .height(64.dp)
-            .padding(horizontal = 6.dp),
+            .padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Tab("Home", Icons.Filled.Home, Icons.Outlined.Home, current == Screen.Home) { nav.tab(Screen.Home) }
-        if (movies != null) {
-            val sel = curLib != null && curLib.collectionType == "movies"
-            Tab("Movies", Icons.Filled.Movie, Icons.Outlined.Movie, sel) { if (!sel || curLib?.id != movies.id) nav.tab(Screen.Lib(movies)) }
+        // Every library (and Favorites) on one page
+        Tab("Library", Icons.Filled.VideoLibrary, Icons.Outlined.VideoLibrary, inLibrary) {
+            if (current != Screen.Libraries) nav.tab(Screen.Libraries)
         }
-        if (shows != null) {
-            val sel = curLib != null && curLib.collectionType == "tvshows"
-            Tab("Shows", Icons.Filled.Tv, Icons.Outlined.Tv, sel) { if (!sel || curLib?.id != shows.id) nav.tab(Screen.Lib(shows)) }
+        // Only on servers with the Torvia plugin
+        if (torvia != null) {
+            Tab(torvia.buttonLabel, Icons.Filled.AddCircle, Icons.Outlined.AddCircleOutline, inAdd) { if (current != Screen.Torvia) nav.tab(Screen.Torvia) }
         }
         Tab("Search", Icons.Filled.Search, Icons.Outlined.Search, current == Screen.Search) { if (current != Screen.Search) nav.tab(Screen.Search) }
         ProfileTab(current == Screen.Settings || current == Screen.Profiles) { if (current != Screen.Settings) nav.tab(Screen.Settings) }
@@ -103,7 +101,7 @@ private fun androidx.compose.foundation.layout.RowScope.Tab(
             Icon(if (selected) on else off, label, tint = tint, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.height(3.dp))
-        Text(label, style = NovaType.Label.copy(fontSize = 11.sp), color = tint, maxLines = 1)
+        Text(label, style = NovaType.Label.copy(fontSize = if (label.length > 8) 10.sp else 11.sp), color = tint, maxLines = 1, softWrap = false)
     }
 }
 
