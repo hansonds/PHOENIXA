@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -62,7 +63,7 @@ fun LibrariesScreen(nav: Navigator) {
             columns = GridCells.Adaptive(if (Lay.phone) 160.dp else 300.dp),
             contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 14.dp, bottom = 40.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             item(key = "fav") {
@@ -82,20 +83,29 @@ private fun iconFor(lib: Library): ImageVector = when (lib.collectionType) {
     else -> Icons.Outlined.VideoLibrary
 }
 
+/** Library picture on top, its name in small neat letters just below (nothing covers the picture) */
 @Composable
 private fun Tile(name: String, image: String?, icon: ImageVector, onClick: () -> Unit) {
-    FocusSurface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), shape = RoundedCornerShape(16.dp)) { _ ->
-        if (image != null) {
-            ShimmerBox(Modifier.fillMaxSize())
-            AsyncImage(image, name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        } else {
-            Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Nova.Cyan.copy(alpha = 0.45f), Nova.Violet.copy(alpha = 0.35f)))))
+    Column(Modifier.fillMaxWidth()) {
+        FocusSurface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), shape = RoundedCornerShape(14.dp)) { _ ->
+            if (image != null) {
+                ShimmerBox(Modifier.fillMaxSize())
+                AsyncImage(image, name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            } else {
+                // No picture (e.g. Favorites): a soft gradient with the icon in the middle
+                Box(
+                    Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Nova.Cyan.copy(alpha = 0.45f), Nova.Violet.copy(alpha = 0.35f)))),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, null, tint = Color.White, modifier = Modifier.size(40.dp))
+                }
+            }
         }
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Nova.BgDeep.copy(alpha = 0.92f))))
-        Row(Modifier.align(Alignment.BottomStart).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(name, style = NovaType.Section, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = Nova.TextDim, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(name, style = NovaType.Label, color = Nova.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
