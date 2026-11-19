@@ -93,8 +93,8 @@ fun BoxScope.GlassLayer(state: GlassState) {
         } else coroutineScope {
             dx.snapTo(prev.left - now.left); dy.snapTo(prev.top - now.top)
             dw.snapTo(prev.width - now.width); dh.snapTo(prev.height - now.height)
-            // Quick, springy hop with a small bounce at the end
-            val hop = spring<Float>(dampingRatio = 0.62f, stiffness = 760f)
+            // A quick glide you can still see (about a quarter of a second), settling with a tiny bounce
+            val hop = spring<Float>(dampingRatio = 0.74f, stiffness = 260f)
             launch { dx.animateTo(0f, hop) }
             launch { dy.animateTo(0f, hop) }
             launch { dw.animateTo(0f, hop) }
@@ -112,15 +112,6 @@ fun BoxScope.GlassLayer(state: GlassState) {
     if (state.visible) drawn[0] = Rect(gx, gy, gx + gw, gy + gh)
 
     if (alpha <= 0.01f) return
-    val halo = with(d) { 7.dp.toPx() }
-    // Soft outer glow ring, so the glass stands out even on bright posters
-    Box(
-        Modifier
-            .offset { IntOffset((gx - halo).roundToInt(), (gy - halo).roundToInt()) }
-            .size(with(d) { (gw + halo * 2).toDp() }, with(d) { (gh + halo * 2).toDp() })
-            .graphicsLayer { this.alpha = alpha }
-            .border(5.dp, Color.White.copy(alpha = 0.16f), state.shape)
-    )
     Box(
         Modifier
             .offset { IntOffset(gx.roundToInt(), gy.roundToInt()) }
@@ -131,9 +122,9 @@ fun BoxScope.GlassLayer(state: GlassState) {
                 // Frosted pane: clearly brighter at the top, fading down
                 drawRect(
                     Brush.verticalGradient(
-                        0f to Color.White.copy(alpha = 0.34f),
-                        0.4f to Color.White.copy(alpha = 0.13f),
-                        1f to Color.White.copy(alpha = 0.08f),
+                        0f to Color.White.copy(alpha = 0.22f),
+                        0.35f to Color.White.copy(alpha = 0.06f),
+                        1f to Color.Transparent,
                     )
                 )
                 val ww = size.width
@@ -148,7 +139,7 @@ fun BoxScope.GlassLayer(state: GlassState) {
             }
             .border(
                 3.dp,
-                Brush.verticalGradient(listOf(Color.White, Nova.Cyan.copy(alpha = 0.85f), Color.White.copy(alpha = 0.55f))),
+                Brush.verticalGradient(listOf(Color.White, Color.White.copy(alpha = 0.85f), Nova.Cyan.copy(alpha = 0.9f))),
                 state.shape,
             )
     )
