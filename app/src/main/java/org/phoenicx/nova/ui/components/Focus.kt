@@ -22,7 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Shape
@@ -32,8 +33,10 @@ import androidx.compose.ui.unit.dp
 import org.phoenicx.nova.ui.theme.Nova
 
 /**
- * A remote-friendly focusable surface: scales up, glows and gets an aurora
- * gradient border when focused. DPAD-center / Enter triggers onClick.
+ * A remote-friendly focusable surface. When focused it lifts up smoothly (a gentle spring) and gets a
+ * glassy look: a soft frosted sheen, a thin bright edge and a light glare that sweeps across once,
+ * a bit like Apple TV. DPAD-center / Enter triggers onClick.
+ * decorate = false: only the lift (for things that draw their own highlight, like the top bar).
  */
 @Composable
 fun FocusSurface(
@@ -45,27 +48,73 @@ fun FocusSurface(
     glow: Boolean = true,
     focusRequester: FocusRequester? = null,
     onFocused: (() -> Unit)? = null,
+    decorate: Boolean = true,
     content: @Composable BoxScope.(focused: Boolean) -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val isFocused by interaction.collectIsFocusedAsState()
     val pressed by interaction.collectIsPressedAsState()
     // TV: highlight follows the remote's focus. Phone: highlight while the finger is down.
-    val focused = if (org.phoenicx.nova.NovaApp.instance.isTv) isFocused else pressed
-    val scale by animateFloatAsState(if (focused) focusedScale else 1f, tween(130, easing = FastOutSlowInEasing), label = "scale")
-    LaunchedEffect(isFocused) { if (isFocused) onFocused?.invoke() }
+    val tv = org.phoenicx.nova.NovaApp.instance.isTv
+    val focused = if (tv) isFocused else pressed
+    val scale by animateFloatAsState(
+        if (focused) focusedScale else 1f,
+        androidx.compose.animation.core.spring(dampingRatio = 0.72f, stiffness = 420f), label = "scale",
+    )
+    // 0..1: how much of the glass effect is showing (fades in and out)
+    val glass by animateFloatAsState(if (focused) 1f else 0f, tween(220, easing = FastOutSlowInEasing), label = "glass")
+    // The glare that sweeps across once each time it gets focus
+    val glare = remember { androidx.compose.animation.core.Animatable(-1f) }
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            onFocused?.invoke()
+            if (tv && decorate) { glare.snapTo(-0.6f); glare.animateTo(1.6f, tween(750, easing = FastOutSlowInEasing)) }
+        }
+    }
 
     Box(
         modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .then(
-                if (focused && glow) Modifier.shadow(22.dp, shape, ambientColor = Nova.Cyan, spotColor = Nova.Violet)
-                else Modifier
-            )
             .clip(shape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .then(if (focused && borderWidth > 0.dp) Modifier.border(borderWidth, Nova.AccentBrush, shape) else Modifier)
+            .then(
+                if (!decorate) Modifier else Modifier.drawWithContent {
+                    drawContent()
+                    if (glass > 0f) {
+                        // Frosted sheen: brighter at the top, fading down
+                        drawRect(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                0f to Color.White.copy(alpha = 0.16f * glass),
+                                0.5f to Color.White.copy(alpha = 0.05f * glass),
+                                1f to Color.White.copy(alpha = 0.02f * glass),
+                            )
+                        )
+                        // Light glare passing across
+                        val w = size.width
+                        val x = glare.value * w
+                        drawRect(
+                            androidx.compose.ui.graphics.Brush.linearGradient(
+                                listOf(Color.Transparent, Color.White.copy(alpha = 0.16f * glass), Color.Transparent),
+                                start = androidx.compose.ui.geometry.Offset(x - w * 0.35f, 0f),
+                                end = androidx.compose.ui.geometry.Offset(x + w * 0.05f, size.height),
+                            )
+                        )
+                    }
+                }
+            )
+            .then(
+                // Thin bright glass edge
+                if (decorate && borderWidth > 0.dp && glass > 0.01f)
+                    Modifier.border(
+                        (borderWidth.value.coerceAtMost(2f)).dp,
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            listOf(Color.White.copy(alpha = 0.85f * glass), Nova.Cyan.copy(alpha = 0.55f * glass), Color.White.copy(alpha = 0.25f * glass))
+                        ),
+                        shape,
+                    )
+                else Modifier
+            )
     ) {
         content(focused)
     }

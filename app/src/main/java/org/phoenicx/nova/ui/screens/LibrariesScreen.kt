@@ -61,7 +61,7 @@ fun LibrariesScreen(nav: Navigator) {
         PageHeader("Library", if (libs.isNotEmpty()) "${libs.size} libraries" else null) {}
         LazyVerticalGrid(
             // TV: the same size as the Continue Watching cards (follows the Card size setting); phone: two per row
-            columns = if (Lay.phone) GridCells.Adaptive(160.dp) else GridCells.FixedSize(org.phoenicx.nova.ui.theme.UiScale.landscapeWidth.dp),
+            columns = if (Lay.phone) GridCells.Adaptive(160.dp) else GridCells.FixedSize((org.phoenicx.nova.ui.theme.UiScale.landscapeWidth * 0.8f).dp),
             contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 14.dp, bottom = 40.dp),
             horizontalArrangement = Arrangement.spacedBy(if (Lay.phone) 12.dp else 20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),

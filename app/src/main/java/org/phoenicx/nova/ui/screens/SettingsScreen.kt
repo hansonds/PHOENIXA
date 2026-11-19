@@ -240,7 +240,7 @@ private fun SettingRow(
     FocusSurface(onClick = onClick, modifier = Modifier.fillMaxWidth(), focusRequester = requester, shape = RoundedCornerShape(18.dp), focusedScale = 1.02f) { focused ->
         Column(
             Modifier.fillMaxWidth()
-                .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Color(0x1AFFFFFF))
+                .background(if (focused) Color(0x26FFFFFF) else Color(0x1AFFFFFF))
                 .padding(horizontal = 20.dp, vertical = 14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

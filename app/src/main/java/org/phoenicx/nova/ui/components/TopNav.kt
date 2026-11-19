@@ -37,6 +37,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithContent
@@ -92,10 +96,32 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
     // TV / tablet: the same five places as the phone's bottom bar, always in the same spot (no scrolling)
     val inLibrary = selected == Screen.Libraries || selected is Screen.Lib || selected == Screen.Favorites
     val inProfile = selected == Screen.Settings || selected == Screen.Profiles
+    val inAdd = selected == Screen.Torvia || selected is Screen.TorviaTitle
+    data class NavItem(val label: String, val icon: ImageVector?, val avatar: Boolean, val sel: Boolean, val go: () -> Unit)
+    val items = buildList {
+        add(NavItem("Home", Icons.Outlined.Home, false, selected == Screen.Home) { if (selected != Screen.Home) nav.tab(Screen.Home) })
+        add(NavItem("Library", Icons.Outlined.VideoLibrary, false, inLibrary) { if (selected != Screen.Libraries) nav.tab(Screen.Libraries) })
+        add(NavItem("Search", Icons.Outlined.Search, false, selected == Screen.Search) { if (selected != Screen.Search) nav.tab(Screen.Search) })
+        // Only on servers with the Torvia plugin
+        if (nav.torvia.value != null) add(NavItem("Add", Icons.Outlined.AddCircleOutline, false, inAdd) { if (selected != Screen.Torvia) nav.tab(Screen.Torvia) })
+        add(NavItem("Profile", null, true, inProfile) { if (selected != Screen.Settings) nav.tab(Screen.Settings) })
+    }
+    val selIndex = items.indexOfFirst { it.sel }
+
+    // Where each item sits, and which one has the remote's highlight
+    val bounds = remember { androidx.compose.runtime.mutableStateMapOf<Int, Pair<Float, Float>>() }
+    var focusIndex by remember { mutableStateOf(-1) }
+    var barFocused by remember { mutableStateOf(false) }
+    val target = if (barFocused && focusIndex >= 0) focusIndex else selIndex
+    val tb = bounds[target]
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    val spring = androidx.compose.animation.core.spring<androidx.compose.ui.unit.Dp>(dampingRatio = 0.78f, stiffness = 380f)
+    val gx by androidx.compose.animation.core.animateDpAsState(with(d) { (tb?.first ?: 0f).toDp() }, spring, label = "gx")
+    val gw by androidx.compose.animation.core.animateDpAsState(with(d) { (tb?.second ?: 0f).toDp() }, spring, label = "gw")
+    val glassAlpha by androidx.compose.animation.core.animateFloatAsState(if (barFocused) 1f else 0f, label = "ga")
+
     Box(modifier.fillMaxWidth()) {
-        // Small clock in the top-right corner, above the bar
-        Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 52.dp)) { Clock() }
-        // Logo on the left, the menu in the middle of the screen
+        // Logo on the left, the menu in the middle, the clock on the right: all on one line
         Box(
             Modifier
                 .fillMaxWidth()
@@ -103,33 +129,50 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center,
         ) {
             Box(Modifier.align(Alignment.CenterStart)) { NovaWordmark() }
-            Row(
+            Box(Modifier.align(Alignment.CenterEnd)) { Clock(big = true) }
+            Box(
                 Modifier
                     .clip(RoundedCornerShape(26.dp))
                     .background(Nova.Surface.copy(alpha = 0.36f))
                     .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
+                    .onFocusChanged { barFocused = it.hasFocus }
                     .padding(5.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
             ) {
-                NavPill("Home", selected == Screen.Home, if (selected == Screen.Home) selReq else null, Icons.Outlined.Home) {
-                    if (selected != Screen.Home) nav.tab(Screen.Home)
+                // The glass highlight: slides to whichever item is highlighted (or rests on the current page)
+                if (tb != null) {
+                    Box(
+                        Modifier
+                            .offset(x = gx)
+                            .width(gw)
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        androidx.compose.ui.graphics.lerp(Nova.Cyan.copy(alpha = 0.22f), Color.White.copy(alpha = 0.30f), glassAlpha),
+                                        androidx.compose.ui.graphics.lerp(Nova.Violet.copy(alpha = 0.18f), Color.White.copy(alpha = 0.10f), glassAlpha),
+                                    )
+                                )
+                            )
+                            .border(
+                                1.dp,
+                                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f + 0.55f * glassAlpha), Color.White.copy(alpha = 0.05f + 0.15f * glassAlpha))),
+                                RoundedCornerShape(22.dp),
+                            )
+                    )
                 }
-                NavPill("Library", inLibrary, if (inLibrary) selReq else null, Icons.Outlined.VideoLibrary) {
-                    if (selected != Screen.Libraries) nav.tab(Screen.Libraries)
-                }
-                NavPill("Search", selected == Screen.Search, if (selected == Screen.Search) selReq else null, Icons.Outlined.Search) {
-                    if (selected != Screen.Search) nav.tab(Screen.Search)
-                }
-                // Only on servers with the Torvia plugin
-                if (nav.torvia.value != null) {
-                    val isSel = selected == Screen.Torvia || selected is Screen.TorviaTitle
-                    NavPill("Add", isSel, if (isSel) selReq else null, Icons.Outlined.AddCircleOutline) {
-                        if (selected != Screen.Torvia) nav.tab(Screen.Torvia)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    items.forEachIndexed { i, it ->
+                        Box(Modifier.onGloballyPositioned { c ->
+                            bounds[i] = c.positionInParent().x to c.size.width.toFloat()
+                        }) {
+                            NavPill(
+                                it.label, it.sel, if (it.sel) selReq else null, it.icon, avatar = it.avatar,
+                                onFocus = { focusIndex = i },
+                                onClick = it.go,
+                            )
+                        }
                     }
-                }
-                NavPill("Profile", inProfile, if (inProfile) selReq else null, null, avatar = true) {
-                    if (selected != Screen.Settings) nav.tab(Screen.Settings)
                 }
             }
         }
@@ -139,16 +182,15 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
 @Composable
 private fun NavPill(
     text: String, selected: Boolean, req: FocusRequester?, icon: ImageVector? = null,
-    avatar: Boolean = false, onClick: () -> Unit,
+    avatar: Boolean = false, onFocus: () -> Unit = {}, onClick: () -> Unit,
 ) {
-    FocusSurface(onClick = onClick, shape = RoundedCornerShape(22.dp), focusedScale = 1.04f, borderWidth = 0.dp, glow = false, focusRequester = req) { focused ->
-        val bg = when {
-            focused -> Brush.horizontalGradient(listOf(Nova.Focus, Nova.Focus))
-            selected -> Brush.horizontalGradient(listOf(Nova.Cyan.copy(alpha = 0.25f), Nova.Violet.copy(alpha = 0.25f)))
-            else -> Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
-        }
-        val tint = if (focused) Nova.OnFocus else if (selected) Nova.Text else Nova.TextDim
-        Row(Modifier.height(40.dp).background(bg).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    // The sliding glass highlight behind the pills shows where you are; the pill itself just brightens
+    FocusSurface(
+        onClick = onClick, shape = RoundedCornerShape(22.dp), focusedScale = 1.06f, borderWidth = 0.dp,
+        glow = false, focusRequester = req, onFocused = onFocus, decorate = false,
+    ) { focused ->
+        val tint = if (focused) Color.White else if (selected) Nova.Text else Nova.TextDim
+        Row(Modifier.height(40.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             if (avatar) {
                 Box(Modifier.size(26.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {
                     Text((org.phoenicx.nova.NovaApp.instance.prefs.userName ?: "?").take(1).uppercase(), style = NovaType.Label, color = Nova.OnFocus)
@@ -159,7 +201,8 @@ private fun NavPill(
                 Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
             }
-            Text(text, style = NovaType.Button, maxLines = 1, softWrap = false, color = tint)
+            Text(text, style = NovaType.Button, maxLines = 1, softWrap = false, color = tint,
+                fontWeight = if (focused || selected) FontWeight.SemiBold else FontWeight.Normal)
         }
     }
 }
@@ -183,7 +226,7 @@ private fun NavIcon(icon: ImageVector, selected: Boolean, req: FocusRequester?, 
 }
 
 @Composable
-fun Clock() {
+fun Clock(big: Boolean = false) {
     var now by remember { mutableStateOf(Date()) }
     LaunchedEffect(Unit) {
         while (true) { now = Date(); delay(15_000) }
@@ -191,7 +234,7 @@ fun Clock() {
     val fmt = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
     Text(
         fmt.format(now),
-        style = NovaType.Label.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp),
+        style = NovaType.Label.copy(fontSize = if (big) 17.sp else 13.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp),
         color = Nova.TextDim, maxLines = 1, softWrap = false,
     )
 }
