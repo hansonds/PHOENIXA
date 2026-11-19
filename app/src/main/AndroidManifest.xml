@@ -8,6 +8,9 @@
 
     <uses-feature android:name="android.software.leanback" android:required="${leanbackRequired}" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <!-- Works in any orientation (the screens turn themselves as needed), so no device is excluded -->
+    <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
 
     <application
         android:name=".NovaApp"
