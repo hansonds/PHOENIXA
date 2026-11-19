@@ -66,12 +66,7 @@ val LocalGlass = staticCompositionLocalOf<GlassState?> { null }
 fun BoxScope.GlassLayer(state: GlassState) {
     val target = state.rect ?: return
     val d = LocalDensity.current
-    val x = remember { Animatable(target.left) }
-    val y = remember { Animatable(target.top) }
-    val w = remember { Animatable(target.width) }
-    val h = remember { Animatable(target.height) }
-    var shown by remember { mutableStateOf(false) }
-    val alpha by animateFloatAsState(if (state.visible) 1f else 0f, tween(if (state.visible) 160 else 220), label = "glassAlpha")
+    val alpha by animateFloatAsState(if (state.visible) 1f else 0f, tween(if (state.visible) 120 else 200), label = "glassAlpha")
     val glare = remember { Animatable(-1f) }
 
     // The card grows a little when highlighted: make the glass match that size
@@ -80,54 +75,81 @@ fun BoxScope.GlassLayer(state: GlassState) {
     val tt = target.top - target.height * (s - 1) / 2
     val tw = target.width * s
     val th = target.height * s
+    val latest = androidx.compose.runtime.rememberUpdatedState(Rect(tl, tt, tl + tw, tt + th))
 
-    LaunchedEffect(tl, tt, tw, th, state.visible) {
-        if (!state.visible) { shown = false; return@LaunchedEffect }
-        if (!shown) {
-            // Appearing (not moving from somewhere): start right where it belongs
-            x.snapTo(tl); y.snapTo(tt); w.snapTo(tw); h.snapTo(th); shown = true
+    // The glass is drawn at "the card + a gap that shrinks to zero". When the page scrolls the card moves and
+    // the glass moves with it straight away (no lag); only the jump from the old card to the new one is animated.
+    val dx = remember { Animatable(0f) }
+    val dy = remember { Animatable(0f) }
+    val dw = remember { Animatable(0f) }
+    val dh = remember { Animatable(0f) }
+    val drawn = remember { arrayOfNulls<Rect>(1) }
+
+    LaunchedEffect(state.moves) {
+        val prev = drawn[0]
+        val now = latest.value
+        if (prev == null || !state.visible) {
+            dx.snapTo(0f); dy.snapTo(0f); dw.snapTo(0f); dh.snapTo(0f)
         } else coroutineScope {
-            val sp = spring<Float>(dampingRatio = 0.82f, stiffness = 520f)
-            launch { x.animateTo(tl, sp) }
-            launch { y.animateTo(tt, sp) }
-            launch { w.animateTo(tw, sp) }
-            launch { h.animateTo(th, sp) }
+            dx.snapTo(prev.left - now.left); dy.snapTo(prev.top - now.top)
+            dw.snapTo(prev.width - now.width); dh.snapTo(prev.height - now.height)
+            // Quick, springy hop with a small bounce at the end
+            val hop = spring<Float>(dampingRatio = 0.62f, stiffness = 760f)
+            launch { dx.animateTo(0f, hop) }
+            launch { dy.animateTo(0f, hop) }
+            launch { dw.animateTo(0f, hop) }
+            launch { dh.animateTo(0f, hop) }
         }
+        glare.snapTo(-0.6f)
+        glare.animateTo(1.6f, tween(650, easing = FastOutSlowInEasing))
     }
-    // A light glare sweeps across each time the glass lands on something new
-    LaunchedEffect(state.moves) { glare.snapTo(-0.6f); glare.animateTo(1.6f, tween(800, easing = FastOutSlowInEasing)) }
+    LaunchedEffect(state.visible) { if (!state.visible) drawn[0] = null }
+
+    val gx = tl + dx.value
+    val gy = tt + dy.value
+    val gw = (tw + dw.value).coerceAtLeast(1f)
+    val gh = (th + dh.value).coerceAtLeast(1f)
+    if (state.visible) drawn[0] = Rect(gx, gy, gx + gw, gy + gh)
 
     if (alpha <= 0.01f) return
+    val halo = with(d) { 7.dp.toPx() }
+    // Soft outer glow ring, so the glass stands out even on bright posters
     Box(
         Modifier
-            .offset { IntOffset(x.value.roundToInt(), y.value.roundToInt()) }
-            .size(with(d) { w.value.toDp() }, with(d) { h.value.toDp() })
+            .offset { IntOffset((gx - halo).roundToInt(), (gy - halo).roundToInt()) }
+            .size(with(d) { (gw + halo * 2).toDp() }, with(d) { (gh + halo * 2).toDp() })
+            .graphicsLayer { this.alpha = alpha }
+            .border(5.dp, Color.White.copy(alpha = 0.16f), state.shape)
+    )
+    Box(
+        Modifier
+            .offset { IntOffset(gx.roundToInt(), gy.roundToInt()) }
+            .size(with(d) { gw.toDp() }, with(d) { gh.toDp() })
             .graphicsLayer { this.alpha = alpha }
             .clip(state.shape)
             .drawWithContent {
-                // Frosted pane: brighter at the top, fading down
+                // Frosted pane: clearly brighter at the top, fading down
                 drawRect(
                     Brush.verticalGradient(
-                        0f to Color.White.copy(alpha = 0.20f),
-                        0.45f to Color.White.copy(alpha = 0.06f),
-                        1f to Color.White.copy(alpha = 0.03f),
+                        0f to Color.White.copy(alpha = 0.34f),
+                        0.4f to Color.White.copy(alpha = 0.13f),
+                        1f to Color.White.copy(alpha = 0.08f),
                     )
                 )
                 val ww = size.width
-                val gx = glare.value * ww
+                val sx = glare.value * ww
                 drawRect(
                     Brush.linearGradient(
-                        listOf(Color.Transparent, Color.White.copy(alpha = 0.18f), Color.Transparent),
-                        start = Offset(gx - ww * 0.35f, 0f),
-                        end = Offset(gx + ww * 0.05f, size.height),
+                        listOf(Color.Transparent, Color.White.copy(alpha = 0.30f), Color.Transparent),
+                        start = Offset(sx - ww * 0.35f, 0f),
+                        end = Offset(sx + ww * 0.05f, size.height),
                     )
                 )
             }
             .border(
-                2.dp,
-                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.9f), Nova.Cyan.copy(alpha = 0.6f), Color.White.copy(alpha = 0.3f))),
+                3.dp,
+                Brush.verticalGradient(listOf(Color.White, Nova.Cyan.copy(alpha = 0.85f), Color.White.copy(alpha = 0.55f))),
                 state.shape,
             )
     )
 }
-
