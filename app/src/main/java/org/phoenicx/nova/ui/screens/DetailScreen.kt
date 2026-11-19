@@ -152,7 +152,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
 
     val it = item
     if (it == null) {
-        if (error != null) CenterMessage("Something went wrong", error) else NovaLoader()
+        if (error != null) CenterMessage("Something went wrong", error) else org.phoenicx.nova.ui.components.SkeletonDetail()
         return
     }
 
@@ -173,7 +173,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                 Text(it.seriesName.uppercase(), style = NovaType.Caption, color = Nova.Cyan)
                                 Spacer(Modifier.height(10.dp))
                             }
-                            TitleOrLogo(it, maxLogoH = 130.dp, maxLogoW = 480.dp, big = true)
+                            TitleOrLogo(it, maxLogoH = if (Lay.phone) 90.dp else 130.dp, maxLogoW = if (Lay.phone) 300.dp else 480.dp, big = true)
                             if (it.isEpisode) {
                                 Spacer(Modifier.height(8.dp))
                                 Text(listOfNotNull(it.episodeLabel, it.name).joinToString("  ·  "), style = NovaType.Section, color = Nova.Text)

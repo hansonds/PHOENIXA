@@ -64,7 +64,7 @@ fun SearchScreen(nav: Navigator) {
             modifier = Modifier.padding(horizontal = Lay.side).then(if (Lay.phone) Modifier.fillMaxWidth() else Modifier.width(620.dp)),
         )
         when {
-            loading && results.isEmpty() -> NovaLoader()
+            loading && results.isEmpty() -> org.phoenicx.nova.ui.components.SkeletonGrid()
             query.trim().length >= 2 && results.isEmpty() && !loading -> CenterMessage("No results", "Try a different title")
             results.isEmpty() -> CenterMessage("Find something to watch", "Start typing a title, actor or genre")
             else -> LazyVerticalGrid(

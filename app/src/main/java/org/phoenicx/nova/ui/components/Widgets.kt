@@ -44,6 +44,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawBehind
+import kotlinx.coroutines.launch
+import org.phoenicx.nova.ui.theme.Lay
 import org.phoenicx.nova.NovaApp
 import org.phoenicx.nova.data.Item
 import org.phoenicx.nova.data.Person
@@ -164,11 +172,123 @@ fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Int = 4)
     }
 }
 
+/** Grey placeholder with a soft light sweeping across it, shown until the picture arrives */
 @Composable
 fun ShimmerBox(modifier: Modifier = Modifier) {
     val t = rememberInfiniteTransition(label = "shimmer")
-    val a by t.animateFloat(0.35f, 0.7f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse), label = "a")
-    Box(modifier.alpha(a).background(Nova.SurfaceHi))
+    val x by t.animateFloat(-1f, 2f, infiniteRepeatable(tween(1300, easing = LinearEasing)), label = "x")
+    Box(
+        modifier.drawBehind {
+            drawRect(Nova.SurfaceHi.copy(alpha = 0.55f))
+            val w = size.width
+            drawRect(
+                Brush.linearGradient(
+                    listOf(Color.Transparent, Color.White.copy(alpha = 0.07f), Color.Transparent),
+                    start = androidx.compose.ui.geometry.Offset(w * x - w * 0.6f, 0f),
+                    end = androidx.compose.ui.geometry.Offset(w * x, size.height),
+                )
+            )
+        }
+    )
+}
+
+/** Library / search page while loading: a grid of empty poster shapes */
+@Composable
+fun SkeletonGrid(modifier: Modifier = Modifier) {
+    val w = org.phoenicx.nova.ui.theme.UiScale.posterWidth
+    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+        columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(w.dp),
+        contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 18.dp, bottom = 60.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (Lay.phone) 12.dp else 20.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
+        userScrollEnabled = false,
+        modifier = modifier.fillMaxSize(),
+    ) {
+        items(18) { SkeletonPoster(w) }
+    }
+}
+
+@Composable
+fun SkeletonPoster(width: Int, landscape: Boolean = false) {
+    Column(Modifier.width(width.dp)) {
+        ShimmerBox(Modifier.size(width.dp, if (landscape) (width * 0.5625f).dp else (width * 1.5f).dp).clip(RoundedCornerShape(14.dp)))
+        if (!landscape) {
+            Spacer(Modifier.height(10.dp))
+            ShimmerBox(Modifier.width((width * 0.8f).dp).height(10.dp).clip(RoundedCornerShape(5.dp)))
+            Spacer(Modifier.height(6.dp))
+            ShimmerBox(Modifier.width((width * 0.4f).dp).height(8.dp).clip(RoundedCornerShape(4.dp)))
+        }
+    }
+}
+
+/** Home while loading: a banner block and a few rows of empty cards */
+@Composable
+fun SkeletonHome() {
+    Column(Modifier.fillMaxSize().padding(top = 10.dp)) {
+        Column(Modifier.padding(horizontal = Lay.side)) {
+            ShimmerBox(Modifier.fillMaxWidth().height(if (Lay.phone) 220.dp else 280.dp).clip(RoundedCornerShape(22.dp)))
+            Spacer(Modifier.height(22.dp))
+        }
+        repeat(2) { r ->
+            Column(Modifier.padding(start = Lay.side)) {
+                ShimmerBox(Modifier.width(160.dp).height(14.dp).clip(RoundedCornerShape(7.dp)))
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    val w = if (r == 0) org.phoenicx.nova.ui.theme.UiScale.landscapeWidth else org.phoenicx.nova.ui.theme.UiScale.posterWidth
+                    repeat(8) { SkeletonPoster(w, landscape = r == 0) }
+                }
+                Spacer(Modifier.height(26.dp))
+            }
+        }
+    }
+}
+
+/** Detail page while loading */
+@Composable
+fun SkeletonDetail() {
+    Column(Modifier.fillMaxSize().padding(horizontal = Lay.side, vertical = 30.dp), verticalArrangement = Arrangement.Bottom) {
+        ShimmerBox(Modifier.width(320.dp).height(54.dp).clip(RoundedCornerShape(12.dp)))
+        Spacer(Modifier.height(16.dp))
+        ShimmerBox(Modifier.width(240.dp).height(14.dp).clip(RoundedCornerShape(7.dp)))
+        Spacer(Modifier.height(18.dp))
+        repeat(3) {
+            ShimmerBox(Modifier.fillMaxWidth(if (it == 2) 0.5f else 0.85f).height(12.dp).clip(RoundedCornerShape(6.dp)))
+            Spacer(Modifier.height(8.dp))
+        }
+        Spacer(Modifier.height(18.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ShimmerBox(Modifier.width(150.dp).height(48.dp).clip(RoundedCornerShape(24.dp)))
+            ShimmerBox(Modifier.width(48.dp).height(48.dp).clip(CircleShape))
+            ShimmerBox(Modifier.width(48.dp).height(48.dp).clip(CircleShape))
+        }
+        Spacer(Modifier.height(60.dp))
+    }
+}
+
+/** Phones and tablets: pull the page down to reload it. TVs: just the page. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun TouchRefresh(onRefresh: suspend () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    if (org.phoenicx.nova.NovaApp.instance.isTv) { Box(modifier) { content() }; return }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var refreshing by remember { mutableStateOf(false) }
+    val state = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            scope.launch { runCatching { onRefresh() }; refreshing = false }
+        },
+        state = state,
+        modifier = modifier,
+        indicator = {
+            androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator(
+                state = state, isRefreshing = refreshing,
+                containerColor = Nova.SurfaceHi, color = Nova.Cyan,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+        },
+    ) { content() }
 }
 
 @Composable

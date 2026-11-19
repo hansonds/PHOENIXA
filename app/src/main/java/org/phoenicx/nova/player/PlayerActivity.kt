@@ -226,6 +226,9 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onDestroy() {
         if (::controller.isInitialized) controller.release()
+        // Android TV: refresh "Continue watching" once the server has the new position
+        val app = applicationContext
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ org.phoenicx.nova.tv.WatchNext.sync(app) }, 2500)
         super.onDestroy()
     }
 

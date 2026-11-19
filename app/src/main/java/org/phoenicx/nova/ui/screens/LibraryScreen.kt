@@ -120,9 +120,9 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
         }
         when {
             items.isEmpty() && error != null -> CenterMessage("Couldn't load library", error)
-            items.isEmpty() && (loading || total < 0) -> NovaLoader()
+            items.isEmpty() && (loading || total < 0) -> org.phoenicx.nova.ui.components.SkeletonGrid()
             items.isEmpty() -> CenterMessage("Nothing here yet")
-            else -> LazyVerticalGrid(
+            else -> org.phoenicx.nova.ui.components.TouchRefresh({ loadMore(reset = true) }, Modifier.fillMaxSize()) { LazyVerticalGrid(
                 state = grid,
                 columns = GridCells.Adaptive(UiScale.posterWidth.dp),
                 contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 18.dp, bottom = 60.dp),
@@ -142,7 +142,7 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
                         focusRequester = if (index == (saved?.second ?: -2)) restoreRequester else null,
                     )
                 }
-            }
+            } }
         }
     }
 }

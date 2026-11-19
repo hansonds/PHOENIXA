@@ -162,7 +162,7 @@ private fun TorviaSearchTab(nav: Navigator) {
         modifier = Modifier.padding(horizontal = Lay.side).then(if (Lay.phone) Modifier.fillMaxWidth() else Modifier.width(620.dp)),
     )
     when {
-        loading && results.isEmpty() -> NovaLoader()
+        loading && results.isEmpty() -> org.phoenicx.nova.ui.components.SkeletonGrid()
         error != null -> CenterMessage("Couldn't search", error)
         query.trim().length >= 2 && results.isEmpty() && !loading -> CenterMessage("Nothing found", "Try another name, or paste a TMDB or IMDb link")
         results.isEmpty() -> CenterMessage("Find a movie or show to add", "Search by name, or paste a TMDB or IMDb link")

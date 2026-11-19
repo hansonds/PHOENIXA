@@ -61,7 +61,7 @@ fun FavoritesScreen(nav: Navigator) {
         }
         val list = items
         when {
-            list == null -> NovaLoader()
+            list == null -> org.phoenicx.nova.ui.components.SkeletonGrid()
             error != null -> CenterMessage("Couldn't load favorites", error)
             list.isEmpty() -> CenterMessage("No favorites yet", "Press ♥ on any movie or show to save it here")
             else -> LazyVerticalGrid(

@@ -111,8 +111,11 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            NavIcon(Icons.Outlined.Search, selected == Screen.Search, if (selected == Screen.Search) selReq else null) { if (selected != Screen.Search) nav.tab(Screen.Search) }
-            NavPill("Home", selected == Screen.Home, if (selected == Screen.Home) selReq else null) { if (selected != Screen.Home) nav.tab(Screen.Home) }
+            // Phones have Home and Search in the bottom bar
+            if (!phone) {
+                NavIcon(Icons.Outlined.Search, selected == Screen.Search, if (selected == Screen.Search) selReq else null) { if (selected != Screen.Search) nav.tab(Screen.Search) }
+                NavPill("Home", selected == Screen.Home, if (selected == Screen.Home) selReq else null) { if (selected != Screen.Home) nav.tab(Screen.Home) }
+            }
             NavIcon(
                 if (selected == Screen.Favorites) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                 selected == Screen.Favorites,
@@ -129,8 +132,10 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
         }
     }
     val settingsAndAvatar: @Composable () -> Unit = {
-        NavIcon(Icons.Outlined.Settings, selected == Screen.Settings, if (selected == Screen.Settings) selReq else null) { if (selected != Screen.Settings) nav.tab(Screen.Settings) }
-        Spacer(Modifier.width(10.dp))
+        if (!phone) {
+            NavIcon(Icons.Outlined.Settings, selected == Screen.Settings, if (selected == Screen.Settings) selReq else null) { if (selected != Screen.Settings) nav.tab(Screen.Settings) }
+            Spacer(Modifier.width(10.dp))
+        }
         // Your picture: opens "Who's watching?" to switch profile
         FocusSurface(onClick = { nav.push(Screen.Profiles) }, shape = CircleShape, focusedScale = 1.12f, borderWidth = 2.dp, glow = false) { _ ->
             Box(Modifier.size(38.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {

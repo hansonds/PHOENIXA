@@ -47,6 +47,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             NovaTheme { NovaRoot() }
         }
+        openFromTvHome(intent)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        openFromTvHome(intent)
+    }
+
+    /** Picked from the TV home screen's "Continue watching" row: start playing straight away */
+    private fun openFromTvHome(intent: android.content.Intent?) {
+        val id = intent?.getStringExtra(org.phoenicx.nova.tv.WatchNext.EXTRA_PLAY_ID) ?: return
+        intent.removeExtra(org.phoenicx.nova.tv.WatchNext.EXTRA_PLAY_ID)
+        if (!NovaApp.instance.api.isLoggedIn) return
+        val ticks = intent.getLongExtra(org.phoenicx.nova.tv.WatchNext.EXTRA_PLAY_TICKS, 0L)
+        org.phoenicx.nova.player.PlayerActivity.start(this, id, ticks)
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
@@ -79,6 +94,7 @@ fun NovaRoot() {
 
     // Everything that belongs to the signed-in person starts fresh
     fun freshSession() {
+        org.phoenicx.nova.tv.WatchNext.sync(app)
         homeState = HomeState()
         nav.libraries.value = emptyList()
         nav.torvia.value = null
@@ -87,13 +103,17 @@ fun NovaRoot() {
 
     BackHandler(enabled = nav.stack.size > 1) { nav.back() }
 
+    // Phones: a bottom bar (Home · Movies · Shows · Search · Profile) on the main pages
+    val showBottom = org.phoenicx.nova.ui.theme.Lay.phone &&
+        nav.current != Screen.Login && nav.current != Screen.Profiles
+    androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
     AnimatedContent(
         targetState = nav.current,
         transitionSpec = {
             fadeIn(tween(180)) togetherWith fadeOut(tween(120))
         },
         label = "screens",
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.weight(1f).fillMaxSize(),
     ) { screen ->
         when (screen) {
             Screen.Login -> LoginScreen(
@@ -132,5 +152,7 @@ fun NovaRoot() {
             Screen.Torvia -> org.phoenicx.nova.ui.screens.TorviaScreen(nav)
             is Screen.TorviaTitle -> org.phoenicx.nova.ui.screens.TorviaTitleScreen(nav, screen.type, screen.tmdbId, screen.name)
         }
+    }
+    if (showBottom) org.phoenicx.nova.ui.components.BottomNav(nav)
     }
 }

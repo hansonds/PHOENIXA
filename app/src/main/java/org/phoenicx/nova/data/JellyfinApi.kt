@@ -207,8 +207,12 @@ class JellyfinApi(private val prefs: Prefs) {
         else -> poster(item, w)
     }
 
-    fun logo(item: Item, w: Int = 800): String? =
-        if (item.logoTag != null) image(item.logoItemId ?: item.id, "Logo", item.logoTag, w) else null
+    fun logo(item: Item, w: Int = 800): String? = when {
+        item.logoTag != null -> image(item.logoItemId ?: item.id, "Logo", item.logoTag, w)
+        // Some lists leave out the series logo for episodes: ask for it anyway (falls back to text if there is none)
+        item.isEpisode && item.seriesId != null -> image(item.seriesId, "Logo", null, w)
+        else -> null
+    }
 
     /** Try the photo even when the server didn't send a tag — many people still have one. */
     fun personImage(p: Person, w: Int = 240): String? = image(p.id, "Primary", p.imageTag, w)

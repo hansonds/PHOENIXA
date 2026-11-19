@@ -50,6 +50,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -178,6 +180,8 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
         }
         // Search & Add: only when the server has the Torvia plugin and this user may use it
         nav.refreshTorvia()
+        // Android TV: keep the TV home screen's "Continue watching" row up to date
+        org.phoenicx.nova.tv.WatchNext.sync(context)
     }
     LifecycleResumeEffect(Unit) {
         if (state.loaded && System.currentTimeMillis() - state.lastRefresh > 4000) {
@@ -193,7 +197,7 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
                 CenterMessage("Can't reach the server", state.error) {
                     NovaButton("Try again", primary = true, onClick = { scope.launch { state.load(true); nav.libraries.value = state.libsCache } })
                 }
-            } else NovaLoader()
+            } else org.phoenicx.nova.ui.components.SkeletonHome()
         }
         return
     }
@@ -230,6 +234,8 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
     }
 
     var navHeightPx by remember { mutableIntStateOf(0) }
+    // Phones and tablets: pull down to reload everything
+    org.phoenicx.nova.ui.components.TouchRefresh({ state.load(full = true); nav.libraries.value = state.libsCache; nav.refreshTorvia() }, Modifier.fillMaxSize()) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val heroH: Dp = if (Lay.phone) (maxHeight * 0.56f - 90.dp).coerceAtLeast(340.dp)
         else (maxHeight - 90.dp - 128.dp).coerceAtLeast(300.dp)
@@ -365,6 +371,7 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
             }
         }
     }
+    }
 
     // Restore focus when coming back to Home (the top bar handles it when opened from the top bar)
     LaunchedEffect(Unit) {
@@ -431,7 +438,7 @@ private fun HeroInfo(item: Item) {
                 style = NovaType.Caption, color = Nova.Cyan,
             )
             Spacer(Modifier.height(10.dp))
-            TitleOrLogo(it, maxLogoH = 96.dp, maxLogoW = 420.dp, big = true)
+            TitleOrLogo(it, maxLogoH = if (Lay.phone) 76.dp else 96.dp, maxLogoW = if (Lay.phone) 260.dp else 420.dp, big = true)
             Spacer(Modifier.height(14.dp))
             MetaRow(it)
             Spacer(Modifier.height(10.dp))
@@ -455,13 +462,27 @@ fun TitleOrLogo(item: Item, maxLogoH: Dp, maxLogoW: Dp, big: Boolean) {
     val logo = api.logo(item)
     var failed by remember(item.id) { mutableStateOf(logo == null) }
     if (!failed) {
+        // The title art fades in; a soft shadow keeps light logos readable on bright pictures
         AsyncImage(
-            model = logo,
+            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                .data(logo).crossfade(350).build(),
             contentDescription = item.name,
             contentScale = ContentScale.Fit,
             alignment = Alignment.CenterStart,
             onError = { failed = true },
-            modifier = Modifier.heightIn(max = maxLogoH).widthIn(max = maxLogoW),
+            modifier = Modifier.heightIn(max = maxLogoH).widthIn(max = maxLogoW)
+                .drawWithContent {
+                    // Draw a dark, slightly offset copy first: a gentle drop shadow behind the logo
+                    translate(left = 0f, top = 2.dp.toPx()) {
+                        drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(androidx.compose.ui.geometry.Offset.Zero, size),
+                            androidx.compose.ui.graphics.Paint().apply {
+                                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.Black.copy(alpha = 0.45f))
+                            })
+                        this@drawWithContent.drawContent()
+                        drawContext.canvas.restore()
+                    }
+                    drawContent()
+                },
         )
     } else {
         Text(
