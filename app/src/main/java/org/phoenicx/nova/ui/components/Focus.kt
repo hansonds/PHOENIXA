@@ -24,6 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.focus.FocusRequester
@@ -164,4 +167,24 @@ fun EdgeScroll(startMargin: Dp, endMargin: Dp, content: @Composable () -> Unit) 
     val ePx = with(d) { endMargin.toPx() }
     val spec = remember(sPx, ePx) { edgeSpec(sPx, ePx) }
     CompositionLocalProvider(LocalBringIntoViewSpec provides spec) { content() }
+}
+
+/**
+ * Grids on TV: pressing ▶ on the last tile of a row goes on to the first tile of the next row,
+ * and ◀ on the first tile goes back to the end of the row above (like reading a page).
+ */
+fun Modifier.wrapRowFocus(): Modifier = androidx.compose.ui.composed {
+    val fm = androidx.compose.ui.platform.LocalFocusManager.current
+    this.onPreviewKeyEvent { e ->
+        if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+        when (e.key) {
+            androidx.compose.ui.input.key.Key.DirectionRight ->
+                if (fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)) true
+                else fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)
+            androidx.compose.ui.input.key.Key.DirectionLeft ->
+                if (fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)) true
+                else fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Previous)
+            else -> false
+        }
+    }
 }

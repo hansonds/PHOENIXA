@@ -1,5 +1,7 @@
 package org.phoenicx.nova.ui.screens
 
+import org.phoenicx.nova.ui.components.wrapRowFocus
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,7 +67,7 @@ fun LibrariesScreen(nav: Navigator) {
             contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 14.dp, bottom = 40.dp),
             horizontalArrangement = Arrangement.spacedBy(if (Lay.phone) 12.dp else 20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().wrapRowFocus(),
         ) {
             item(key = "fav") {
                 Tile("Favorites", null, Icons.Filled.Favorite) { nav.push(Screen.Favorites) }

@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawOutline
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.phoenicx.nova.ui.theme.Nova
@@ -94,7 +96,7 @@ fun BoxScope.GlassLayer(state: GlassState) {
             dx.snapTo(prev.left - now.left); dy.snapTo(prev.top - now.top)
             dw.snapTo(prev.width - now.width); dh.snapTo(prev.height - now.height)
             // A quick glide you can still see (about a quarter of a second), settling with a tiny bounce
-            val hop = spring<Float>(dampingRatio = 0.74f, stiffness = 260f)
+            val hop = spring<Float>(dampingRatio = 0.8f, stiffness = 330f)
             launch { dx.animateTo(0f, hop) }
             launch { dy.animateTo(0f, hop) }
             launch { dw.animateTo(0f, hop) }
@@ -112,35 +114,50 @@ fun BoxScope.GlassLayer(state: GlassState) {
     if (state.visible) drawn[0] = Rect(gx, gy, gx + gw, gy + gh)
 
     if (alpha <= 0.01f) return
+    // Google TV style: a frosted glass frame that hugs the highlighted tile (no gap, nothing over the picture)
+    val pad = with(d) { 7.dp.toPx() }
+    val shape = state.shape
     Box(
         Modifier
-            .offset { IntOffset(gx.roundToInt(), gy.roundToInt()) }
-            .size(with(d) { gw.toDp() }, with(d) { gh.toDp() })
-            .graphicsLayer { this.alpha = alpha }
-            .clip(state.shape)
+            .offset { IntOffset((gx - pad).roundToInt(), (gy - pad).roundToInt()) }
+            .size(with(d) { (gw + pad * 2).toDp() }, with(d) { (gh + pad * 2).toDp() })
+            .graphicsLayer {
+                this.alpha = alpha
+                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+            }
             .drawWithContent {
-                // Frosted pane: clearly brighter at the top, fading down
-                drawRect(
+                val inner = androidx.compose.ui.geometry.Size(size.width - pad * 2, size.height - pad * 2)
+                val innerOutline = shape.createOutline(inner, layoutDirection, this)
+                // Outer plate: the tile's own corner shape, grown by the frame width
+                val outerOutline = shape.createOutline(size, layoutDirection, this)
+                // Frosted glass: lighter at the top, a little darker at the bottom
+                drawOutline(
+                    outerOutline,
                     Brush.verticalGradient(
-                        0f to Color.White.copy(alpha = 0.22f),
-                        0.35f to Color.White.copy(alpha = 0.06f),
-                        1f to Color.Transparent,
-                    )
+                        listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.32f), Color.White.copy(alpha = 0.22f))
+                    ),
                 )
+                // Thin bright rim on the outside edge
+                drawOutline(
+                    outerOutline,
+                    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.95f), Color.White.copy(alpha = 0.35f))),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f.dp.toPx()),
+                )
+                // A light glare passing over the frame when it lands
                 val ww = size.width
                 val sx = glare.value * ww
-                drawRect(
+                drawOutline(
+                    outerOutline,
                     Brush.linearGradient(
-                        listOf(Color.Transparent, Color.White.copy(alpha = 0.30f), Color.Transparent),
-                        start = Offset(sx - ww * 0.35f, 0f),
+                        listOf(Color.Transparent, Color.White.copy(alpha = 0.45f), Color.Transparent),
+                        start = Offset(sx - ww * 0.3f, 0f),
                         end = Offset(sx + ww * 0.05f, size.height),
-                    )
+                    ),
                 )
+                // Cut out the tile itself, so the picture stays completely clear
+                translate(pad, pad) {
+                    drawOutline(innerOutline, Color.Black, blendMode = androidx.compose.ui.graphics.BlendMode.Clear)
+                }
             }
-            .border(
-                3.dp,
-                Brush.verticalGradient(listOf(Color.White, Color.White.copy(alpha = 0.85f), Nova.Cyan.copy(alpha = 0.9f))),
-                state.shape,
-            )
     )
 }

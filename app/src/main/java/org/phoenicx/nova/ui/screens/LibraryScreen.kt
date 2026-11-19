@@ -1,5 +1,7 @@
 package org.phoenicx.nova.ui.screens
 
+import org.phoenicx.nova.ui.components.wrapRowFocus
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -129,7 +131,7 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
                 contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 18.dp, bottom = 60.dp),
                 horizontalArrangement = Arrangement.spacedBy(if (Lay.phone) 12.dp else 20.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().wrapRowFocus(),
             ) {
                 itemsIndexed(items, key = { _, it -> it.id }) { index, item ->
                     PosterCard(
