@@ -2,6 +2,7 @@ package org.phoenicx.nova.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +60,15 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
     }
     val app = NovaApp.instance
     var crash by remember { mutableStateOf(runCatching { app.crashFile().takeIf { it.exists() }?.readText() }.getOrNull()) }
+    // Was this copy installed from Google Play?
+    val fromPlayStore = remember {
+        runCatching {
+            val installer = if (android.os.Build.VERSION.SDK_INT >= 30)
+                app.packageManager.getInstallSourceInfo(app.packageName).installingPackageName
+            else @Suppress("DEPRECATION") app.packageManager.getInstallerPackageName(app.packageName)
+            installer == "com.android.vending"
+        }.getOrDefault(false)
+    }
     val version = remember { runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull() ?: "" }
 
     Box(Modifier.fillMaxSize()) {
@@ -107,10 +117,52 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
                 heroRotate = !heroRotate; prefs.heroAutoRotate = heroRotate
             }
 
+            // Only for copies installed from Google Play (sideloaded and Amazon copies don't show it)
+            if (fromPlayStore) {
+                SectionLabel("Enjoying PHOENIXA?")
+                SettingRow("Rate on Google Play", "A quick rating helps other people find the app", "★ Rate") {
+                    val ctx = app
+                    val pkg = app.packageName
+                    runCatching {
+                        ctx.startActivity(
+                            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$pkg"))
+                                .setPackage("com.android.vending")
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }.onFailure {
+                        runCatching {
+                            ctx.startActivity(
+                                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=$pkg"))
+                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    }
+                }
+            }
+
             SectionLabel("Account")
             NovaButton("Sign out", Icons.Outlined.Logout) { onSignOut() }
-            Spacer(Modifier.height(10.dp))
-            Text("PHOENIXA $version · made by Hanson", style = NovaType.Label, color = Nova.TextFaint)
+
+            // About
+            Spacer(Modifier.height(18.dp))
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("PHOENIXA $version", style = NovaType.Label, color = Nova.TextDim)
+                Spacer(Modifier.height(4.dp))
+                Text("Made with ❤️ by Hanson", style = NovaType.Label, color = Nova.TextFaint)
+                Spacer(Modifier.height(4.dp))
+                // Phones open the website; TVs usually have no browser, so it's just shown there
+                Text(
+                    "phoenicx.org", style = NovaType.Label, color = Nova.Cyan,
+                    modifier = if (app.isTv) Modifier else Modifier.clickable {
+                        runCatching {
+                            app.startActivity(
+                                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://phoenicx.org"))
+                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    }.padding(6.dp),
+                )
+            }
             crash?.let { report ->
                 Spacer(Modifier.height(10.dp))
                 Text("LAST CRASH REPORT", style = NovaType.Caption, color = Nova.Rose)
