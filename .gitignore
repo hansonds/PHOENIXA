@@ -4,8 +4,6 @@ app/build/
 local.properties
 .idea/
 *.iml
-desktop/build/
-desktop/.gradle/
 # Private signing keys must never be committed
 *-upload.jks
 upload.jks

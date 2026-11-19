@@ -4,13 +4,13 @@
 
 # PHOENIXA
 
-**A cinematic Jellyfin client for Fire TV, Android TV, Android phones and Windows.**
+**A cinematic Jellyfin client for Fire TV, Android TV and Android phones.**
 
 Built for the couch: big artwork, calm navigation, and a player that plays your files exactly as they are.
 
 [![Build APK](https://github.com/hansonds/PHOENIXA/actions/workflows/build.yml/badge.svg)](https://github.com/hansonds/PHOENIXA/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/github/v/release/hansonds/PHOENIXA?label=download&color=ff5a2c)](https://github.com/hansonds/PHOENIXA/releases/latest)
-![Platform](https://img.shields.io/badge/platform-Fire%20TV%20%7C%20Android%20TV%20%7C%20Phone%20%7C%20Windows-6ce5f5)
+![Platform](https://img.shields.io/badge/platform-Fire%20TV%20%7C%20Android%20TV%20%7C%20Phone-6ce5f5)
 ![Min Android](https://img.shields.io/badge/Android-7.0%2B-a58bff)
 
 <img src="docs/banner.png" alt="PHOENIXA banner" width="640" />
@@ -55,7 +55,7 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - Watch progress syncs to your server, so you can continue on any device.
 
 ### Search & Add (Torvia servers)
-- If your Jellyfin server runs the **[Torvia](https://github.com/hansonds/Torvia-Jellyfin)** plugin, a **Search & Add** tab appears for allowed users (TV, phone, tablet and Windows).
+- If your Jellyfin server runs the **[Torvia](https://github.com/hansonds/Torvia-Jellyfin)** plugin, a **Search & Add** tab appears for allowed users (TV, phone and tablet).
 - Search by name or a TMDB / IMDb link, pick a season and episode (or the whole season), filter releases by quality, 10-bit, HDR or CAM, and add one to TorBox. PHOENIXA waits for it to appear in Jellyfin and opens it.
 - **My adds** lists what you added, with Open and Remove. Admins can see everyone's. Daily limits and permissions come from the server.
 - Servers without the plugin don't show the tab at all.
@@ -86,24 +86,6 @@ Install **Downloader** from the Play Store and enter the same code **`4563854`**
 The same **PHOENIXA.apk** works on phones: download it on your phone from [Releases → latest](https://github.com/hansonds/PHOENIXA/releases/latest) and open it to install (allow "Install unknown apps" for your browser when asked).
 
 On a phone the app uses the same design in **portrait**, made for touch (videos open in landscape). On a **tablet** it rotates freely: the wide TV-style layout when held sideways, the portrait layout when held upright. Touch controls: tap anything to open it, swipe the home banner to change the featured title, tap the video to show or hide the controls, double-tap the left or right side to skip 10 s, and drag the seek bar to jump.
-
-### Windows 10 / 11
-1. Download **PHOENIXA-Windows.zip** from [Releases → latest](https://github.com/hansonds/PHOENIXA/releases/latest).
-2. Unzip it anywhere (for example to your Desktop or `C:\Apps`).
-3. Open the **PHOENIXA** folder and run **PHOENIXA.exe**. No installation needed.
-
-If Windows shows "Windows protected your PC", click **More info → Run anyway** (the app isn't code-signed yet).
-
-The Windows app is built for mouse and keyboard: hover a row to scroll it with the arrows, **Esc** or the mouse back button goes back. Videos play right inside the PHOENIXA window with the same controls as the TV app (subtitles, audio, speed, next episode, info), powered by **libmpv**, so practically every format plays: HEVC, AV1, HDR, Dolby Vision, DTS, TrueHD, PGS subtitles.
-
-| Player key | Action |
-|---|---|
-| **Space** / click | Pause / play |
-| **← / →** | Back / forward 10 s |
-| **↑ / ↓** | Volume · **M** mute |
-| **F** / double-click | Full screen |
-| **N** | Next episode |
-| **Esc** | Leave full screen, then close the player (your position is saved) |
 
 ### Updating
 Download and install the new APK in the same way. It installs over the old version and keeps your login and settings.
@@ -197,8 +179,6 @@ Posters are cached (up to 250 MB) and the oldest are removed automatically. You 
 
 Every push to `main` builds a signed release APK with GitHub Actions and publishes it to **Releases → latest**.
 
-The same workflow also builds the **Windows app** (`desktop/` folder, Kotlin + Compose Multiplatform) on a Windows runner, adds the libmpv video engine, and attaches **PHOENIXA-Windows.zip** to the release.
-
 To build the Android app locally you need JDK 17 and the Android SDK (compileSdk 36):
 
 ```bash
@@ -225,7 +205,6 @@ The full source is here, so anyone can read or review it. Bug reports and pull r
 - Created by **[Hanson](https://github.com/hansonds)**.
 - Powered by **[Jellyfin](https://jellyfin.org)**, the free software media system.
 - Playback by **[AndroidX Media3 / ExoPlayer](https://github.com/androidx/media)** and the **[Jellyfin FFmpeg decoder](https://github.com/jellyfin/jellyfin-androidx-media)**.
-- Windows playback by **[libmpv](https://mpv.io)** (builds by [shinchiro](https://github.com/shinchiro/mpv-winbuild-cmake)) through [JNA](https://github.com/java-native-access/jna). libmpv keeps its own licence; its source is at [github.com/mpv-player/mpv](https://github.com/mpv-player/mpv).
 
 PHOENIXA is an independent project and is not affiliated with or endorsed by the Jellyfin project or Amazon.
 
