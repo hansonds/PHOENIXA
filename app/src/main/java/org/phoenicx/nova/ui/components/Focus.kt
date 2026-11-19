@@ -179,9 +179,9 @@ fun Modifier.wrapRowFocus(): Modifier = this.composed {
     Modifier.onPreviewKeyEvent { e ->
         if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
         when (e.key) {
+            // Always the next tile in reading order (looking "to the right" could jump up to the sort buttons)
             androidx.compose.ui.input.key.Key.DirectionRight ->
-                if (fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)) true
-                else fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)
+                fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)
             androidx.compose.ui.input.key.Key.DirectionLeft ->
                 if (fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)) true
                 else fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Previous)
