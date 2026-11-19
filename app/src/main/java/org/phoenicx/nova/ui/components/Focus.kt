@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.composed
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
@@ -173,9 +174,9 @@ fun EdgeScroll(startMargin: Dp, endMargin: Dp, content: @Composable () -> Unit) 
  * Grids on TV: pressing ▶ on the last tile of a row goes on to the first tile of the next row,
  * and ◀ on the first tile goes back to the end of the row above (like reading a page).
  */
-fun Modifier.wrapRowFocus(): Modifier = androidx.compose.ui.composed {
+fun Modifier.wrapRowFocus(): Modifier = this.composed {
     val fm = androidx.compose.ui.platform.LocalFocusManager.current
-    this.onPreviewKeyEvent { e ->
+    Modifier.onPreviewKeyEvent { e ->
         if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
         when (e.key) {
             androidx.compose.ui.input.key.Key.DirectionRight ->
