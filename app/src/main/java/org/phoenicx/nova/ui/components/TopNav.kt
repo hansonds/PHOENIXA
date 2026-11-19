@@ -95,14 +95,14 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth()) {
         // Small clock in the top-right corner, above the bar
         Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 52.dp)) { Clock() }
-        Row(
+        // Logo on the left, the menu in the middle of the screen
+        Box(
             Modifier
                 .fillMaxWidth()
                 .padding(start = 44.dp, end = 48.dp, top = 18.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            contentAlignment = Alignment.Center,
         ) {
-            NovaWordmark()
-            Spacer(Modifier.width(22.dp))
+            Box(Modifier.align(Alignment.CenterStart)) { NovaWordmark() }
             Row(
                 Modifier
                     .clip(RoundedCornerShape(26.dp))
@@ -132,7 +132,6 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
                     if (selected != Screen.Settings) nav.tab(Screen.Settings)
                 }
             }
-            Spacer(Modifier.weight(1f))
         }
     }
 }
