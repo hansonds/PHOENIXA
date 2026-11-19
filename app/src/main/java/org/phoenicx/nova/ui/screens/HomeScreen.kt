@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -438,7 +439,7 @@ private fun HeroInfo(item: Item) {
                 style = NovaType.Caption, color = Nova.Cyan,
             )
             Spacer(Modifier.height(10.dp))
-            TitleOrLogo(it, maxLogoH = if (Lay.phone) 76.dp else 96.dp, maxLogoW = if (Lay.phone) 260.dp else 420.dp, big = true)
+            TitleOrLogo(it, maxLogoH = if (Lay.phone) 58.dp else 88.dp, maxLogoW = if (Lay.phone) 210.dp else 340.dp, big = true)
             Spacer(Modifier.height(14.dp))
             MetaRow(it)
             Spacer(Modifier.height(10.dp))
@@ -462,15 +463,17 @@ fun TitleOrLogo(item: Item, maxLogoH: Dp, maxLogoW: Dp, big: Boolean) {
     val logo = api.logo(item)
     var failed by remember(item.id) { mutableStateOf(logo == null) }
     if (!failed) {
-        // The title art fades in; a soft shadow keeps light logos readable on bright pictures
+        // Every logo is fitted inside the same frame (wide ones shrink, tall ones too), sitting on its bottom-left,
+        // so the title never spills over the text around it. A soft shadow keeps light logos readable.
+        Box(Modifier.width(maxLogoW).height(maxLogoH), contentAlignment = Alignment.BottomStart) {
         AsyncImage(
             model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
                 .data(logo).crossfade(350).build(),
             contentDescription = item.name,
             contentScale = ContentScale.Fit,
-            alignment = Alignment.CenterStart,
+            alignment = Alignment.BottomStart,
             onError = { failed = true },
-            modifier = Modifier.heightIn(max = maxLogoH).widthIn(max = maxLogoW)
+            modifier = Modifier.fillMaxSize()
                 .drawWithContent {
                     // Draw a dark, slightly offset copy first: a gentle drop shadow behind the logo
                     translate(left = 0f, top = 2.dp.toPx()) {
@@ -484,10 +487,11 @@ fun TitleOrLogo(item: Item, maxLogoH: Dp, maxLogoW: Dp, big: Boolean) {
                     drawContent()
                 },
         )
+        }
     } else {
         Text(
             if (item.isEpisode) item.seriesName ?: item.name else item.name,
-            style = if (big) NovaType.Display else NovaType.Title,
+            style = if (big && !Lay.phone) NovaType.Display else NovaType.Title,
             color = Nova.Text, maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
     }

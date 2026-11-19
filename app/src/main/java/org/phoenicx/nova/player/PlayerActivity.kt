@@ -732,7 +732,7 @@ private fun Overlay(
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 48.dp, vertical = 28.dp)) {
             if (item != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TitleOrLogo(item, maxLogoH = 52.dp, maxLogoW = 260.dp, big = false)
+                    TitleOrLogo(item, maxLogoH = 44.dp, maxLogoW = 200.dp, big = false)
                     val bits = listOfNotNull(
                         item.year?.toString(),
                         item.communityRating?.let { "★ " + String.format("%.1f", it) },

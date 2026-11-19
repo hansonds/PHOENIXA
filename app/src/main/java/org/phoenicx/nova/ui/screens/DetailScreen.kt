@@ -173,7 +173,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                 Text(it.seriesName.uppercase(), style = NovaType.Caption, color = Nova.Cyan)
                                 Spacer(Modifier.height(10.dp))
                             }
-                            TitleOrLogo(it, maxLogoH = if (Lay.phone) 90.dp else 130.dp, maxLogoW = if (Lay.phone) 300.dp else 480.dp, big = true)
+                            TitleOrLogo(it, maxLogoH = if (Lay.phone) 66.dp else 110.dp, maxLogoW = if (Lay.phone) 240.dp else 420.dp, big = true)
                             if (it.isEpisode) {
                                 Spacer(Modifier.height(8.dp))
                                 Text(listOfNotNull(it.episodeLabel, it.name).joinToString("  ·  "), style = NovaType.Section, color = Nova.Text)
