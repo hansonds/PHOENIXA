@@ -29,6 +29,9 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - **Featured carousel**: full-screen backdrops with title logos, rating, year, runtime and quality badges. It auto-rotates, and you can flip slides with left and right.
 - **Continue Watching**, **Next Up**, **Recently Added** for each library, and **My Favorites** rows.
 - An always-visible top bar with Search, Home, Favorites, every library (it scrolls sideways if you have many), Settings and a small clock.
+- On phones, a **bottom bar** (Home · Movies · Shows · Search · Profile) within reach of your thumb.
+- Grey **placeholder cards** while pages load, and **pull down to refresh** on phones and tablets.
+- **Android TV / Google TV:** what you're watching appears in the TV home screen's **Continue watching** row. Pick it there and it plays straight away.
 
 ### Browsing
 - **Library grids** sorted by Recently Added, A–Z, Top Rated, Release Year or Random. The app remembers where you were when you come back.
@@ -49,10 +52,12 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - **Direct play first.** Video is decoded by your TV's own hardware chip, including HEVC, AV1 where supported, and HDR.
 - **FFmpeg audio decoder** built in, so **DTS, DTS-HD, TrueHD, E-AC3** and other formats play even when the TV can't decode them. Passthrough to a soundbar or receiver is used when available.
 - Optional automatic transcode fallback, if you enable it on your server.
-- Subtitle and audio track picker with **real language names** (Tamil, Hindi, Malayalam, English …). Your language choice is **remembered** for the next movie or episode.
+- Subtitle and audio track picker with **real language names** (Tamil, Hindi, Malayalam, English …). Your language choice is **remembered**, and **per series**: pick Malayalam audio with English subtitles once, and every episode of that show starts the same way.
 - Playback **speed** from 0.5× to 2×.
 - Synopsis and cast overlay, a seek bar with hold-to-scrub, skip ±10 s, and **auto-play next episode**.
 - Watch progress syncs to your server, so you can continue on any device.
+- **Phones and tablets:** swipe up or down for volume (right side) and brightness (left side), swipe left or right to seek, double-tap a side to skip 10 s (keep tapping to add more), press and hold for **2× speed**, pinch to zoom, and a **🔒 lock** button against pocket touches.
+- **Remote:** the ⏯ ⏪ ⏩ media keys always work, and holding **OK** (or pressing **Menu**) opens quick options: subtitles, audio, speed, screen size, next episode.
 
 ### Search & Add (Torvia servers)
 - If your Jellyfin server runs the **[Torvia](https://github.com/hansonds/Torvia-Jellyfin)** plugin, a **Search & Add** tab appears for allowed users (TV, phone and tablet).
@@ -62,6 +67,7 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 
 ### Comfort
 - **Quick Connect** sign-in, so there's no typing on the remote.
+- **Profiles:** sign in several people on one device. PHOENIXA asks "Who's watching?" when it starts (with one profile it opens straight to Home). Switch any time from your picture in the top bar or from Settings.
 - The keyboard opens only when you press OK on a text box.
 - **11 colour themes** (Phoenix Ember, Nova, Midnight Blue, Emerald, Royal Purple, Crimson Noir, Ocean Teal, Sunset Gold, Rose Quartz, Graphite, Cyber Neon), changed instantly from Settings.
 - Card size setting (Small, Medium or Large) and a streaming quality limit.
@@ -114,7 +120,8 @@ Download and install the new APK in the same way. It installs over the old versi
 | Player (controls hidden) | **◀ ▶** | Rewind / forward 10 s |
 | Player (controls hidden) | **▲ ▼** | Show controls |
 | Player seek bar | **◀ ▶** (hold) | Scrub. Holding speeds up to 30 s steps |
-| Player | **⏯ / ⏪ / ⏩** media keys | Play-pause / rewind / fast-forward |
+| Player | **⏯ / ⏪ / ⏩** media keys | Play-pause / rewind / fast-forward (always work) |
+| Player | **OK** (hold) or **Menu** | Quick options: subtitles, audio, speed, screen size, next episode |
 | Text boxes | **OK** | Open the keyboard |
 
 ---
@@ -123,6 +130,7 @@ Download and install the new APK in the same way. It installs over the old versi
 
 | Setting | What it does |
 |---|---|
+| **Profile** | Switch to someone else, or add a person to this device. |
 | **Direct play only** | *On (default):* always play the original file. *Off:* let the server transcode files the TV can't play (requires transcoding enabled on the server). |
 | **Streaming quality** | Caps bitrate for slow connections (Maximum → 4 Mbps). |
 | **Theme** | Pick one of 11 colour themes. *Phoenix Ember* is the default. |

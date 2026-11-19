@@ -133,7 +133,7 @@ fun NovaRoot() {
                     if (same && nav.stack.size > 1) nav.back() else nav.reset(Screen.Home)
                 },
                 onAdd = { prefs.prepareNewSignIn(); nav.reset(Screen.Login) },
-                onBack = if (nav.stack.size > 1 && app.api.isLoggedIn) ({ nav.back() }) else null,
+                onBack = if (nav.stack.size > 1) ({ if (app.api.isLoggedIn) nav.back() }) else null,
             )
             Screen.Home -> HomeScreen(nav, homeState)
             is Screen.Lib -> LibraryScreen(nav, screen.library)
