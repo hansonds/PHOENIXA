@@ -114,9 +114,11 @@ fun BoxScope.GlassLayer(state: GlassState) {
     if (state.visible) drawn[0] = Rect(gx, gy, gx + gw, gy + gh)
 
     if (alpha <= 0.01f) return
-    // Google TV style: a frosted glass frame that hugs the highlighted tile (no gap, nothing over the picture)
-    val pad = with(d) { 7.dp.toPx() }
+    // Google TV style: a thin frosted glass frame around the highlighted tile, tinted with the theme colour,
+    // plus a light glassy sheen over the tile itself
+    val pad = with(d) { 4.dp.toPx() }
     val shape = state.shape
+    val tint = Nova.Cyan   // the theme's main colour
     Box(
         Modifier
             .offset { IntOffset((gx - pad).roundToInt(), (gy - pad).roundToInt()) }
@@ -128,35 +130,47 @@ fun BoxScope.GlassLayer(state: GlassState) {
             .drawWithContent {
                 val inner = androidx.compose.ui.geometry.Size(size.width - pad * 2, size.height - pad * 2)
                 val innerOutline = shape.createOutline(inner, layoutDirection, this)
-                // Outer plate: the tile's own corner shape, grown by the frame width
                 val outerOutline = shape.createOutline(size, layoutDirection, this)
-                // Frosted glass: lighter at the top, a little darker at the bottom
+                // Frame: frosted white with a very light shade of the theme colour
                 drawOutline(
                     outerOutline,
                     Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.32f), Color.White.copy(alpha = 0.22f))
+                        listOf(
+                            androidx.compose.ui.graphics.lerp(Color.White, tint, 0.18f).copy(alpha = 0.75f),
+                            androidx.compose.ui.graphics.lerp(Color.White, tint, 0.35f).copy(alpha = 0.50f),
+                            androidx.compose.ui.graphics.lerp(Color.White, tint, 0.45f).copy(alpha = 0.40f),
+                        )
                     ),
                 )
                 // Thin bright rim on the outside edge
                 drawOutline(
                     outerOutline,
-                    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.95f), Color.White.copy(alpha = 0.35f))),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f.dp.toPx()),
+                    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.95f), tint.copy(alpha = 0.6f))),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2f.dp.toPx()),
                 )
-                // A light glare passing over the frame when it lands
-                val ww = size.width
-                val sx = glare.value * ww
-                drawOutline(
-                    outerOutline,
-                    Brush.linearGradient(
-                        listOf(Color.Transparent, Color.White.copy(alpha = 0.45f), Color.Transparent),
-                        start = Offset(sx - ww * 0.3f, 0f),
-                        end = Offset(sx + ww * 0.05f, size.height),
-                    ),
-                )
-                // Cut out the tile itself, so the picture stays completely clear
                 translate(pad, pad) {
+                    // Cut the tile out of the frame...
                     drawOutline(innerOutline, Color.Black, blendMode = androidx.compose.ui.graphics.BlendMode.Clear)
+                    // ...then lay a light glass sheen over it: brighter at the top, a hint of the theme colour, clear below
+                    drawOutline(
+                        innerOutline,
+                        Brush.verticalGradient(
+                            0f to Color.White.copy(alpha = 0.20f),
+                            0.30f to tint.copy(alpha = 0.07f),
+                            0.6f to Color.Transparent,
+                        ),
+                    )
+                    // A light glare passing across the glass when it lands
+                    val ww = inner.width
+                    val sx = glare.value * ww
+                    drawOutline(
+                        innerOutline,
+                        Brush.linearGradient(
+                            listOf(Color.Transparent, Color.White.copy(alpha = 0.22f), Color.Transparent),
+                            start = Offset(sx - ww * 0.35f, 0f),
+                            end = Offset(sx + ww * 0.05f, inner.height),
+                        ),
+                    )
                 }
             }
     )
