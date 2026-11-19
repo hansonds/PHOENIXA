@@ -55,7 +55,8 @@ import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
 
 @Composable
-fun LoginScreen(onLoggedIn: () -> Unit) {
+fun LoginScreen(onLoggedIn: () -> Unit, onCancel: (() -> Unit)? = null) {
+    if (onCancel != null) androidx.activity.compose.BackHandler { onCancel() }
     val prefs = NovaApp.instance.prefs
     val scope = rememberCoroutineScope()
     var server by remember { mutableStateOf(prefs.server) }
@@ -172,7 +173,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                    Text("Sign in", style = NovaType.Title, color = Nova.Text)
+                    Text(if (onCancel != null) "Add a profile" else "Sign in", style = NovaType.Title, color = Nova.Text)
                     NovaTextField(server, { server = it }, "Server", icon = Icons.Outlined.Dns,
                         keyboardType = KeyboardType.Text, placeholder = "your-server.com", focusRequester = serverRequester)
                     NovaTextField(user, { user = it }, "Username", icon = Icons.Outlined.Person)
@@ -184,6 +185,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                         NovaButton("Sign In", Icons.Outlined.Login, primary = true) { signIn() }
                         NovaButton("Quick Connect", Icons.Outlined.QrCode2) { quickConnect() }
                     }
+                    if (onCancel != null && !busy) NovaButton("Back to profiles") { onCancel() }
                 }
             }
         }

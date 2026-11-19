@@ -6,6 +6,8 @@ import org.phoenicx.nova.data.Library
 
 sealed class Screen {
     data object Login : Screen()
+    /** "Who's watching?" */
+    data object Profiles : Screen()
     data object Home : Screen()
     data class Lib(val library: Library) : Screen()
     data object Search : Screen()

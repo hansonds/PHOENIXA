@@ -14,6 +14,9 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import org.phoenicx.nova.ui.Navigator
 import org.phoenicx.nova.ui.Screen
@@ -60,8 +63,27 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun NovaRoot() {
     val app = NovaApp.instance
-    val nav = remember { Navigator(if (app.api.isLoggedIn) Screen.Home else Screen.Login) }
-    val homeState = remember { HomeState() }
+    val prefs = app.prefs
+    val nav = remember {
+        val profiles = prefs.profiles
+        val start = when {
+            // More than one person on this device: ask who's watching
+            profiles.size > 1 -> Screen.Profiles
+            app.api.isLoggedIn -> Screen.Home
+            profiles.size == 1 -> { prefs.switchTo(profiles[0]); Screen.Home }
+            else -> Screen.Login
+        }
+        Navigator(start)
+    }
+    var homeState by remember { mutableStateOf(HomeState()) }
+
+    // Everything that belongs to the signed-in person starts fresh
+    fun freshSession() {
+        homeState = HomeState()
+        nav.libraries.value = emptyList()
+        nav.torvia.value = null
+        nav.libraryPos.clear()
+    }
 
     BackHandler(enabled = nav.stack.size > 1) { nav.back() }
 
@@ -74,19 +96,36 @@ fun NovaRoot() {
         modifier = Modifier.fillMaxSize(),
     ) { screen ->
         when (screen) {
-            Screen.Login -> LoginScreen(onLoggedIn = { nav.reset(Screen.Home) })
+            Screen.Login -> LoginScreen(
+                onLoggedIn = { freshSession(); nav.reset(Screen.Home) },
+                // Adding a profile: Back returns to "Who's watching?" (and keeps the previous sign-in)
+                onCancel = if (prefs.profiles.isNotEmpty()) ({
+                    prefs.profiles.firstOrNull { it.key == prefs.activeKey }?.let { prefs.switchTo(it) }
+                        ?: prefs.profiles.firstOrNull()?.let { prefs.switchTo(it) }
+                    nav.reset(Screen.Profiles)
+                }) else null,
+            )
+            Screen.Profiles -> org.phoenicx.nova.ui.screens.ProfilesScreen(
+                onChoose = { p ->
+                    val same = p.key == prefs.activeKey && app.api.isLoggedIn
+                    prefs.switchTo(p)
+                    if (!same) freshSession()
+                    if (same && nav.stack.size > 1) nav.back() else nav.reset(Screen.Home)
+                },
+                onAdd = { prefs.prepareNewSignIn(); nav.reset(Screen.Login) },
+                onBack = if (nav.stack.size > 1 && app.api.isLoggedIn) ({ nav.back() }) else null,
+            )
             Screen.Home -> HomeScreen(nav, homeState)
             is Screen.Lib -> LibraryScreen(nav, screen.library)
             Screen.Search -> SearchScreen(nav)
             Screen.Favorites -> FavoritesScreen(nav)
             Screen.Settings -> SettingsScreen(nav, onSignOut = {
-                val tok = app.prefs.token
+                val tok = prefs.token
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { app.api.logout(tok) }
-                app.prefs.signOut()
-                homeState.loaded = false
-                homeState.featured = emptyList()
-                homeState.rows = emptyList()
-                nav.reset(Screen.Login)
+                val me = prefs.profiles.firstOrNull { it.key == prefs.activeKey }
+                if (me != null) prefs.removeProfile(me) else prefs.signOut()
+                freshSession()
+                nav.reset(if (prefs.profiles.isNotEmpty()) Screen.Profiles else Screen.Login)
             })
             is Screen.Detail -> DetailScreen(nav, screen.itemId)
             is Screen.Person -> PersonScreen(nav, screen.id, screen.name)

@@ -149,7 +149,13 @@ class JellyfinApi(private val prefs: Prefs) {
         val u = o.optJSONObject("User")
         prefs.userId = u?.optString("Id")
         prefs.userName = u?.optString("Name")
+        prefs.userImageTag = u?.optString("PrimaryImageTag")?.takeIf { it.isNotBlank() && it != "null" }
+        prefs.saveCurrentAsProfile()
     }
+
+    /** A person's profile picture (null when they have none) */
+    fun userImage(p: Profile, w: Int = 300): String? =
+        p.imageTag?.let { "${p.server.trimEnd('/')}/Users/${p.userId}/Images/Primary?maxWidth=$w&quality=90&tag=$it" }
 
     /** Returns (secret, code) */
     suspend fun quickConnectInitiate(base: String): Pair<String, String> {

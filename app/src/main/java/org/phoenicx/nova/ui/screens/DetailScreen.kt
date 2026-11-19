@@ -212,8 +212,8 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                     val src = it.mediaSources.getOrNull(srcIdx)
                                     val sel = if (!it.isSeries && src != null) PlaySelection(
                                         mediaSourceId = src.id,
-                                        audioIndex = audioSel ?: Lang.pickAudio(src.streams, src.defaultAudioIndex),
-                                        subtitleIndex = subSel ?: Lang.pickSubtitle(src.streams, src.defaultSubtitleIndex),
+                                        audioIndex = audioSel ?: Lang.pickAudio(src.streams, src.defaultAudioIndex, it.seriesId),
+                                        subtitleIndex = subSel ?: Lang.pickSubtitle(src.streams, src.defaultSubtitleIndex, it.seriesId),
                                     ) else null
                                     val target = if (it.isCollection) (children.firstOrNull { c -> !c.played } ?: children.firstOrNull()) else (nextUp ?: it)
                                     if (target != null) Launcher.play(context, scope, target, fromStart, if (it.isCollection) null else sel)
@@ -229,14 +229,14 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                             lastSheet = "version"; sheet = "version"
                                         }
                                     }
-                                    val aIdx = audioSel ?: Lang.pickAudio(src.streams, src.defaultAudioIndex)
+                                    val aIdx = audioSel ?: Lang.pickAudio(src.streams, src.defaultAudioIndex, it.seriesId)
                                     val aStream = src.audioStreams.firstOrNull { a -> a.index == aIdx } ?: src.audioStreams.firstOrNull()
                                     if (src.audioStreams.isNotEmpty()) {
                                         SelectorChip("AUDIO", aStream?.let { a -> Lang.label(a).let { (m, d) -> if (d.isEmpty()) m else "$m · ${d.substringBefore(" · Default")}" } } ?: "Default", chipRequesters.getValue("audio")) {
                                             lastSheet = "audio"; sheet = "audio"
                                         }
                                     }
-                                    val sIdx = subSel ?: Lang.pickSubtitle(src.streams, src.defaultSubtitleIndex)
+                                    val sIdx = subSel ?: Lang.pickSubtitle(src.streams, src.defaultSubtitleIndex, it.seriesId)
                                     val sStream = src.subtitleStreams.firstOrNull { x -> x.index == sIdx }
                                     SelectorChip("SUBTITLES", sStream?.let { x -> Lang.label(x).first } ?: "Off", chipRequesters.getValue("subs")) {
                                         lastSheet = "subs"; sheet = "subs"
@@ -361,24 +361,24 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                 )
                 "audio" -> {
                     val list = curSrc.audioStreams
-                    val current = audioSel ?: Lang.pickAudio(curSrc.streams, curSrc.defaultAudioIndex)
+                    val current = audioSel ?: Lang.pickAudio(curSrc.streams, curSrc.defaultAudioIndex, cur.seriesId)
                     OptionSheet(
                         "Audio",
                         list.map { a -> Lang.label(a).let { (m, d) -> SheetOption(m, d, a.index == current) } },
-                        onSelect = { i -> audioSel = list[i].index; Lang.rememberAudio(list[i].language); sheet = null },
+                        onSelect = { i -> audioSel = list[i].index; Lang.rememberAudio(list[i].language, cur.seriesId); sheet = null },
                         onDismiss = { sheet = null },
                     )
                 }
                 "subs" -> {
                     val list = curSrc.subtitleStreams
-                    val current = subSel ?: Lang.pickSubtitle(curSrc.streams, curSrc.defaultSubtitleIndex)
+                    val current = subSel ?: Lang.pickSubtitle(curSrc.streams, curSrc.defaultSubtitleIndex, cur.seriesId)
                     OptionSheet(
                         "Subtitles",
                         listOf(SheetOption("Off", "", current == -1)) +
                             list.map { x -> Lang.label(x).let { (m, d) -> SheetOption(m, d, x.index == current) } },
                         onSelect = { i ->
                             subSel = if (i == 0) -1 else list[i - 1].index
-                            Lang.rememberSubtitle(if (i == 0) null else list[i - 1].language, off = i == 0)
+                            Lang.rememberSubtitle(if (i == 0) null else list[i - 1].language, off = i == 0, seriesId = cur.seriesId)
                             sheet = null
                         },
                         onDismiss = { sheet = null },

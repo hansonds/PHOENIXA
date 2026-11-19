@@ -118,30 +118,40 @@ object Lang {
 
     private val prefs get() = NovaApp.instance.prefs
 
-    fun rememberAudio(language: String?) {
-        if (name(language) != null) prefs.audioLang = language
+    fun rememberAudio(language: String?, seriesId: String? = null) {
+        if (name(language) == null) return
+        prefs.audioLang = language
+        if (seriesId != null) prefs.setSeriesAudio(seriesId, language!!)
     }
 
     /** null language with off=true means "subtitles off" */
-    fun rememberSubtitle(language: String?, off: Boolean) {
-        when {
-            off -> prefs.subLang = "off"
-            name(language) != null -> prefs.subLang = language
+    fun rememberSubtitle(language: String?, off: Boolean, seriesId: String? = null) {
+        val v = when {
+            off -> "off"
+            name(language) != null -> language!!
+            else -> return
         }
+        prefs.subLang = v
+        if (seriesId != null) prefs.setSeriesSub(seriesId, v)
     }
 
     /** Which audio stream to use: your remembered language if this file has it, else the server default. */
-    fun pickAudio(streams: List<MediaStreamInfo>, serverDefault: Int?): Int? {
+    fun pickAudio(streams: List<MediaStreamInfo>, serverDefault: Int?, seriesId: String? = null): Int? {
         val audio = streams.filter { it.type == "Audio" }
+        // The language picked for this series first, then the last one picked anywhere
+        seriesId?.let { prefs.seriesAudio(it) }?.let { want -> audio.firstOrNull { same(it.language, want) }?.let { return it.index } }
         val want = prefs.audioLang
         if (want != null) audio.firstOrNull { same(it.language, want) }?.let { return it.index }
         return serverDefault ?: audio.firstOrNull()?.index
     }
 
     /** Which subtitle stream to use (-1 = off). */
-    fun pickSubtitle(streams: List<MediaStreamInfo>, serverDefault: Int?): Int {
+    fun pickSubtitle(streams: List<MediaStreamInfo>, serverDefault: Int?, seriesId: String? = null): Int {
         val subs = streams.filter { it.type == "Subtitle" }
-        return when (val want = prefs.subLang) {
+        val forSeries = seriesId?.let { prefs.seriesSub(it) }
+        // A series choice only counts if this episode has that language (or it was "off")
+        val want = if (forSeries != null && (forSeries == "off" || subs.any { same(it.language, forSeries) })) forSeries else prefs.subLang
+        return when (want) {
             null -> serverDefault ?: -1
             "off" -> subs.firstOrNull { it.isForced && it.index == serverDefault }?.index ?: -1
             else -> {

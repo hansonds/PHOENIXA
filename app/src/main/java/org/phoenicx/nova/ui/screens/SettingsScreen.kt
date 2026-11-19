@@ -68,6 +68,11 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text("Settings", style = NovaType.Title, color = Nova.Text)
+            SettingRow(
+                "Profile",
+                "Switch to someone else, or add a person to this device",
+                prefs.userName ?: "",
+            ) { nav.push(Screen.Profiles) }
             Spacer(Modifier.height(4.dp))
 
             InfoCard("Signed in as", prefs.userName ?: "—", prefs.server)

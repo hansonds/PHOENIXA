@@ -148,7 +148,8 @@ class PlayerController(private val context: Context) {
 
             override fun onTracksChanged(tracks: Tracks) {
                 tracksVersion++
-                if (!pendingApplied && !tracks.isEmpty) applySelection()
+                // Wait for the item details (to know its series) unless a choice was passed in
+                if (!pendingApplied && !tracks.isEmpty && (selection != null || item?.id == loadingId)) applySelection()
             }
 
             override fun onPlayerError(e: PlaybackException) {
@@ -207,9 +208,11 @@ class PlayerController(private val context: Context) {
     /** Version / audio / subtitle chosen on the details page (null = server defaults) */
     private var selection: PlaySelection? = null
     private var pendingApplied = true
+    private var loadingId: String? = null
 
     fun load(itemId: String, startTicks: Long, streamMode: StreamMode = StreamMode.Direct, sel: PlaySelection? = selection) {
         selection = sel
+        loadingId = itemId
         pendingApplied = false
         if (streamMode == StreamMode.Direct) lastErrors.clear()
         mode = streamMode
@@ -266,6 +269,7 @@ class PlayerController(private val context: Context) {
                 player.playWhenReady = true
                 val it = itemD.await()
                 item = it
+                if (!pendingApplied && !player.currentTracks.isEmpty) applySelection()
                 api.reportStart(itemId, src, startTicks)
                 startProgressLoop()
                 nextEpisode = null
@@ -311,8 +315,12 @@ class PlayerController(private val context: Context) {
         if (next != null && prefs.autoPlayNext) playNext() else finished = true
     }
 
+    /** Series of the episode being loaded (tracks can be ready before the item details arrive) */
+    private var pendingSeriesId: String? = null
+
     fun playNext() {
         val next = nextEpisode ?: return
+        pendingSeriesId = next.seriesId
         load(next.id, 0, StreamMode.Direct, sel = null)
     }
 
@@ -388,8 +396,9 @@ class PlayerController(private val context: Context) {
         }
         player.trackSelectionParameters = b.build()
         // Remember the language so the next movie / episode starts the same way
-        if (type == C.TRACK_TYPE_AUDIO) Lang.rememberAudio(opt.language)
-        else if (type == C.TRACK_TYPE_TEXT) Lang.rememberSubtitle(opt.language, off = opt.group == null)
+        val sid = item?.seriesId
+        if (type == C.TRACK_TYPE_AUDIO) Lang.rememberAudio(opt.language, sid)
+        else if (type == C.TRACK_TYPE_TEXT) Lang.rememberSubtitle(opt.language, off = opt.group == null, seriesId = sid)
     }
 
     /** Turns the details-page choice into ExoPlayer track picks once the file's tracks are known. */
@@ -397,9 +406,10 @@ class PlayerController(private val context: Context) {
         pendingApplied = true
         val src = source ?: return
         // No explicit choice (next episode, Continue Watching…): use your remembered languages
+        val sid = item?.seriesId ?: pendingSeriesId
         val sel = selection ?: PlaySelection(
-            audioIndex = Lang.pickAudio(src.streams, src.defaultAudioIndex),
-            subtitleIndex = Lang.pickSubtitle(src.streams, src.defaultSubtitleIndex),
+            audioIndex = Lang.pickAudio(src.streams, src.defaultAudioIndex, sid),
+            subtitleIndex = Lang.pickSubtitle(src.streams, src.defaultSubtitleIndex, sid),
         )
         val b = player.trackSelectionParameters.buildUpon()
 

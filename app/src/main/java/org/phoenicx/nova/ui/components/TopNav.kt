@@ -131,9 +131,12 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
     val settingsAndAvatar: @Composable () -> Unit = {
         NavIcon(Icons.Outlined.Settings, selected == Screen.Settings, if (selected == Screen.Settings) selReq else null) { if (selected != Screen.Settings) nav.tab(Screen.Settings) }
         Spacer(Modifier.width(10.dp))
-        Box(Modifier.size(38.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {
-            Text((org.phoenicx.nova.NovaApp.instance.prefs.userName ?: "?").take(1).uppercase(), style = NovaType.Button, color = Nova.OnFocus)
-            AsyncImage(api.userImage(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        // Your picture: opens "Who's watching?" to switch profile
+        FocusSurface(onClick = { nav.push(Screen.Profiles) }, shape = CircleShape, focusedScale = 1.12f, borderWidth = 2.dp, glow = false) { _ ->
+            Box(Modifier.size(38.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {
+                Text((org.phoenicx.nova.NovaApp.instance.prefs.userName ?: "?").take(1).uppercase(), style = NovaType.Button, color = Nova.OnFocus)
+                AsyncImage(api.userImage(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            }
         }
     }
 

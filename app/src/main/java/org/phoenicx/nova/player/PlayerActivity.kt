@@ -44,6 +44,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.outlined.Check
@@ -139,13 +143,32 @@ class PlayerActivity : ComponentActivity() {
         controller.load(itemId, intent.getLongExtra(EXTRA_TICKS, 0L), StreamMode.Direct, sel)
         setContent {
             NovaTheme {
-                PlayerScreen(controller, onExit = { finish() }, registerRescue = { rescue = it })
+                PlayerScreen(controller, onExit = { finish() }, registerRescue = { rescue = it }, registerMediaKeys = { mediaKeys = it })
             }
         }
     }
 
     /** Set by the player screen; puts the remote's highlight back somewhere sensible. */
     private var rescue: (() -> Unit)? = null
+
+    /** Set by the player screen: handles the remote's media keys (play/pause, rewind, fast-forward…) */
+    private var mediaKeys: ((Int, Int) -> Boolean)? = null
+
+    private val mediaCodes = setOf(
+        AKeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, AKeyEvent.KEYCODE_MEDIA_PLAY, AKeyEvent.KEYCODE_MEDIA_PAUSE,
+        AKeyEvent.KEYCODE_HEADSETHOOK, AKeyEvent.KEYCODE_MEDIA_FAST_FORWARD, AKeyEvent.KEYCODE_MEDIA_REWIND,
+        AKeyEvent.KEYCODE_MEDIA_NEXT, AKeyEvent.KEYCODE_MEDIA_PREVIOUS, AKeyEvent.KEYCODE_MEDIA_SKIP_FORWARD,
+        AKeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD, AKeyEvent.KEYCODE_MEDIA_STEP_FORWARD, AKeyEvent.KEYCODE_MEDIA_STEP_BACKWARD,
+    )
+
+    // Media keys always work, even when nothing on screen has the highlight
+    override fun dispatchKeyEvent(event: AKeyEvent): Boolean {
+        if (event.keyCode in mediaCodes) {
+            if (event.action == AKeyEvent.ACTION_DOWN) mediaKeys?.invoke(event.keyCode, event.repeatCount)
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
 
     override fun onKeyDown(keyCode: Int, event: AKeyEvent): Boolean {
         // Only reached when no on-screen control handled the key, i.e. focus was lost
@@ -224,11 +247,26 @@ class PlayerActivity : ComponentActivity() {
     }
 }
 
-private enum class Panel { None, Subtitles, Audio, Speed }
+private enum class Panel { None, Subtitles, Audio, Speed, Quick }
 
 @Composable
-private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue: ((() -> Unit)) -> Unit) {
+private fun PlayerScreen(
+    c: PlayerController,
+    onExit: () -> Unit,
+    registerRescue: ((() -> Unit)) -> Unit,
+    registerMediaKeys: (((Int, Int) -> Boolean)) -> Unit,
+) {
     var overlay by remember { mutableStateOf(true) }
+    val touch = !NovaApp.instance.isTv
+    // Phone / tablet: screen lock against pocket touches, hold for 2x, swipe to seek, double-tap ripple
+    var locked by remember { mutableStateOf(false) }
+    var unlockShownAt by remember { mutableLongStateOf(0L) }
+    var holdSpeedFrom by remember { mutableStateOf<Float?>(null) }
+    var seekPreview by remember { mutableStateOf<Long?>(null) }
+    var ripple by remember { mutableStateOf(Ripple(0, 0, 0)) }
+    // Remote: a long press on OK opens the quick options
+    var okLong by remember { mutableStateOf(false) }
+    var okDown by remember { mutableStateOf(false) }
     // Picture-in-picture: only the video, no controls or panels
     LaunchedEffect(c.inPip) { if (c.inPip) overlay = false }
     var showInfo by remember { mutableStateOf(false) }
@@ -255,7 +293,21 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
         }
         if (target != null) runCatching { target.requestFocus() }.onFailure { runCatching { rootRequester.requestFocus() } }
     }
-    registerRescue { if (!overlay && c.error == null) overlay = true; refocusTick++ }
+    registerRescue { if (!overlay && c.error == null && !locked) overlay = true; refocusTick++ }
+    registerMediaKeys { code, repeat ->
+        lastInput = System.currentTimeMillis()
+        val step = if (repeat > 6) 30_000L else 10_000L
+        when (code) {
+            AKeyEvent.KEYCODE_MEDIA_PLAY -> { c.player.play(); if (!locked) overlay = true }
+            AKeyEvent.KEYCODE_MEDIA_PAUSE -> { c.player.pause(); if (!locked) overlay = true }
+            AKeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, AKeyEvent.KEYCODE_HEADSETHOOK -> { c.togglePlay(); if (!locked) overlay = true }
+            AKeyEvent.KEYCODE_MEDIA_FAST_FORWARD, AKeyEvent.KEYCODE_MEDIA_SKIP_FORWARD, AKeyEvent.KEYCODE_MEDIA_STEP_FORWARD -> { c.seekBy(step); seekFlash++ }
+            AKeyEvent.KEYCODE_MEDIA_REWIND, AKeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD, AKeyEvent.KEYCODE_MEDIA_STEP_BACKWARD -> { c.seekBy(-step); seekFlash++ }
+            AKeyEvent.KEYCODE_MEDIA_NEXT -> if (repeat == 0) c.playNext()
+            AKeyEvent.KEYCODE_MEDIA_PREVIOUS -> if (repeat == 0) { c.seekTo(0f); seekFlash++ }
+        }
+        true
+    }
     LaunchedEffect(refocusTick) { if (refocusTick > 0) { delay(30); refocus() } }
 
     // Watchdog: if nothing on screen has focus (a control vanished), take it back
@@ -289,6 +341,8 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
 
     BackHandler {
         when {
+            // Locked: Back only shows the unlock button (so a pocket can't close the video)
+            locked -> unlockShownAt = System.currentTimeMillis()
             panel != Panel.None -> panel = Panel.None
             showInfo -> showInfo = false
             overlay -> overlay = false
@@ -302,16 +356,21 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
             .background(Color.Black)
             .onPreviewKeyEvent { e ->
                 if (e.type == KeyEventType.KeyDown) lastInput = System.currentTimeMillis()
-                if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                // Media keys work everywhere
-                when (e.key.nativeKeyCode) {
-                    AKeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, AKeyEvent.KEYCODE_MEDIA_PLAY, AKeyEvent.KEYCODE_MEDIA_PAUSE -> {
-                        c.togglePlay(); overlay = true; return@onPreviewKeyEvent true
+                val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
+                // OK held down: open the quick options (and don't also press the button under the highlight)
+                if (isOk && c.error == null) {
+                    if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount > 0) {
+                        if (!okLong) { okLong = true; panel = Panel.Quick }
+                        return@onPreviewKeyEvent true
                     }
-                    AKeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { c.seekBy(30_000); seekFlash++; return@onPreviewKeyEvent true }
-                    AKeyEvent.KEYCODE_MEDIA_REWIND -> { c.seekBy(-10_000); seekFlash++; return@onPreviewKeyEvent true }
-                    AKeyEvent.KEYCODE_MEDIA_NEXT -> { c.playNext(); return@onPreviewKeyEvent true }
+                    if (e.type == KeyEventType.KeyUp) {
+                        if (okLong) { okLong = false; okDown = false; return@onPreviewKeyEvent true }
+                        if (okDown) { okDown = false; c.togglePlay(); overlay = true; return@onPreviewKeyEvent true }
+                        return@onPreviewKeyEvent false
+                    }
                 }
+                if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (e.key == Key.Menu && c.error == null) { panel = if (panel == Panel.Quick) Panel.None else Panel.Quick; return@onPreviewKeyEvent true }
                 // Overlay is up but the highlight sits on the background: pull it onto the controls
                 if (overlay && rootFocused && panel == Panel.None) {
                     when (e.key) {
@@ -322,10 +381,11 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
                 }
                 if (!overlay) {
                     when (e.key) {
-                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { c.togglePlay(); overlay = true; true }
+                        // Play / pause when OK is let go (so holding it can open the quick options instead)
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { okDown = true; true }
                         Key.DirectionLeft -> { c.seekBy(-10_000); seekFlash++; true }
                         Key.DirectionRight -> { c.seekBy(10_000); seekFlash++; true }
-                        Key.DirectionUp, Key.DirectionDown, Key.Menu -> { overlay = true; true }
+                        Key.DirectionUp, Key.DirectionDown -> { overlay = true; true }
                         else -> false
                     }
                 } else false
@@ -383,8 +443,17 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
                     // Two fingers: pinch out to zoom the picture, pinch in to fit it again.
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        if (locked) {
+                            // Locked: ignore everything (a tap shows the unlock button, handled below)
+                            do { val ev = awaitPointerEvent() } while (ev.changes.any { it.pressed })
+                            return@awaitEachGesture
+                        }
                         var zoomAcc = 1f
-                        var swipe: String? = null // "volume" or "brightness" once decided
+                        var swipe: String? = null // "volume", "brightness" or "seek" once decided
+                        val seekFrom = c.position
+                        // Leave the left and right edges to Android's back gesture
+                        val sideEdge = 32.dp.toPx()
+                        val canSeek = down.position.x > sideEdge && down.position.x < size.width - sideEdge
                         var totalY = 0f
                         var totalX = 0f
                         val slop = viewConfiguration.touchSlop
@@ -407,7 +476,16 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
                                 if (swipe == null && kotlin.math.abs(totalY) > slop && kotlin.math.abs(totalY) > kotlin.math.abs(totalX) * 1.5f) {
                                     swipe = if (leftSide) "brightness" else "volume"
                                 }
-                                if (swipe != null) {
+                                if (swipe == null && canSeek && holdSpeedFrom == null && kotlin.math.abs(totalX) > slop * 2 &&
+                                    kotlin.math.abs(totalX) > kotlin.math.abs(totalY) * 1.5f && c.duration > 0) {
+                                    swipe = "seek"
+                                }
+                                if (swipe == "seek") {
+                                    // The whole screen width = 2 minutes
+                                    val ms = (totalX / size.width * 120_000f).toLong()
+                                    seekPreview = (seekFrom + ms).coerceIn(0L, (c.duration - 1000).coerceAtLeast(0))
+                                    ch.consume()
+                                } else if (swipe != null) {
                                     // Full screen height = full range
                                     val delta = -d.y / (size.height * 0.85f)
                                     if (swipe == "volume") gestures.changeVolume(delta) else gestures.changeBrightness(delta)
@@ -415,28 +493,90 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
                                 }
                             }
                         } while (ev.changes.any { it.pressed })
+                        seekPreview?.let { target -> if (c.duration > 0) c.seekTo(target.toFloat() / c.duration) }
+                        seekPreview = null
                     }
                 }
                 .pointerInput(Unit) {
                     detectTapGestures(
+                        onPress = {
+                            tryAwaitRelease()
+                            // Let go after "hold for 2x": back to the normal speed
+                            holdSpeedFrom?.let { c.changeSpeed(it); holdSpeedFrom = null }
+                        },
+                        onLongPress = {
+                            if (touch && !locked && c.error == null && seekPreview == null && c.isPlaying) {
+                                holdSpeedFrom = c.speed
+                                c.changeSpeed(2f)
+                                overlay = false
+                            }
+                        },
                         onTap = {
                             lastInput = System.currentTimeMillis()
                             when {
+                                locked -> unlockShownAt = System.currentTimeMillis()
                                 panel != Panel.None -> panel = Panel.None
                                 showInfo -> showInfo = false
                                 else -> overlay = !overlay
                             }
                         },
                         onDoubleTap = { o ->
-                            lastInput = System.currentTimeMillis()
-                            if (o.x < size.width / 2) c.seekBy(-10_000) else c.seekBy(10_000)
-                            if (!overlay) seekFlash++
+                            if (!locked) {
+                                lastInput = System.currentTimeMillis()
+                                val side = if (o.x < size.width / 2) -1 else 1
+                                c.seekBy(side * 10_000L)
+                                if (touch) {
+                                    // Keep adding up while you keep double-tapping the same side
+                                    val now = System.currentTimeMillis()
+                                    val more = ripple.side == side && now - ripple.at < 1200
+                                    ripple = Ripple(side, if (more) ripple.seconds + 10 else 10, now)
+                                } else if (!overlay) seekFlash++
+                            }
                         },
                     )
                 }
         )
 
         SwipeIndicator(gestures)
+
+        if (touch) {
+            SeekRipple(ripple)
+            seekPreview?.let { target -> SwipeSeekLabel(target, target - c.position, c.duration) }
+            if (holdSpeedFrom != null) {
+                Row(
+                    Modifier.align(Alignment.TopCenter).padding(top = 36.dp)
+                        .background(Nova.BgDeep.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("2x", style = NovaType.Button, color = Color.White)
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Filled.FastForward, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+            }
+            // Locked: a tap shows the unlock button for a few seconds
+            var unlockVisible by remember { mutableStateOf(false) }
+            LaunchedEffect(unlockShownAt) {
+                if (unlockShownAt == 0L) return@LaunchedEffect
+                unlockVisible = true; delay(3000); unlockVisible = false
+            }
+            AnimatedVisibility(
+                locked && unlockVisible, enter = fadeIn(), exit = fadeOut(),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 40.dp),
+            ) {
+                Row(
+                    Modifier.clip(RoundedCornerShape(26.dp)).background(Nova.BgDeep.copy(alpha = 0.85f))
+                        .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
+                        .pointerInput(Unit) { detectTapGestures { locked = false; unlockVisible = false; overlay = true } }
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.LockOpen, null, tint = Nova.Cyan, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Tap to unlock", style = NovaType.Button, color = Color.White)
+                }
+            }
+        }
 
         fitHint?.let { hint ->
             Text(
@@ -456,12 +596,16 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
             SeekToast(c, seekFlash)
         }
 
-        AnimatedVisibility(overlay, enter = fadeIn(tween(250)), exit = fadeOut(tween(400))) {
+        AnimatedVisibility(overlay && !locked, enter = fadeIn(tween(250)), exit = fadeOut(tween(400))) {
             Overlay(
                 c = c, item = item, showInfo = showInfo,
                 playRequester = playRequester, seekRequester = seekRequester,
                 onInfo = { showInfo = !showInfo },
                 onPanel = { panel = it },
+                onLock = if (touch) ({
+                    panel = Panel.None; showInfo = false; overlay = false
+                    locked = true; unlockShownAt = System.currentTimeMillis()
+                }) else null,
             )
         }
 
@@ -471,7 +615,12 @@ private fun PlayerScreen(c: PlayerController, onExit: () -> Unit, registerRescue
             exit = slideOutHorizontally { it } + fadeOut(),
             modifier = Modifier.align(Alignment.CenterEnd),
         ) {
-            if (panel == Panel.Speed) {
+            if (panel == Panel.Quick) {
+                QuickPanel(c, showInfo,
+                    onPick = { next -> panel = next },
+                    onInfo = { panel = Panel.None; overlay = true; showInfo = !showInfo },
+                    onDone = { panel = Panel.None })
+            } else if (panel == Panel.Speed) {
                 SpeedPanel(c, onDone = { panel = Panel.None })
             } else {
                 TrackPanel(c, if (panel == Panel.Audio) C.TRACK_TYPE_AUDIO else C.TRACK_TYPE_TEXT,
@@ -506,6 +655,7 @@ private fun Overlay(
     seekRequester: FocusRequester,
     onInfo: () -> Unit,
     onPanel: (Panel) -> Unit,
+    onLock: (() -> Unit)?,
 ) {
     val api = NovaApp.instance.api
     Box(Modifier.fillMaxSize()) {
@@ -535,6 +685,7 @@ private fun Overlay(
             }
             if (c.nextEpisode != null) RoundIcon(Icons.Filled.SkipNext, "Next episode") { c.playNext() }
             RoundIcon(Icons.Outlined.Info, "Info", active = showInfo) { onInfo() }
+            if (onLock != null) RoundIcon(Icons.Outlined.Lock, "Lock screen") { onLock() }
         }
         if (c.mode != StreamMode.Direct) {
             Text(
@@ -880,6 +1031,104 @@ private fun BoxScope.SwipeIndicator(g: SwipeLevels) {
             }
             Spacer(Modifier.height(10.dp))
             Text("${(g.level * 100).toInt()}", style = NovaType.Label, color = Color.White)
+        }
+    }
+}
+
+/** Double-tap feedback: a soft circle on that side with "+10 s" (adds up while you keep tapping) */
+private data class Ripple(val side: Int, val seconds: Int, val at: Long)
+
+@Composable
+private fun BoxScope.SeekRipple(r: Ripple) {
+    if (r.side == 0) return
+    val anim = remember { androidx.compose.animation.core.Animatable(0f) }
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(r.at) {
+        visible = true
+        anim.snapTo(0f)
+        anim.animateTo(1f, tween(450))
+        delay(500)
+        visible = false
+    }
+    if (!visible) return
+    Box(
+        Modifier.align(if (r.side < 0) Alignment.CenterStart else Alignment.CenterEnd)
+            .fillMaxHeight().fillMaxWidth(0.42f)
+            .clip(if (r.side < 0) RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50) else RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50))
+            .background(Color.White.copy(alpha = 0.10f * (1.3f - anim.value).coerceIn(0f, 1f))),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size((70 + 130 * anim.value).dp).clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.18f * (1f - anim.value)))
+        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(if (r.side < 0) Icons.Filled.FastRewind else Icons.Filled.FastForward, null, tint = Color.White, modifier = Modifier.size(34.dp))
+            Text((if (r.side < 0) "-" else "+") + "${r.seconds} s", style = NovaType.Button, color = Color.White)
+        }
+    }
+}
+
+/** Swipe left / right on the video: where it will jump to when you let go */
+@Composable
+private fun BoxScope.SwipeSeekLabel(target: Long, delta: Long, duration: Long) {
+    Column(
+        Modifier.align(Alignment.Center)
+            .background(Nova.BgDeep.copy(alpha = 0.78f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        val sign = if (delta >= 0) "+" else "-"
+        Text(sign + formatTime(kotlin.math.abs(delta)), style = NovaType.Title, color = Nova.Cyan)
+        Text("${formatTime(target)} / ${formatTime(duration)}", style = NovaType.Label, color = Color.White)
+    }
+}
+
+/** Remote: hold OK (or press Menu) for these */
+@Composable
+private fun QuickPanel(c: PlayerController, showInfo: Boolean, onPick: (Panel) -> Unit, onInfo: () -> Unit, onDone: () -> Unit) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(80); runCatching { first.requestFocus() } }
+    val rows = buildList<Triple<ImageVector, String, () -> Unit>> {
+        add(Triple(Icons.Outlined.ClosedCaption, "Subtitles") { onPick(Panel.Subtitles) })
+        add(Triple(Icons.Outlined.SurroundSound, "Audio") { onPick(Panel.Audio) })
+        add(Triple(Icons.Outlined.Speed, "Speed · " + speedLabel(c.speed)) { onPick(Panel.Speed) })
+        add(Triple(Icons.Outlined.AspectRatio, "Screen size · " + c.videoFitLabel) { c.cycleFit() })
+        if (c.nextEpisode != null) add(Triple(Icons.Filled.SkipNext, "Next episode") { onDone(); c.playNext() })
+        add(Triple(Icons.Outlined.Info, if (showInfo) "Hide info" else "Info") { onInfo() })
+    }
+    Column(
+        Modifier
+            .fillMaxHeight()
+            .width(360.dp)
+            .background(Brush.horizontalGradient(listOf(Nova.Bg.copy(alpha = 0.90f), Nova.Bg.copy(alpha = 0.98f))))
+            .border(1.dp, Nova.Stroke)
+            .padding(28.dp)
+    ) {
+        Text("Quick options", style = NovaType.Title, color = Nova.Text)
+        Spacer(Modifier.height(18.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(rows.size) { i ->
+                val (icon, label, action) = rows[i]
+                FocusSurface(
+                    onClick = action,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    focusedScale = 1.02f,
+                    focusRequester = if (i == 0) first else null,
+                ) { focused ->
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Color(0x14FFFFFF))
+                            .padding(horizontal = 16.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.width(14.dp))
+                        Text(label, style = NovaType.Button, color = Nova.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
         }
     }
 }
