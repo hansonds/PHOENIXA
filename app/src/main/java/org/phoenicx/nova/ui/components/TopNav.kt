@@ -21,6 +21,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.VideoLibrary
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Settings
@@ -80,106 +83,84 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
     val libs = nav.libraries.value.filter { it.collectionType in setOf("movies", "tvshows", "boxsets", null, "homevideos") }
     val phone = org.phoenicx.nova.ui.theme.Lay.phone
 
-    // The pill bar: search, home, favorites and every library (scrolls sideways if there are many)
-    val pills: @Composable () -> Unit = {
-        Row(
-            (if (phone) Modifier
-                .fillMaxWidth()
-                // Soft fade at the left/right edges where pills scroll out of view
-                .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
-                .drawWithContent {
-                    drawContent()
-                    val f = 28.dp.toPx() / size.width
-                    val left = if (nav.navScroll.value > 0) 0f else 1f
-                    val right = if (nav.navScroll.value < nav.navScroll.maxValue) 0f else 1f
-                    drawRect(
-                        androidx.compose.ui.graphics.Brush.horizontalGradient(
-                            0f to Color.Black.copy(alpha = left), f to Color.Black,
-                            1f - f to Color.Black, 1f to Color.Black.copy(alpha = right),
-                        ),
-                        blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
-                    )
-                }
-                .horizontalScroll(nav.navScroll)
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-            else Modifier
-                .clip(RoundedCornerShape(26.dp))
-                .background(Nova.Surface.copy(alpha = 0.36f))
-                .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
-                .horizontalScroll(nav.navScroll)
-                .padding(5.dp)),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Phones have Home and Search in the bottom bar
-            if (!phone) {
-                NavIcon(Icons.Outlined.Search, selected == Screen.Search, if (selected == Screen.Search) selReq else null) { if (selected != Screen.Search) nav.tab(Screen.Search) }
-                // "Add" (Torvia plugin servers only) sits right after Search
-                nav.torvia.value?.let {
-                    val isSel = selected == Screen.Torvia
-                    NavPill("Add", isSel, if (isSel) selReq else null) { if (!isSel) nav.tab(Screen.Torvia) }
-                }
-                NavPill("Home", selected == Screen.Home, if (selected == Screen.Home) selReq else null) { if (selected != Screen.Home) nav.tab(Screen.Home) }
-            }
-            NavIcon(
-                if (selected == Screen.Favorites) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                selected == Screen.Favorites,
-                if (selected == Screen.Favorites) selReq else null,
-            ) { if (selected != Screen.Favorites) nav.tab(Screen.Favorites) }
-            libs.forEach { lib ->
-                val isSel = (selected as? Screen.Lib)?.library?.id == lib.id
-                NavPill(lib.name, isSel, if (isSel) selReq else null) { if (!isSel) nav.tab(Screen.Lib(lib)) }
-            }
-        }
-    }
-    val settingsAndAvatar: @Composable () -> Unit = {
-        if (!phone) {
-            NavIcon(Icons.Outlined.Settings, selected == Screen.Settings, if (selected == Screen.Settings) selReq else null) { if (selected != Screen.Settings) nav.tab(Screen.Settings) }
-            Spacer(Modifier.width(10.dp))
-        }
-        // Your picture: opens "Who's watching?" to switch profile
-        FocusSurface(onClick = { nav.push(Screen.Profiles) }, shape = CircleShape, focusedScale = 1.12f, borderWidth = 2.dp, glow = false) { _ ->
-            Box(Modifier.size(38.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {
-                Text((org.phoenicx.nova.NovaApp.instance.prefs.userName ?: "?").take(1).uppercase(), style = NovaType.Button, color = Nova.OnFocus)
-                AsyncImage(api.userImage(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            }
-        }
-    }
-
     if (phone) {
         // Phone (portrait): no top bar. Everything is in the bottom bar; just keep clear of the camera cut-out.
         Spacer(modifier.fillMaxWidth().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout).height(12.dp))
         return
     }
 
+    // TV / tablet: the same five places as the phone's bottom bar, always in the same spot (no scrolling)
+    val inLibrary = selected == Screen.Libraries || selected is Screen.Lib || selected == Screen.Favorites
+    val inProfile = selected == Screen.Settings || selected == Screen.Profiles
     Box(modifier.fillMaxWidth()) {
-    // Small clock in the top-right corner, above the bar
-    Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 52.dp)) { Clock() }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = 44.dp, end = 48.dp, top = 18.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        NovaWordmark()
-        Spacer(Modifier.width(22.dp))
-        Box(Modifier.weight(1f)) { pills() }
-        Spacer(Modifier.width(16.dp))
-        settingsAndAvatar()
-    }
+        // Small clock in the top-right corner, above the bar
+        Box(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 52.dp)) { Clock() }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 44.dp, end = 48.dp, top = 18.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            NovaWordmark()
+            Spacer(Modifier.width(22.dp))
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(Nova.Surface.copy(alpha = 0.36f))
+                    .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
+                    .padding(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                NavPill("Home", selected == Screen.Home, if (selected == Screen.Home) selReq else null, Icons.Outlined.Home) {
+                    if (selected != Screen.Home) nav.tab(Screen.Home)
+                }
+                NavPill("Library", inLibrary, if (inLibrary) selReq else null, Icons.Outlined.VideoLibrary) {
+                    if (selected != Screen.Libraries) nav.tab(Screen.Libraries)
+                }
+                NavPill("Search", selected == Screen.Search, if (selected == Screen.Search) selReq else null, Icons.Outlined.Search) {
+                    if (selected != Screen.Search) nav.tab(Screen.Search)
+                }
+                // Only on servers with the Torvia plugin
+                if (nav.torvia.value != null) {
+                    val isSel = selected == Screen.Torvia || selected is Screen.TorviaTitle
+                    NavPill("Add", isSel, if (isSel) selReq else null, Icons.Outlined.AddCircleOutline) {
+                        if (selected != Screen.Torvia) nav.tab(Screen.Torvia)
+                    }
+                }
+                NavPill("Profile", inProfile, if (inProfile) selReq else null, null, avatar = true) {
+                    if (selected != Screen.Settings) nav.tab(Screen.Settings)
+                }
+            }
+            Spacer(Modifier.weight(1f))
+        }
     }
 }
 
 @Composable
-private fun NavPill(text: String, selected: Boolean, req: FocusRequester?, onClick: () -> Unit) {
+private fun NavPill(
+    text: String, selected: Boolean, req: FocusRequester?, icon: ImageVector? = null,
+    avatar: Boolean = false, onClick: () -> Unit,
+) {
     FocusSurface(onClick = onClick, shape = RoundedCornerShape(22.dp), focusedScale = 1.04f, borderWidth = 0.dp, glow = false, focusRequester = req) { focused ->
         val bg = when {
             focused -> Brush.horizontalGradient(listOf(Nova.Focus, Nova.Focus))
             selected -> Brush.horizontalGradient(listOf(Nova.Cyan.copy(alpha = 0.25f), Nova.Violet.copy(alpha = 0.25f)))
             else -> Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
         }
-        Box(Modifier.height(40.dp).background(bg).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-            Text(text, style = NovaType.Button, maxLines = 1, softWrap = false, color = if (focused) Nova.OnFocus else if (selected) Nova.Text else Nova.TextDim)
+        val tint = if (focused) Nova.OnFocus else if (selected) Nova.Text else Nova.TextDim
+        Row(Modifier.height(40.dp).background(bg).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (avatar) {
+                Box(Modifier.size(26.dp).clip(CircleShape).background(Nova.AccentBrush), contentAlignment = Alignment.Center) {
+                    Text((org.phoenicx.nova.NovaApp.instance.prefs.userName ?: "?").take(1).uppercase(), style = NovaType.Label, color = Nova.OnFocus)
+                    AsyncImage(api.userImage(), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                }
+                Spacer(Modifier.width(8.dp))
+            } else if (icon != null) {
+                Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(text, style = NovaType.Button, maxLines = 1, softWrap = false, color = tint)
         }
     }
 }
