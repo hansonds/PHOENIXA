@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import org.phoenicx.nova.ui.Navigator
+import org.phoenicx.nova.ui.components.GlassLayer
 import org.phoenicx.nova.ui.Screen
 import org.phoenicx.nova.ui.screens.DetailScreen
 import org.phoenicx.nova.ui.screens.HomeScreen
@@ -106,6 +107,12 @@ fun NovaRoot() {
     // Phones: a bottom bar (Home · Movies · Shows · Search · Profile) on the main pages
     val showBottom = org.phoenicx.nova.ui.theme.Lay.phone &&
         nav.current != Screen.Login && nav.current != Screen.Profiles
+    // TV: the shared glass pane that glides between highlighted cards
+    val glass = remember { org.phoenicx.nova.ui.components.GlassState() }
+    androidx.compose.runtime.CompositionLocalProvider(
+        org.phoenicx.nova.ui.components.LocalGlass provides (if (app.isTv) glass else null)
+    ) {
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
     AnimatedContent(
         targetState = nav.current,
@@ -155,5 +162,8 @@ fun NovaRoot() {
         }
     }
     if (showBottom) org.phoenicx.nova.ui.components.BottomNav(nav)
+    }
+    if (app.isTv) GlassLayer(glass)
+    }
     }
 }

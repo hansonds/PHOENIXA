@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Shape
@@ -65,21 +67,37 @@ fun FocusSurface(
     val glass by animateFloatAsState(if (focused) 1f else 0f, tween(220, easing = FastOutSlowInEasing), label = "glass")
     // The glare that sweeps across once each time it gets focus
     val glare = remember { androidx.compose.animation.core.Animatable(-1f) }
+    // TV main screens: one shared glass pane glides to whatever is highlighted (drawn on top of the screen)
+    val shared = LocalGlass.current
+    val useShared = tv && decorate && shared != null
+    val token = remember { Any() }
+    // Where this card is on screen (kept up to date, so the glass knows where to go the moment it's highlighted)
+    val lastBounds = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(1) }
     LaunchedEffect(isFocused) {
         if (isFocused) {
             onFocused?.invoke()
-            if (tv && decorate) { glare.snapTo(-0.6f); glare.animateTo(1.6f, tween(750, easing = FastOutSlowInEasing)) }
-        }
+            if (useShared) { shared!!.claim(token, shape, focusedScale); lastBounds[0]?.let { shared.update(token, it) } }
+            else if (tv && decorate) { glare.snapTo(-0.6f); glare.animateTo(1.6f, tween(750, easing = FastOutSlowInEasing)) }
+        } else if (useShared) shared!!.release(token)
     }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { shared?.release(token) } }
 
     Box(
         modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .then(
+                if (useShared) Modifier.onGloballyPositioned { c ->
+                    val b = c.boundsInRoot()
+                    lastBounds[0] = b
+                    if (isFocused) shared!!.update(token, b)
+                }
+                else Modifier
+            )
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(shape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .then(
-                if (!decorate) Modifier else Modifier.drawWithContent {
+                if (!decorate || useShared) Modifier else Modifier.drawWithContent {
                     drawContent()
                     if (glass > 0f) {
                         // Frosted sheen: brighter at the top, fading down
@@ -105,7 +123,7 @@ fun FocusSurface(
             )
             .then(
                 // Thin bright glass edge
-                if (decorate && borderWidth > 0.dp && glass > 0.01f)
+                if (decorate && !useShared && borderWidth > 0.dp && glass > 0.01f)
                     Modifier.border(
                         (borderWidth.value.coerceAtMost(2f)).dp,
                         androidx.compose.ui.graphics.Brush.verticalGradient(
