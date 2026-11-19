@@ -129,8 +129,26 @@ fun BoxScope.GlassLayer(state: GlassState) {
             }
             .drawWithContent {
                 val inner = androidx.compose.ui.geometry.Size(size.width - pad * 2, size.height - pad * 2)
-                val innerOutline = shape.createOutline(inner, layoutDirection, this)
-                val outerOutline = shape.createOutline(size, layoutDirection, this)
+                // The tile is shown slightly bigger while highlighted, and so are its rounded corners
+                val raw = shape.createOutline(
+                    androidx.compose.ui.geometry.Size(inner.width / s, inner.height / s), layoutDirection, this,
+                )
+                val innerOutline: androidx.compose.ui.graphics.Outline
+                val outerOutline: androidx.compose.ui.graphics.Outline
+                if (raw is androidx.compose.ui.graphics.Outline.Rounded) {
+                    // Same curve as the tile, and the outside edge curves a little wider by the frame's width,
+                    // so the frame is the same thickness all the way round
+                    val r = (raw.roundRect.topLeftCornerRadius.x * s).coerceAtMost(minOf(inner.width, inner.height) / 2)
+                    innerOutline = androidx.compose.ui.graphics.Outline.Rounded(
+                        androidx.compose.ui.geometry.RoundRect(0f, 0f, inner.width, inner.height, androidx.compose.ui.geometry.CornerRadius(r))
+                    )
+                    outerOutline = androidx.compose.ui.graphics.Outline.Rounded(
+                        androidx.compose.ui.geometry.RoundRect(0f, 0f, size.width, size.height, androidx.compose.ui.geometry.CornerRadius(r + pad))
+                    )
+                } else {
+                    innerOutline = shape.createOutline(inner, layoutDirection, this)
+                    outerOutline = shape.createOutline(size, layoutDirection, this)
+                }
                 // Frame: frosted white with a very light shade of the theme colour
                 drawOutline(
                     outerOutline,
