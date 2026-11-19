@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -88,8 +89,21 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
     val phone = org.phoenicx.nova.ui.theme.Lay.phone
 
     if (phone) {
-        // Phone (portrait): no top bar. Everything is in the bottom bar; just keep clear of the camera cut-out.
-        Spacer(modifier.fillMaxWidth().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout).height(12.dp))
+        // Phone (portrait): a slim line in the space beside the camera: PHOENIXA letters on the left, the time on the right
+        val cut = androidx.compose.foundation.layout.WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+        Row(
+            modifier.fillMaxWidth().height(maxOf(cut, 30.dp) + 8.dp).padding(start = 18.dp, end = 18.dp, top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_text),
+                contentDescription = "PHOENIXA",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.height(20.dp),
+            )
+            Spacer(Modifier.weight(1f))
+            Clock(big = true)
+        }
         return
     }
 
