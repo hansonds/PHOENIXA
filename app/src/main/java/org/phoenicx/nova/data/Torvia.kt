@@ -184,7 +184,9 @@ class TorviaApi(private val api: JellyfinApi) {
     suspend fun status(): TorviaStatus? {
         val (code, body) = runCatching { api.raw("GET", "/TorviaSearch/Status") }.getOrNull() ?: return null
         if (code != 200) return null
+        // Must be the plugin's own answer (a web page or an error from a proxy doesn't count)
         val o = runCatching { JSONObject(body) }.getOrNull() ?: return null
+        if (!o.has("enabled")) return null
         return TorviaStatus(
             enabled = o.optBoolean("enabled"),
             isAdmin = o.optBoolean("isAdmin"),

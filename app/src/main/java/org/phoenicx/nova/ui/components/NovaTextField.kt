@@ -45,6 +45,8 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -53,8 +55,11 @@ import org.phoenicx.nova.ui.theme.Nova
 import org.phoenicx.nova.ui.theme.NovaType
 
 /**
- * TV text field: moving the highlight onto it does NOT pop up the keyboard.
- * Press OK on it to start typing; Done/Next or moving away ends editing.
+ * Text box.
+ * TV: moving the highlight onto it does NOT pop up the keyboard. Press OK on it to start typing;
+ *     Done/Next or moving away ends editing. ◀ ▶ move the cursor.
+ * Phone / tablet: a normal text box: tap anywhere in the text to put the cursor there.
+ * The cursor starts at the end of the text, and Backspace deletes the letter before the cursor.
  */
 @Composable
 fun NovaTextField(
@@ -72,12 +77,21 @@ fun NovaTextField(
 ) {
     val fm = LocalFocusManager.current
     val kb = LocalSoftwareKeyboardController.current
+    val tv = org.phoenicx.nova.NovaApp.instance.isTv
     val displayReq = focusRequester ?: remember { FocusRequester() }
-    val editReq = remember { FocusRequester() }
+    val editReq = if (tv) remember { FocusRequester() } else displayReq
     var editing by remember { mutableStateOf(false) }
     var wasEditing by remember { mutableStateOf(false) }
     var hadEditFocus by remember { mutableStateOf(false) }
     var moveNextAfter by remember { mutableStateOf(false) }
+
+    // Text plus cursor position. If the text is changed from outside, the cursor goes to the end.
+    var tfv by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    val current = if (tfv.text == value) tfv else TextFieldValue(value, TextRange(value.length))
+    fun update(n: TextFieldValue) {
+        tfv = n
+        if (n.text != value) onValueChange(n.text)
+    }
 
     val displayInteraction = remember { MutableInteractionSource() }
     val displayFocused by displayInteraction.collectIsFocusedAsState()
@@ -86,6 +100,7 @@ fun NovaTextField(
     val focused = displayFocused || editFocused
 
     LaunchedEffect(editing) {
+        if (!tv) return@LaunchedEffect
         if (editing) {
             wasEditing = true
             // retry a few times in case the text box isn't ready yet
@@ -109,13 +124,26 @@ fun NovaTextField(
     fun startEditing() {
         hadEditFocus = false   // must be cleared before the text box appears, or it closes itself instantly
         moveNextAfter = false
+        tfv = TextFieldValue(value, TextRange(value.length))  // cursor at the end
         editing = true
     }
 
     fun finish(next: Boolean) {
-        moveNextAfter = next
         kb?.hide()
-        editing = false
+        if (tv) {
+            moveNextAfter = next
+            editing = false
+        } else if (next) fm.moveFocus(FocusDirection.Down) else fm.clearFocus()
+    }
+
+    /** Backspace: delete the selected text, or the letter just before the cursor */
+    fun backspace() {
+        val t = current
+        val sel = t.selection
+        when {
+            !sel.collapsed -> update(TextFieldValue(t.text.removeRange(sel.min, sel.max), TextRange(sel.min)))
+            sel.start > 0 -> update(TextFieldValue(t.text.removeRange(sel.start - 1, sel.start), TextRange(sel.start - 1)))
+        }
     }
 
     val shape = RoundedCornerShape(14.dp)
@@ -131,8 +159,8 @@ fun NovaTextField(
             Text(label.uppercase(), style = NovaType.Caption, color = if (focused) Nova.Cyan else Nova.TextFaint)
             Spacer(Modifier.height(8.dp))
         }
-        if (!editing) {
-            // Display mode: a normal focusable box, no keyboard until OK is pressed
+        if (tv && !editing) {
+            // TV display mode: a normal focusable box, no keyboard until OK is pressed
             Row(
                 Modifier
                     .focusRequester(displayReq)
@@ -159,8 +187,8 @@ fun NovaTextField(
             }
         } else {
             BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
+                value = current,
+                onValueChange = { update(it) },
                 singleLine = true,
                 textStyle = NovaType.Body.copy(color = Nova.Text),
                 cursorBrush = SolidColor(Nova.Cyan),
@@ -180,18 +208,17 @@ fun NovaTextField(
                     .fillMaxWidth()
                     .focusRequester(editReq)
                     .onFocusChanged { f ->
+                        if (!tv) return@onFocusChanged
                         if (f.isFocused) hadEditFocus = true
                         else if (hadEditFocus && editing) { kb?.hide(); editing = false }
                     }
                     .onPreviewKeyEvent { e ->
                         if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                         when (e.key) {
-                            Key.Backspace -> {
-                                if (value.isNotEmpty()) onValueChange(value.dropLast(1))
-                                true
-                            }
-                            Key.DirectionDown -> { finish(next = true); true }
-                            Key.DirectionUp -> { kb?.hide(); editing = false; true }
+                            // Some keyboards don't delete on their own; delete at the cursor, not at the end
+                            Key.Backspace -> { backspace(); true }
+                            Key.DirectionDown -> if (tv) { finish(next = true); true } else false
+                            Key.DirectionUp -> if (tv) { kb?.hide(); editing = false; true } else false
                             else -> false
                         }
                     },
@@ -203,7 +230,7 @@ fun NovaTextField(
                         }
                         Box(Modifier.weight(1f)) {
                             if (value.isEmpty() && placeholder.isNotEmpty()) {
-                                Text(placeholder, style = NovaType.Body, color = Nova.TextFaint)
+                                Text(placeholder, style = NovaType.Body, color = Nova.TextFaint, maxLines = 1)
                             }
                             inner()
                         }

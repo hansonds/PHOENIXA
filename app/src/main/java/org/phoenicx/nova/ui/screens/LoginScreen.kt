@@ -69,10 +69,12 @@ fun LoginScreen(onLoggedIn: () -> Unit, onCancel: (() -> Unit)? = null) {
     val serverRequester = remember { FocusRequester() }
 
     // Highlight the server box (without opening the keyboard) so Quick Connect is a few presses away
-    LaunchedEffect(Unit) { delay(100); runCatching { serverRequester.requestFocus() } }
+    // TV only: on phones this would pop up the keyboard straight away
+    val tv = NovaApp.instance.isTv
+    LaunchedEffect(Unit) { if (tv) { delay(100); runCatching { serverRequester.requestFocus() } } }
     // After a failed sign-in the buttons briefly disappear (loading), so put the highlight back on the Server box
     LaunchedEffect(error, busy) {
-        if (error != null && !busy) { delay(80); runCatching { serverRequester.requestFocus() } }
+        if (tv && error != null && !busy) { delay(80); runCatching { serverRequester.requestFocus() } }
     }
 
     // Poll Quick Connect until approved from another device

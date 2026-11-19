@@ -146,25 +146,8 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
     }
 
     if (phone) {
-        // Phone (portrait): logo, clock, settings and profile on top; the pill bar full width below
-        Column(
-            modifier.fillMaxWidth()
-                .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout)
-                .padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 6.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_stacked),
-                    contentDescription = "PHOENIXA",
-                    modifier = Modifier.size(52.dp),
-                )
-                Spacer(Modifier.weight(1f))
-                Clock()
-                Spacer(Modifier.width(14.dp))
-                settingsAndAvatar()
-            }
-            // Libraries, Favorites and Search & Add are in the bottom bar on phones
-        }
+        // Phone (portrait): no top bar. Everything is in the bottom bar; just keep clear of the camera cut-out.
+        Spacer(modifier.fillMaxWidth().windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout).height(12.dp))
         return
     }
 
