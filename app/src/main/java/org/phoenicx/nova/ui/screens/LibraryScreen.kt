@@ -106,10 +106,8 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
         }
         grid.scrollToItem(target.coerceIn(0, (items.size - 1).coerceAtLeast(0)))
         if (target >= 0) {
-            repeat(5) {
-                delay(80)
-                if (runCatching { restoreRequester.requestFocus() }.isSuccess) return@repeat
-            }
+            delay(80)
+            runCatching { restoreRequester.requestFocus() }
             restoreIndex = -1
         }
     }

@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import org.phoenicx.nova.ui.Navigator
 import org.phoenicx.nova.ui.components.GlassLayer
 import org.phoenicx.nova.ui.Screen
@@ -150,6 +151,10 @@ fun NovaRoot() {
     androidx.compose.runtime.CompositionLocalProvider(
         org.phoenicx.nova.ui.components.LocalGlass provides (if (app.isTv) glass else null)
     ) {
+    // Every list and grid scrolls calmly: only when the next tile would be off-screen, and just enough.
+    // (Android TV's default keeps the highlight pinned a third of the way down, so the whole screen
+    // jumped on every move.) Home and movie pages set their own margins on top of this.
+    org.phoenicx.nova.ui.components.EdgeScroll(48.dp, 48.dp) {
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
     AnimatedContent(
@@ -202,6 +207,7 @@ fun NovaRoot() {
     if (showBottom) org.phoenicx.nova.ui.components.BottomNav(nav)
     }
     if (app.isTv) GlassLayer(glass)
+    }
     }
     }
 }
