@@ -30,7 +30,7 @@ import org.phoenicx.nova.data.Item
 import java.util.concurrent.TimeUnit
 
 /**
- * Phones and tablets: every couple of hours, quietly ask the server what was added most recently,
+ * Phones and tablets: every hour, quietly ask the server what was added most recently,
  * and show a notification for anything new ("New on PHOENIXA · Tumbbad (2018)"). Tapping it opens the title.
  */
 object NewTitles {
@@ -44,10 +44,10 @@ object NewTitles {
         val app = NovaApp.instance
         val wm = WorkManager.getInstance(context)
         if (app.isTv || !app.prefs.notifyNewTitles) { wm.cancelUniqueWork(WORK); return }
-        val req = PeriodicWorkRequestBuilder<CheckWorker>(2, TimeUnit.HOURS)
+        val req = PeriodicWorkRequestBuilder<CheckWorker>(1, TimeUnit.HOURS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
-        wm.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, req)
+        wm.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, req)
     }
 
     private fun channel(context: Context) {
