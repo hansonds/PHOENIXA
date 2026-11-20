@@ -97,18 +97,19 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
         // Phone (portrait): a slim line in the space beside the camera: PHOENIXA letters on the left, the time on the right
         val cut = androidx.compose.foundation.layout.WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
         Row(
-            modifier.fillMaxWidth().height(maxOf(cut, 30.dp) + 8.dp).padding(start = 18.dp, end = 18.dp, top = 4.dp),
+            modifier.fillMaxWidth().height(maxOf(cut, 28.dp) + 4.dp).padding(start = 18.dp, end = 18.dp, top = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.logo_text),
                 contentDescription = "PHOENIXA",
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.height(20.dp),
+                modifier = Modifier.height(15.dp),
             )
             Spacer(Modifier.weight(1f))
-            Clock(big = true)
-            Spacer(Modifier.width(12.dp))
+            // Small and neat: time, then the battery
+            Clock()
+            Spacer(Modifier.width(8.dp))
             BatteryBadge()
         }
         return
@@ -303,30 +304,30 @@ fun BatteryBadge() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         // Battery shape with the percentage written inside it, and a small tip on the right
         Box(
-            Modifier.size(42.dp, 19.dp)
-                .border(1.3.dp, Nova.TextDim, RoundedCornerShape(5.dp))
-                .padding(2.dp),
+            Modifier.size(31.dp, 14.dp)
+                .border(1.dp, Nova.TextDim, RoundedCornerShape(4.dp))
+                .padding(1.5.dp),
             contentAlignment = Alignment.CenterStart,
         ) {
             Box(
                 Modifier.fillMaxHeight().fillMaxWidth((level / 100f).coerceIn(0.08f, 1f))
-                    .clip(RoundedCornerShape(3.dp))
+                    .clip(RoundedCornerShape(2.5.dp))
                     .background(fillColor)
             )
             Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
-                if (charging) Icon(Icons.Filled.Bolt, null, tint = Color.White, modifier = Modifier.size(10.dp))
+                if (charging) Icon(Icons.Filled.Bolt, null, tint = Color.White, modifier = Modifier.size(8.dp))
                 Text(
                     "$level",
                     style = NovaType.Label.copy(
-                        fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        fontSize = 8.5.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold,
                         shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 3f),
                     ),
                     color = Color.White,
                     maxLines = 1,
                 )
-                Text("%", style = NovaType.Label.copy(fontSize = 8.sp, fontWeight = FontWeight.Bold), color = Color.White, maxLines = 1)
+                Text("%", style = NovaType.Label.copy(fontSize = 6.5.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold), color = Color.White, maxLines = 1)
             }
         }
-        Box(Modifier.padding(start = 1.dp).size(2.5.dp, 7.dp).clip(RoundedCornerShape(1.dp)).background(Nova.TextDim))
+        Box(Modifier.padding(start = 1.dp).size(2.dp, 5.dp).clip(RoundedCornerShape(1.dp)).background(Nova.TextDim))
     }
 }
