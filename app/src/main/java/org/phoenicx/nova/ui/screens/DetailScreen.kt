@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -192,9 +193,12 @@ fun DetailScreen(nav: Navigator, itemId: String) {
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 80.dp)) {
                 item("header") {
                     // TV: the header fills the screen above the rows. Phone: it starts below the artwork and grows with its content.
-                    Box(Modifier.fillMaxWidth().then(if (Lay.phone) Modifier.padding(top = maxHeight * 0.27f) else Modifier.height(headerH))) {
+                    // (TV: at least the screen height, but it grows if the text is long, so nothing at the bottom gets squashed)
+                    Box(Modifier.fillMaxWidth().then(if (Lay.phone) Modifier.padding(top = maxHeight * 0.27f) else Modifier.heightIn(min = headerH))) {
                         Column(
-                            Modifier.align(Alignment.BottomStart).padding(start = Lay.side, end = Lay.side, bottom = 24.dp).widthIn(max = 720.dp)
+                            Modifier.align(Alignment.BottomStart)
+                                .padding(start = Lay.side, end = Lay.side, bottom = 24.dp, top = if (Lay.phone) 0.dp else 32.dp)
+                                .widthIn(max = 720.dp)
                         ) {
                             if (it.isEpisode && it.seriesName != null) {
                                 Text(it.seriesName.uppercase(), style = NovaType.Caption, color = Nova.Cyan)
@@ -216,7 +220,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                                 Text("“$tag”", style = NovaType.Body.copy(fontSize = 16.sp), color = Nova.Text)
                             }
                             Spacer(Modifier.height(12.dp))
-                            Text(it.overview, style = NovaType.Body, color = Nova.TextDim, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                            Text(it.overview, style = NovaType.Body, color = Nova.TextDim, maxLines = if (Lay.phone) 4 else 3, overflow = TextOverflow.Ellipsis)
 
                             val credits = buildList {
                                 it.people.filter { p -> p.type == "Director" }.take(2).map { p -> p.name }.takeIf { l -> l.isNotEmpty() }
