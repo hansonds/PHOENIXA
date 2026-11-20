@@ -31,6 +31,7 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - A simple top bar on TV (**Home · Library · Search · Add · Profile**) that always stays the same, plus a small clock. **Library** shows every library and Favorites on one page.
 - On phones, a **bottom bar** (Home · Library · Search · Add · Profile) within reach of your thumb. **Library** shows every library and Favorites on one page.
 - Grey **placeholder cards** while pages load, and **pull down to refresh** on phones and tablets.
+- **Phones:** a notification when new movies or shows are added to your server ("New on PHOENIXA"). Tap it to open the title. Turn it off in Settings → Notifications.
 - **Android TV / Google TV:** what you're watching appears in the TV home screen's **Continue watching** row. Pick it there and it plays straight away.
 
 ### Browsing

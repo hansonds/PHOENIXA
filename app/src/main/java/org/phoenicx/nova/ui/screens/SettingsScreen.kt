@@ -117,6 +117,34 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
                 heroRotate = !heroRotate; prefs.heroAutoRotate = heroRotate
             }
 
+            // Phones and tablets only
+            if (!app.isTv) {
+                var notify by remember { mutableStateOf(prefs.notifyNewTitles) }
+                SectionLabel("Notifications")
+                SettingRow(
+                    "New movies & shows",
+                    if (notify && !org.phoenicx.nova.notify.NewTitles.canNotify(app))
+                        "Notifications are turned off for PHOENIXA in your phone's settings. Tap to open them."
+                    else "Get a notification when something new is added to your server",
+                    if (notify) "On" else "Off",
+                ) {
+                    if (notify && !org.phoenicx.nova.notify.NewTitles.canNotify(app)) {
+                        // Allowed in PHOENIXA but blocked by the phone: open the phone's notification settings
+                        runCatching {
+                            app.startActivity(
+                                android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, app.packageName)
+                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    } else {
+                        notify = !notify
+                        prefs.notifyNewTitles = notify
+                        org.phoenicx.nova.notify.NewTitles.schedule(app)
+                    }
+                }
+            }
+
             // Only for copies installed from Google Play (sideloaded and Amazon copies don't show it)
             if (fromPlayStore) {
                 SectionLabel("Enjoying PHOENIXA?")

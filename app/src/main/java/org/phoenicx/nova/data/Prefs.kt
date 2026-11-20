@@ -70,6 +70,21 @@ class Prefs(context: Context) {
     fun setSeriesAudio(seriesId: String, lang: String) = sp.edit().putString("sa_$seriesId", lang).apply()
     fun setSeriesSub(seriesId: String, lang: String) = sp.edit().putString("ss_$seriesId", lang).apply()
 
+    /** Phones: notify when new movies / shows are added (on unless turned off) */
+    var notifyNewTitles: Boolean
+        get() = sp.getBoolean("notifyNew", true)
+        set(v) = sp.edit().putBoolean("notifyNew", v).apply()
+
+    /** Asked for permission to show notifications already (ask only once) */
+    var askedNotify: Boolean
+        get() = sp.getBoolean("askedNotify", false)
+        set(v) = sp.edit().putBoolean("askedNotify", v).apply()
+
+    /** Titles already seen by the new-titles check, per signed-in person */
+    fun seenTitles(): List<String> =
+        sp.getString("seen_${userId ?: ""}", null)?.split(',')?.filter { it.isNotBlank() } ?: emptyList()
+    fun saveSeenTitles(ids: List<String>) = sp.edit().putString("seen_${userId ?: ""}", ids.joinToString(",")).apply()
+
     /** 0 = Small, 1 = Medium, 2 = Large */
     var cardSize: Int
         get() = sp.getInt("cardSize", 1)

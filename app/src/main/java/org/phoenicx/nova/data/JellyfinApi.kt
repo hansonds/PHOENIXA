@@ -284,6 +284,12 @@ class JellyfinApi(private val prefs: Prefs) {
         "/Users/$userId/Items/Latest?ParentId=$parentId&Limit=24&Fields=$fields$imgParams"
     )
 
+    /** What was added to the server most recently (movies, shows and episodes), newest first */
+    suspend fun newestAdded(limit: Int = 40): List<Item> = getItems(
+        "/Users/$userId/Items?SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=Movie,Series,Episode" +
+            "&Recursive=true&IsMissing=false&Limit=$limit&Fields=$fields$imgParams"
+    )
+
     suspend fun favorites(types: String = "Movie,Series", limit: Int = 40): List<Item> = getItems(
         "/Users/$userId/Items?Filters=IsFavorite&IncludeItemTypes=$types&Recursive=true&SortBy=SortName&Limit=$limit&Fields=$fields$imgParams"
     )

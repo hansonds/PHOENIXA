@@ -49,11 +49,39 @@ class MainActivity : ComponentActivity() {
             NovaTheme { NovaRoot() }
         }
         openFromTvHome(intent)
+        openFromNotification(intent)
+        askNotifyPermission()
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         openFromTvHome(intent)
+        openFromNotification(intent)
+    }
+
+    /** Tapped a "New on PHOENIXA" notification: open that title */
+    private fun openFromNotification(intent: android.content.Intent?) {
+        val id = intent?.getStringExtra(org.phoenicx.nova.notify.NewTitles.EXTRA_OPEN_ID) ?: return
+        intent.removeExtra(org.phoenicx.nova.notify.NewTitles.EXTRA_OPEN_ID)
+        if (NovaApp.instance.api.isLoggedIn) pendingOpen.value = id
+    }
+
+    private val notifyPermission = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { }
+
+    /** Phones (Android 13+): ask once if PHOENIXA may show notifications for new titles */
+    private fun askNotifyPermission() {
+        val app = NovaApp.instance
+        if (app.isTv || android.os.Build.VERSION.SDK_INT < 33 || app.prefs.askedNotify || !app.prefs.notifyNewTitles) return
+        if (!app.api.isLoggedIn) return
+        app.prefs.askedNotify = true
+        runCatching { notifyPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+    }
+
+    companion object {
+        /** A title to open as soon as the app is showing (from a notification) */
+        val pendingOpen = androidx.compose.runtime.mutableStateOf<String?>(null)
     }
 
     /** Picked from the TV home screen's "Continue watching" row: start playing straight away */
@@ -96,6 +124,7 @@ fun NovaRoot() {
     // Everything that belongs to the signed-in person starts fresh
     fun freshSession() {
         org.phoenicx.nova.tv.WatchNext.sync(app)
+        runCatching { org.phoenicx.nova.notify.NewTitles.schedule(app) }
         homeState = HomeState()
         nav.libraries.value = emptyList()
         nav.torvia.value = null
@@ -103,6 +132,15 @@ fun NovaRoot() {
     }
 
     BackHandler(enabled = nav.stack.size > 1) { nav.back() }
+
+    // Opened from a "New on PHOENIXA" notification: show that title
+    val toOpen = MainActivity.pendingOpen.value
+    androidx.compose.runtime.LaunchedEffect(toOpen, nav.current) {
+        val id = toOpen ?: return@LaunchedEffect
+        if (nav.current == Screen.Login || nav.current == Screen.Profiles) return@LaunchedEffect
+        MainActivity.pendingOpen.value = null
+        nav.push(Screen.Detail(id))
+    }
 
     // Phones: a bottom bar (Home · Movies · Shows · Search · Profile) on the main pages
     val showBottom = org.phoenicx.nova.ui.theme.Lay.phone &&
