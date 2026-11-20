@@ -107,9 +107,9 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
                 modifier = Modifier.height(20.dp),
             )
             Spacer(Modifier.weight(1f))
-            BatteryBadge()
-            Spacer(Modifier.width(14.dp))
             Clock(big = true)
+            Spacer(Modifier.width(12.dp))
+            BatteryBadge()
         }
         return
     }
@@ -267,8 +267,8 @@ fun Clock(big: Boolean = false) {
 private fun Library.isVideo() = collectionType in setOf("movies", "tvshows")
 
 /**
- * Phones: battery level next to the clock, drawn in the theme's colours.
- * Red when low, with a small bolt while charging. (Read from the phone; no permission needed.)
+ * Phones: battery level after the clock, with the percentage inside it.
+ * Green, orange below 15%, red below 10%, with a small bolt while charging. (Read from the phone; no permission needed.)
  */
 @Composable
 fun BatteryBadge() {
@@ -294,36 +294,39 @@ fun BatteryBadge() {
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
     if (level < 0) return
-    val low = level <= 15 && !charging
-    val fillColor = if (low) Color(0xFFFF5A5A) else Nova.Cyan
+    // Green normally, orange below 15%, red below 10%
+    val fillColor = when {
+        level < 10 -> Color(0xFFFF3B30)
+        level < 15 -> Color(0xFFFF9F0A)
+        else -> Color(0xFF34C759)
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            "$level%",
-            style = NovaType.Label.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-            color = if (low) fillColor else Nova.TextDim,
-        )
-        Spacer(Modifier.width(6.dp))
-        // Battery shape: outlined body with a fill for the level, and a small tip on the right
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Battery shape with the percentage written inside it, and a small tip on the right
+        Box(
+            Modifier.size(42.dp, 19.dp)
+                .border(1.3.dp, Nova.TextDim, RoundedCornerShape(5.dp))
+                .padding(2.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
             Box(
-                Modifier.size(26.dp, 13.dp)
-                    .border(1.3.dp, Nova.TextDim, RoundedCornerShape(3.5.dp))
-                    .padding(2.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Box(
-                    Modifier.fillMaxHeight().fillMaxWidth((level / 100f).coerceIn(0.06f, 1f))
-                        .clip(RoundedCornerShape(1.5.dp))
-                        .background(Brush.horizontalGradient(listOf(fillColor.copy(alpha = 0.85f), fillColor)))
+                Modifier.fillMaxHeight().fillMaxWidth((level / 100f).coerceIn(0.08f, 1f))
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(fillColor)
+            )
+            Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
+                if (charging) Icon(Icons.Filled.Bolt, null, tint = Color.White, modifier = Modifier.size(10.dp))
+                Text(
+                    "$level",
+                    style = NovaType.Label.copy(
+                        fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 3f),
+                    ),
+                    color = Color.White,
+                    maxLines = 1,
                 )
-                if (charging) {
-                    Icon(
-                        Icons.Filled.Bolt, null, tint = Color.White,
-                        modifier = Modifier.align(Alignment.Center).size(11.dp),
-                    )
-                }
+                Text("%", style = NovaType.Label.copy(fontSize = 8.sp, fontWeight = FontWeight.Bold), color = Color.White, maxLines = 1)
             }
-            Box(Modifier.padding(start = 1.dp).size(2.dp, 5.dp).clip(RoundedCornerShape(1.dp)).background(Nova.TextDim))
         }
+        Box(Modifier.padding(start = 1.dp).size(2.5.dp, 7.dp).clip(RoundedCornerShape(1.dp)).background(Nova.TextDim))
     }
 }
