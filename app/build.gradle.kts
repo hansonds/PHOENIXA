@@ -16,8 +16,8 @@ android {
         applicationId = "org.phoenicx.nova"
         minSdk = 24
         targetSdk = 36
-        versionCode = 66
-        versionName = "1.16.0"
+        versionCode = 67
+        versionName = "1.16.1"
         // One app for TV and phone: "leanback" (TV) is not required, so phones and tablets can install it too.
         manifestPlaceholders["leanbackRequired"] = "false"
     }
@@ -89,6 +89,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-ui:$media3")
+    implementation("androidx.media3:media3-session:$media3")
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
     // Same FFmpeg audio decoder the official Jellyfin Android TV app uses (DTS, TrueHD, etc.)
     implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1")

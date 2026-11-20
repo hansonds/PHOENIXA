@@ -61,6 +61,17 @@ class PlayerController(private val context: Context) {
     var player: ExoPlayer by mutableStateOf(buildPlayer(preferExtensions = false)); private set
     private var preferExtensions = false
 
+    /** Lets "Alexa, pause", Google Assistant, and headset / Bluetooth buttons control the video */
+    private var session: androidx.media3.session.MediaSession? = runCatching {
+        androidx.media3.session.MediaSession.Builder(context, player).setId("phoenixa-${System.nanoTime()}").build()
+    }.getOrNull()
+
+    /** Swap in a freshly built player (keeps the media session pointing at it) */
+    private fun replacePlayer(p: ExoPlayer) {
+        player = p
+        runCatching { session?.player = p }
+    }
+
     var item by mutableStateOf<Item?>(null); private set
     var nextEpisode by mutableStateOf<Item?>(null); private set
     var isPlaying by mutableStateOf(false); private set
@@ -105,7 +116,8 @@ class PlayerController(private val context: Context) {
         player.setPlaybackSpeed(v)
         // Dolby / DTS sent straight to the TV or soundbar can't be sped up or slowed down.
         // Switch to decoding the sound in the app (and carry on from the same moment).
-        if (v != 1f && !pcmOnly && player.audioFormat?.sampleMimeType in passthroughTypes) switchToPcm()
+        // (Phones decode it in the app already, so only TVs need this.)
+        if (v != 1f && !pcmOnly && NovaApp.instance.isTv && player.audioFormat?.sampleMimeType in passthroughTypes) switchToPcm()
     }
 
     /** Audio decoded in the app (no passthrough), so the speed can be changed */
@@ -122,7 +134,7 @@ class PlayerController(private val context: Context) {
         val keepErrors = lastErrors.toList()
         runCatching { player.release() }
         pcmOnly = true
-        player = buildPlayer(preferExtensions)
+        replacePlayer(buildPlayer(preferExtensions))
         player.setPlaybackSpeed(speed)
         load(current.id, pos * 10_000, keepMode)
         lastErrors.clear()
@@ -211,7 +223,8 @@ class PlayerController(private val context: Context) {
                 stallJob?.cancel()
                 if (state == Player.STATE_BUFFERING) {
                     stallJob = scope.launch {
-                        delay(45_000)
+                        // (Transcoding can take a while to start on a small server, so wait longer then)
+                        delay(if (transcoding) 90_000 else 45_000)
                         if (player.playbackState == Player.STATE_BUFFERING && player.playWhenReady && error == null) {
                             networkTrouble("The server is taking too long to respond.")
                         }
@@ -316,7 +329,7 @@ class PlayerController(private val context: Context) {
         val keepErrors = lastErrors.toList()
         runCatching { player.release() }
         preferExtensions = true
-        player = buildPlayer(preferExtensions = true)
+        replacePlayer(buildPlayer(preferExtensions = true))
         player.setPlaybackSpeed(speed)
         load(itemId, startTicks, keepMode)
         lastErrors.clear()
@@ -397,7 +410,9 @@ class PlayerController(private val context: Context) {
                 nextEpisode = null
                 if (it.isEpisode && it.seriesId != null) {
                     nextEpisode = runCatching {
-                        val eps = api.episodes(it.seriesId)
+                        val all = api.episodes(it.seriesId)
+                        // Specials (season 0) aren't "next" after a normal episode
+                        val eps = if (it.parentIndexNumber == 0) all else all.filter { e -> e.parentIndexNumber != 0 }
                         val i = eps.indexOfFirst { e -> e.id == it.id }
                         if (i >= 0) eps.getOrNull(i + 1) else null
                     }.getOrNull()
@@ -449,6 +464,15 @@ class PlayerController(private val context: Context) {
     fun playNext() {
         val next = nextEpisode ?: return
         pendingSeriesId = next.seriesId
+        if (pcmOnly && speed == 1f) {
+            // Speed is back to normal: let Dolby / DTS go straight to the TV or soundbar again
+            pcmOnly = false
+            // Tell the server the finished episode stopped (the new player won't know about it)
+            val src = source; val done = item; val ticks = player.currentPosition * 10_000
+            if (src != null && done != null) CoroutineScope(Dispatchers.IO).launch { api.reportStopped(done.id, src, ticks) }
+            runCatching { player.release() }
+            replacePlayer(buildPlayer(preferExtensions))
+        }
         load(next.id, 0, StreamMode.Direct, sel = null)
     }
 
@@ -651,6 +675,8 @@ class PlayerController(private val context: Context) {
             // fire-and-forget on a detached scope so it survives activity teardown
             CoroutineScope(Dispatchers.IO).launch { api.reportStopped(it.id, src, ticks) }
         }
+        runCatching { session?.release() }
+        session = null
         player.release()
         scope.cancel()
     }
