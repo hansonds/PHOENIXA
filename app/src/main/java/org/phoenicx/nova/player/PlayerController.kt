@@ -45,6 +45,8 @@ data class TrackOption(
     val group: Tracks.Group?,
     val index: Int,
     val language: String? = null,
+    /** Jellyfin's number for this audio / subtitle stream (used to keep the choice when the player reloads) */
+    val streamIndex: Int? = null,
 )
 
 /** How the video reaches the TV, tried in this order until one works. */
@@ -73,6 +75,14 @@ class PlayerController(private val context: Context) {
 
     private var source: PlaybackSource? = null
     private var progressJob: Job? = null
+
+    /** Network trouble: tries again on its own a few times before showing an error */
+    private var netRetries = 0
+    var reconnecting by mutableStateOf(false); private set
+    private var currentId: String? = null
+    private var lastPos = 0L
+    private var stallJob: Job? = null
+    private val maxRetries = 3
     private val lastErrors = mutableListOf<String>()
     var speed by mutableStateOf(1f); private set
 
@@ -161,6 +171,15 @@ class PlayerController(private val context: Context) {
             .setPrioritizeTimeOverSizeThresholds(false)
             .build()
         val player = ExoPlayer.Builder(context, renderers)
+            // Pause for phone calls / other apps playing sound, and when headphones are unplugged
+            .setAudioAttributes(
+                androidx.media3.common.AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .build(),
+                /* handleAudioFocus= */ true,
+            )
+            .setHandleAudioBecomingNoisy(true)
             .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(http))
             .setLoadControl(loadControl)
             .setTrackSelector(selector)
@@ -182,8 +201,22 @@ class PlayerController(private val context: Context) {
 
             override fun onPlaybackStateChanged(state: Int) {
                 buffering = state == Player.STATE_BUFFERING
-                if (state == Player.STATE_READY) duration = player.duration.coerceAtLeast(0)
+                if (state == Player.STATE_READY) {
+                    duration = player.duration.coerceAtLeast(0)
+                    netRetries = 0
+                    reconnecting = false
+                }
                 if (state == Player.STATE_ENDED) onEnded()
+                // Stuck loading for a long time (slow or unreachable server): treat it like a dropped connection
+                stallJob?.cancel()
+                if (state == Player.STATE_BUFFERING) {
+                    stallJob = scope.launch {
+                        delay(45_000)
+                        if (player.playbackState == Player.STATE_BUFFERING && player.playWhenReady && error == null) {
+                            networkTrouble("The server is taking too long to respond.")
+                        }
+                    }
+                }
             }
 
             override fun onTracksChanged(tracks: Tracks) {
@@ -198,6 +231,11 @@ class PlayerController(private val context: Context) {
                 // certain files (Dolby Digital Plus, ...). Like the official Jellyfin app: rebuild the
                 // player once with the app's own decoders preferred and continue at the same spot.
                 val current = item
+                // Network dropped / timed out: try the same way again a few times before anything else
+                if (isNetworkError(e) && netRetries < maxRetries) {
+                    networkTrouble("${mode.label}: ${e.errorCodeName}")
+                    return
+                }
                 if (!preferExtensions && current != null && isDecoderCrash(e)) {
                     lastErrors += "${mode.label}: ${e.errorCodeName} (retrying with app decoders)"
                     switchToAppDecoders(current.id, pos * 10_000)
@@ -219,6 +257,46 @@ class PlayerController(private val context: Context) {
             }
         })
         return player
+    }
+
+    private fun isNetworkError(e: PlaybackException): Boolean =
+        e.errorCode in 2000..2999 || e.errorCode == PlaybackException.ERROR_CODE_TIMEOUT
+
+    /**
+     * Connection trouble: wait a moment and start again at the same spot, the same way (direct play stays
+     * direct play). After a few tries, show the error with "Try again".
+     */
+    private fun networkTrouble(reason: String) {
+        val id = currentId ?: return
+        val pos = player.currentPosition.takeIf { it > 0 } ?: lastPos
+        if (netRetries >= maxRetries) {
+            reconnecting = false
+            lastErrors += reason
+            error = lastErrors.joinToString("\n")
+            return
+        }
+        netRetries++
+        reconnecting = true
+        buffering = true
+        scope.launch {
+            delay(2_000L * netRetries)
+            load(id, pos * 10_000, mode)
+        }
+    }
+
+    /** "Try again" on the error box: same way as before, from where it stopped */
+    fun retry() {
+        val id = currentId ?: return
+        netRetries = 0
+        lastErrors.clear()
+        load(id, lastPos * 10_000, if (prefs.directPlayOnly) StreamMode.Direct else mode)
+    }
+
+    /** "Try with transcoding" (only offered when Direct play only is off) */
+    fun retryTranscoding() {
+        val id = currentId ?: return
+        netRetries = 0
+        load(id, lastPos * 10_000, StreamMode.Hls)
     }
 
     private fun isDecoderCrash(e: PlaybackException): Boolean {
@@ -251,6 +329,10 @@ class PlayerController(private val context: Context) {
     private var loadingId: String? = null
 
     fun load(itemId: String, startTicks: Long, streamMode: StreamMode = StreamMode.Direct, sel: PlaySelection? = selection) {
+        // While switching videos, don't save progress (it could land on the wrong episode)
+        progressJob?.cancel()
+        currentId = itemId
+        lastPos = startTicks / 10_000
         selection = sel
         loadingId = itemId
         pendingApplied = false
@@ -263,7 +345,7 @@ class PlayerController(private val context: Context) {
             try {
                 val prev = source
                 val prevItem = item
-                if (prev != null && prevItem != null && prevItem.id != itemId) {
+                if (prev != null && prevItem != null && prevItem.id != itemId && player.currentMediaItem?.mediaId == prevItem.id) {
                     val ticks = player.currentPosition * 10_000
                     scope.launch { api.reportStopped(prevItem.id, prev, ticks) }
                 }
@@ -321,7 +403,10 @@ class PlayerController(private val context: Context) {
                     }.getOrNull()
                 }
             } catch (e: Exception) {
-                error = (lastErrors + (e.message ?: "Couldn't start playback")).joinToString("\n")
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                // Couldn't reach the server: try again a few times, then show the error
+                if (e is java.io.IOException && netRetries < maxRetries) networkTrouble(e.message ?: "Network error")
+                else error = (lastErrors + (e.message ?: "Couldn't start playback")).joinToString("\n")
             }
         }
     }
@@ -339,12 +424,15 @@ class PlayerController(private val context: Context) {
     private fun report(paused: Boolean) {
         val src = source ?: return
         val it = item ?: return
+        // Only for the video that's really in the player (not the previous episode while the next one loads)
+        if (player.currentMediaItem?.mediaId != it.id) return
         val ticks = player.currentPosition * 10_000
         scope.launch { api.reportProgress(it.id, src, ticks, paused) }
     }
 
     fun tick() {
         position = player.currentPosition.coerceAtLeast(0)
+        if (position > 0 && player.playbackState == Player.STATE_READY) lastPos = position
         val d = player.duration
         if (d > 0) duration = d
         else if (duration == 0L) duration = (item?.runTimeTicks ?: 0) / 10_000
@@ -394,6 +482,7 @@ class PlayerController(private val context: Context) {
     }
 
     fun tracks(type: Int): List<TrackOption> {
+        source?.let { if (it.isTranscoding) return transcodeTracks(type, it) }
         val out = mutableListOf<TrackOption>()
         val disabled = player.trackSelectionParameters.disabledTrackTypes.contains(type)
         var anySelected = false
@@ -417,7 +506,8 @@ class PlayerController(private val context: Context) {
                 }
                 val sel = !disabled && g.isTrackSelected(i)
                 if (sel) anySelected = true
-                out += TrackOption(label, detail, sel, g, i, js?.language ?: f.language)
+                out += TrackOption(label, detail, sel, g, i, js?.language ?: f.language,
+                    streamIndex = js?.index ?: f.id?.takeIf { isExt }?.substringAfterLast("ext")?.toIntOrNull())
             }
         }
         if (type == C.TRACK_TYPE_TEXT) {
@@ -426,7 +516,78 @@ class PlayerController(private val context: Context) {
         return out
     }
 
+    /**
+     * While transcoding the server sends one sound track (and burns picture subtitles into the video),
+     * so list every track the file has; picking one asks the server again from the same spot.
+     */
+    private fun transcodeTracks(type: Int, src: PlaybackSource): List<TrackOption> {
+        val kind = if (type == C.TRACK_TYPE_AUDIO) "Audio" else "Subtitle"
+        val streams = src.streams.filter { it.type == kind }
+        val cur = selection
+        val chosen: Int = if (type == C.TRACK_TYPE_AUDIO) {
+            cur?.audioIndex ?: src.defaultAudioIndex ?: streams.firstOrNull()?.index ?: -1
+        } else {
+            val textOff = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
+            val shownExt = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+                .flatMap { g -> (0 until g.length).filter { g.isTrackSelected(it) }.map { g.getTrackFormat(it) } }
+                .firstNotNullOfOrNull { f -> f.id?.takeIf { it.contains("ext") }?.substringAfterLast("ext")?.toIntOrNull() }
+            when {
+                cur?.subtitleIndex != null && cur.subtitleIndex >= 0 &&
+                    streams.any { it.index == cur.subtitleIndex && !it.isTextSubtitle } -> cur.subtitleIndex
+                !textOff && shownExt != null -> shownExt
+                else -> -1
+            }
+        }
+        val out = streams.map { st ->
+            val (label, detail) = Lang.label(st)
+            TrackOption(label, detail, st.index == chosen, null, -1, st.language, streamIndex = st.index)
+        }.toMutableList()
+        if (type == C.TRACK_TYPE_TEXT) out.add(0, TrackOption("Off", "", chosen == -1, null, -1, streamIndex = -1))
+        return out
+    }
+
+    /** Start again from the current spot with the current choices (transcoding track changes) */
+    private fun reloadHere() {
+        val it = item ?: return
+        load(it.id, player.currentPosition.coerceAtLeast(0) * 10_000, mode, selection)
+    }
+
     fun select(type: Int, opt: TrackOption) {
+        // Keep the choice, so it survives any reload (speed change, switching to transcoding, retries…)
+        val base = selection ?: PlaySelection(mediaSourceId = source?.mediaSourceId)
+        val src = source
+        val sid = item?.seriesId
+        if (type == C.TRACK_TYPE_AUDIO) {
+            Lang.rememberAudio(opt.language, sid)
+            selection = base.copy(audioIndex = opt.streamIndex ?: base.audioIndex)
+            if (src?.isTranscoding == true) { reloadHere(); return }
+        } else if (type == C.TRACK_TYPE_TEXT) {
+            val off = opt.group == null && (opt.streamIndex == null || opt.streamIndex < 0)
+            Lang.rememberSubtitle(opt.language, off = off, seriesId = sid)
+            val newSub = if (off) -1 else opt.streamIndex
+            val wasBurnedIn = src?.isTranscoding == true && (base.subtitleIndex ?: -1) >= 0 &&
+                src.streams.any { it.index == base.subtitleIndex && !it.isTextSubtitle }
+            selection = base.copy(subtitleIndex = newSub ?: base.subtitleIndex)
+            if (src?.isTranscoding == true) {
+                val picture = newSub != null && newSub >= 0 && src.streams.any { it.index == newSub && !it.isTextSubtitle }
+                // Picture subtitles are drawn into the video by the server: ask it again
+                if (picture || wasBurnedIn) { reloadHere(); return }
+                val b = player.trackSelectionParameters.buildUpon()
+                if (newSub == null || newSub < 0) b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                else {
+                    val pick = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+                        .flatMap { g -> (0 until g.length).map { g to it } }
+                        .firstOrNull { (g, i) -> g.getTrackFormat(i).id?.endsWith("ext$newSub") == true }
+                    if (pick != null) {
+                        b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        b.setOverrideForType(TrackSelectionOverride(pick.first.mediaTrackGroup, pick.second))
+                    }
+                }
+                player.trackSelectionParameters = b.build()
+                return
+            }
+        }
+        if (opt.group == null && type != C.TRACK_TYPE_TEXT) return
         val b = player.trackSelectionParameters.buildUpon()
         if (opt.group == null) {
             b.setTrackTypeDisabled(type, true)
@@ -435,10 +596,6 @@ class PlayerController(private val context: Context) {
             b.setOverrideForType(TrackSelectionOverride(opt.group.mediaTrackGroup, opt.index))
         }
         player.trackSelectionParameters = b.build()
-        // Remember the language so the next movie / episode starts the same way
-        val sid = item?.seriesId
-        if (type == C.TRACK_TYPE_AUDIO) Lang.rememberAudio(opt.language, sid)
-        else if (type == C.TRACK_TYPE_TEXT) Lang.rememberSubtitle(opt.language, off = opt.group == null, seriesId = sid)
     }
 
     /** Turns the details-page choice into ExoPlayer track picks once the file's tracks are known. */
@@ -485,6 +642,7 @@ class PlayerController(private val context: Context) {
     }
 
     fun release() {
+        stallJob?.cancel()
         val src = source
         val it = item
         val ticks = player.currentPosition * 10_000

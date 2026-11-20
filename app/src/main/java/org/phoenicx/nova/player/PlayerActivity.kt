@@ -130,7 +130,6 @@ class PlayerActivity : ComponentActivity() {
         // Draw behind the system bars and camera cut-out (Android 15+ default), handled with insets
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         immersiveOnPhone()
         controller = PlayerController(this)
         val itemId = intent.getStringExtra(EXTRA_ID) ?: return finish()
@@ -141,7 +140,15 @@ class PlayerActivity : ComponentActivity() {
                 subtitleIndex = if (intent.hasExtra(EXTRA_SUB)) intent.getIntExtra(EXTRA_SUB, -1) else null,
             ) else null
         controller.load(itemId, intent.getLongExtra(EXTRA_TICKS, 0L), StreamMode.Direct, sel)
+        // The play / pause button in the picture-in-picture window
+        androidx.core.content.ContextCompat.registerReceiver(
+            this, pipReceiver, android.content.IntentFilter(PIP_TOGGLE), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         setContent {
+            // Keep the small window's button showing the right symbol
+            androidx.compose.runtime.LaunchedEffect(controller.isPlaying, controller.inPip) {
+                if (controller.inPip && android.os.Build.VERSION.SDK_INT >= 26) pipParams()?.let { runCatching { setPictureInPictureParams(it) } }
+            }
             NovaTheme {
                 PlayerScreen(controller, onExit = { finish() }, registerRescue = { rescue = it }, registerMediaKeys = { mediaKeys = it })
             }
@@ -193,6 +200,18 @@ class PlayerActivity : ComponentActivity() {
         // Android only allows shapes between 1:2.39 and 2.39:1
         val r = ratio.coerceIn(1f / 2.39f + 0.01f, 2.39f - 0.01f)
         val b = android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational((r * 1000).toInt(), 1000))
+        // A play / pause button in the small window
+        val playing = controller.player.playWhenReady
+        val pi = android.app.PendingIntent.getBroadcast(
+            this, 1, Intent(PIP_TOGGLE).setPackage(packageName),
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+        b.setActions(listOf(
+            android.app.RemoteAction(
+                android.graphics.drawable.Icon.createWithResource(this, if (playing) org.phoenicx.nova.R.drawable.ic_pip_pause else org.phoenicx.nova.R.drawable.ic_pip_play),
+                if (playing) "Pause" else "Play", if (playing) "Pause" else "Play", pi,
+            )
+        ))
         if (android.os.Build.VERSION.SDK_INT >= 31) b.setSeamlessResizeEnabled(true)
         return b.build()
     }
@@ -224,7 +243,14 @@ class PlayerActivity : ComponentActivity() {
         if (::controller.isInitialized) controller.player.pause()
     }
 
+    private val pipReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: Context?, i: Intent?) {
+            if (this@PlayerActivity::controller.isInitialized) controller.togglePlay()
+        }
+    }
+
     override fun onDestroy() {
+        runCatching { unregisterReceiver(pipReceiver) }
         if (::controller.isInitialized) controller.release()
         // Android TV: refresh "Continue watching" once the server has the new position
         val app = applicationContext
@@ -238,6 +264,7 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_SOURCE = "source"
         private const val EXTRA_AUDIO = "audio"
         private const val EXTRA_SUB = "sub"
+        private const val PIP_TOGGLE = "org.phoenicx.nova.PIP_TOGGLE"
         fun start(context: Context, itemId: String, startTicks: Long, sel: org.phoenicx.nova.data.PlaySelection? = null) {
             val i = Intent(context, PlayerActivity::class.java)
                 .putExtra(EXTRA_ID, itemId)
@@ -425,6 +452,8 @@ private fun PlayerScreen(
             // The player is rebuilt once if the device's decoder crashes: show the new one.
             update = { view ->
                 if (view.player !== c.player) view.player = c.player
+                // Keep the screen on while playing or loading; when paused it may sleep as usual
+                view.keepScreenOn = c.isPlaying || c.buffering
                 view.resizeMode = when (c.videoFit) {
                     1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
@@ -594,6 +623,14 @@ private fun PlayerScreen(
 
         if (c.buffering && c.error == null) {
             Box(Modifier.align(Alignment.Center).size(90.dp)) { NovaLoader() }
+            if (c.reconnecting) {
+                Text(
+                    "Connection lost · reconnecting…", style = NovaType.Label, color = Color.White,
+                    modifier = Modifier.align(Alignment.Center).padding(top = 130.dp)
+                        .background(Nova.BgDeep.copy(alpha = 0.75f), RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
         }
 
         // Seek feedback when the overlay is hidden
@@ -643,7 +680,14 @@ private fun PlayerScreen(
                 Spacer(Modifier.height(8.dp))
                 Text(err, style = NovaType.Body, color = Nova.TextDim)
                 Spacer(Modifier.height(20.dp))
-                NovaButton("Go back", primary = true, focusRequester = goBackRequester) { onExit() }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Try again the same way (with "Direct play only" on, it stays direct play)
+                    NovaButton("Try again", primary = true, focusRequester = goBackRequester) { c.retry() }
+                    if (!NovaApp.instance.prefs.directPlayOnly && c.mode == StreamMode.Direct) {
+                        NovaButton("Try with transcoding") { c.retryTranscoding() }
+                    }
+                    NovaButton("Go back") { onExit() }
+                }
             }
         }
     }
