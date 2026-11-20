@@ -652,6 +652,7 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
     var adding by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<String?>(null) }
     var waiting by remember { mutableStateOf(false) }   // waiting for Torvia to sync the new title
+    var focusAfterAdd by remember { mutableIntStateOf(0) }   // bumped to move the TV highlight after adding
 
     LaunchedEffect(type, tmdbId) {
         runCatching { torvia.details(type, tmdbId) }
@@ -699,7 +700,6 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
     var lastPickedKey by remember { mutableStateOf<String?>(null) }
     val pickedReq = remember { FocusRequester() }
     var focusedFirst by remember { mutableStateOf(false) }
-    var focusAfterAdd by remember { mutableIntStateOf(0) }
     val d0 = details
     // Rows in the list: header, (season/episode), (filters), "Releases" title, then the releases
     val releasesStart = if (d0 == null) 0 else 1 +
