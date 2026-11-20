@@ -389,9 +389,9 @@ fun LandscapeCard(
 }
 
 @Composable
-fun PersonCard(person: Person, onClick: () -> Unit = {}) {
+fun PersonCard(person: Person, focusRequester: FocusRequester? = null, onClick: () -> Unit = {}) {
     Column(Modifier.width(120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        FocusSurface(onClick = onClick, modifier = Modifier.size(96.dp), shape = CircleShape, focusedScale = 1.1f) {
+        FocusSurface(onClick = onClick, modifier = Modifier.size(96.dp), shape = CircleShape, focusedScale = 1.1f, focusRequester = focusRequester) {
             Box(Modifier.fillMaxSize().background(Nova.SurfaceHi), contentAlignment = Alignment.Center) {
                 Text(person.name.take(1), style = NovaType.Title, color = Nova.TextDim)
             }

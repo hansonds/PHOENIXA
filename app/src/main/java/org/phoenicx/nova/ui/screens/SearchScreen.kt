@@ -40,18 +40,26 @@ import org.phoenicx.nova.ui.theme.UiScale
 
 @Composable
 fun SearchScreen(nav: Navigator) {
-    var query by rememberSaveable { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<Item>>(emptyList()) }
+    var query by remember { mutableStateOf(nav.searchQuery) }
+    var results by remember { mutableStateOf(nav.searchResults) }
+    var searched by remember { mutableStateOf(nav.searchQuery) }
     var loading by remember { mutableStateOf(false) }
     val fieldRequester = remember { FocusRequester() }
+    val gf = org.phoenicx.nova.ui.components.rememberGridFocus(nav, "search", firstOnOpen = false)
+    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
 
     val fromNav = remember { nav.focusNavOnEnter }
-    LaunchedEffect(Unit) { if (!fromNav) { delay(120); runCatching { fieldRequester.requestFocus() } } }
+    // Opened fresh: the search box. Back from a title: that result (see GridFocusEffect below).
+    LaunchedEffect(Unit) { if (!fromNav && gf.target < 0) { delay(120); runCatching { fieldRequester.requestFocus() } } }
     LaunchedEffect(query) {
-        if (query.trim().length < 2) { results = emptyList(); return@LaunchedEffect }
+        nav.searchQuery = query
+        if (query == searched && results.isNotEmpty()) return@LaunchedEffect   // already showing these
+        if (query.trim().length < 2) { results = emptyList(); nav.searchResults = emptyList(); return@LaunchedEffect }
         delay(450)
         loading = true
         results = runCatching { api.search(query.trim()) }.getOrDefault(emptyList())
+        nav.searchResults = results
+        searched = query
         loading = false
     }
 
@@ -70,16 +78,20 @@ fun SearchScreen(nav: Navigator) {
             query.trim().length >= 2 && results.isEmpty() && !loading -> CenterMessage("No results", "Try a different title")
             results.isEmpty() -> CenterMessage("Find something to watch", "Start typing a title, actor or genre")
             else -> LazyVerticalGrid(
+                state = grid,
                 columns = GridCells.Adaptive(UiScale.posterWidth.dp),
                 contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 24.dp, bottom = 60.dp),
                 horizontalArrangement = Arrangement.spacedBy(if (Lay.phone) 12.dp else 20.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
                 modifier = Modifier.fillMaxSize().wrapRowFocus(),
             ) {
-                items(results, key = { it.id }) { item ->
-                    PosterCard(item, onClick = { nav.push(Screen.Detail(item.id)) }, width = UiScale.posterWidth, showTitle = true)
+                items(results.size, key = { results[it].id }) { i ->
+                    val item = results[i]
+                    PosterCard(item, onClick = { nav.push(Screen.Detail(item.id)) }, width = UiScale.posterWidth, showTitle = true,
+                        focusRequester = gf.req(i), onFocused = { gf.focused(i) })
                 }
             }
         }
+        org.phoenicx.nova.ui.components.GridFocusEffect(gf, results.isNotEmpty()) { grid.scrollToItem(it.coerceAtMost(results.size - 1)) }
     }
 }

@@ -57,6 +57,9 @@ fun LibrariesScreen(nav: Navigator) {
         if (nav.libraries.value.isEmpty()) runCatching { api.libraries() }.onSuccess { nav.libraries.value = it }
     }
     val libs = nav.libraries.value.filter { it.collectionType in setOf("movies", "tvshows", "boxsets", null, "homevideos") }
+    // Back from a library: the tile you opened gets the highlight again
+    val gf = org.phoenicx.nova.ui.components.rememberGridFocus(nav, "libs", firstOnOpen = true)
+    org.phoenicx.nova.ui.components.GridFocusEffect(gf, libs.isNotEmpty())
 
     Column(Modifier.fillMaxSize()) {
         TopNav(nav, Screen.Libraries)
@@ -70,10 +73,13 @@ fun LibrariesScreen(nav: Navigator) {
             modifier = Modifier.fillMaxSize().wrapRowFocus(),
         ) {
             item(key = "fav") {
-                Tile("Favorites", null, Icons.Filled.Favorite) { nav.push(Screen.Favorites) }
+                Tile("Favorites", null, Icons.Filled.Favorite, gf.req(0), { gf.focused(0) }) { nav.push(Screen.Favorites) }
             }
-            items(libs, key = { it.id }) { lib ->
-                Tile(lib.name, lib.primaryTag?.let { api.image(lib.id, "Primary", it, 640) }, iconFor(lib)) { nav.push(Screen.Lib(lib)) }
+            items(libs.size, key = { libs[it].id }) { i ->
+                val lib = libs[i]
+                Tile(lib.name, lib.primaryTag?.let { api.image(lib.id, "Primary", it, 640) }, iconFor(lib), gf.req(i + 1), { gf.focused(i + 1) }) {
+                    nav.push(Screen.Lib(lib))
+                }
             }
         }
     }
@@ -88,9 +94,15 @@ private fun iconFor(lib: Library): ImageVector = when (lib.collectionType) {
 
 /** Library picture on top, its name in small neat letters just below (nothing covers the picture) */
 @Composable
-private fun Tile(name: String, image: String?, icon: ImageVector, onClick: () -> Unit) {
+private fun Tile(
+    name: String, image: String?, icon: ImageVector,
+    requester: androidx.compose.ui.focus.FocusRequester?, onFocus: () -> Unit, onClick: () -> Unit,
+) {
     Column(Modifier.fillMaxWidth()) {
-        FocusSurface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), shape = RoundedCornerShape(14.dp)) { _ ->
+        FocusSurface(
+            onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), shape = RoundedCornerShape(14.dp),
+            focusRequester = requester, onFocused = onFocus,
+        ) { _ ->
             if (image != null) {
                 ShimmerBox(Modifier.fillMaxSize())
                 AsyncImage(image, name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())

@@ -111,6 +111,11 @@ fun DetailScreen(nav: Navigator, itemId: String) {
         }
     }
     var focusedOnce by remember { mutableStateOf(false) }
+    // Coming Back from a title / person opened on this page: highlight that tile again
+    val back = remember { nav.detailPos.remove(itemId) }
+    val backReq = remember { FocusRequester() }
+    fun backReqFor(row: String, i: Int) = if (back?.first == row && back.second == i) backReq else null
+    fun rememberSpot(row: String, i: Int) { nav.detailPos[itemId] = row to i }
 
     suspend fun load() = coroutineScope {
         try {
@@ -144,10 +149,32 @@ fun DetailScreen(nav: Navigator, itemId: String) {
         val s = selectedSeason ?: return@LaunchedEffect
         episodes = runCatching { api.episodes(item!!.id, s.id) }.getOrDefault(emptyList())
     }
-    LaunchedEffect(item != null) {
-        if (item != null && !focusedOnce) {
-            delay(80); runCatching { playRequester.requestFocus() }; focusedOnce = true
+    LaunchedEffect(item != null, similar.size, children.size) {
+        val cur = item ?: return@LaunchedEffect
+        if (focusedOnce) return@LaunchedEffect
+        if (back != null) {
+            // Wait until that row has loaded, scroll to it, then highlight the tile
+            val castOk = cur.people.any { p -> p.type == "Actor" || p.type == "GuestStar" }
+            val rows = buildList {
+                add("header")
+                if (cur.isCollection && children.isNotEmpty()) add("children")
+                if (cur.isSeries && seasons.isNotEmpty()) add("seasons")
+                if (castOk) add("cast")
+                if (similar.isNotEmpty()) add("similar")
+            }
+            val row = rows.indexOf(back.first)
+            if (row < 0) {
+                // Not there yet ("More like this" loads a moment later); give up after the page is complete
+                if (back.first == "similar" && similar.isEmpty()) { delay(1500); if (similar.isNotEmpty() || focusedOnce) return@LaunchedEffect }
+            } else {
+                runCatching { listState.scrollToItem(row) }
+                repeat(6) {
+                    delay(80)
+                    if (runCatching { backReq.requestFocus() }.isSuccess) { focusedOnce = true; return@LaunchedEffect }
+                }
+            }
         }
+        delay(80); runCatching { playRequester.requestFocus() }; focusedOnce = true
     }
 
     val it = item
@@ -262,11 +289,14 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                             SectionTitle("In this collection · ${children.size}", Modifier.padding(start = Lay.side))
                             EdgeScroll(Lay.side, Lay.side) {
                                 LazyRow(
+                                    state = rememberLazyListState(if (back?.first == "children") (back.second - 1).coerceAtLeast(0) else 0),
                                     contentPadding = PaddingValues(horizontal = Lay.side, vertical = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                                 ) {
-                                    items(children, key = { c -> c.id }) { c ->
-                                        PosterCard(c, onClick = { nav.push(Screen.Detail(c.id)) }, width = UiScale.posterWidth, showTitle = true)
+                                    items(children.size, key = { i -> children[i].id }) { i ->
+                                        val c = children[i]
+                                        PosterCard(c, onClick = { rememberSpot("children", i); nav.push(Screen.Detail(c.id)) }, width = UiScale.posterWidth, showTitle = true,
+                                            focusRequester = backReqFor("children", i))
                                     }
                                 }
                             }
@@ -319,11 +349,16 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                         Column(Modifier.padding(top = 12.dp)) {
                             SectionTitle("Cast & Crew", Modifier.padding(start = Lay.side))
                             EdgeScroll(Lay.side, Lay.side) {
+                                val people = cast.take(30)
                                 LazyRow(
+                                    state = rememberLazyListState(if (back?.first == "cast") (back.second - 1).coerceAtLeast(0) else 0),
                                     contentPadding = PaddingValues(horizontal = Lay.side, vertical = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 ) {
-                                    items(cast.take(30), key = { p -> p.id + p.role }) { p -> PersonCard(p) { nav.push(Screen.Person(p.id, p.name)) } }
+                                    items(people.size, key = { i -> people[i].id + people[i].role }) { i ->
+                                        val p = people[i]
+                                        PersonCard(p, backReqFor("cast", i)) { rememberSpot("cast", i); nav.push(Screen.Person(p.id, p.name)) }
+                                    }
                                 }
                             }
                         }
@@ -336,11 +371,14 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                             SectionTitle("More Like This", Modifier.padding(start = Lay.side))
                             EdgeScroll(Lay.side, Lay.side) {
                                 LazyRow(
+                                    state = rememberLazyListState(if (back?.first == "similar") (back.second - 1).coerceAtLeast(0) else 0),
                                     contentPadding = PaddingValues(horizontal = Lay.side, vertical = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                                 ) {
-                                    items(similar, key = { s -> s.id }) { s ->
-                                        PosterCard(s, onClick = { nav.push(Screen.Detail(s.id)) }, width = UiScale.posterWidth, showTitle = true)
+                                    items(similar.size, key = { i -> similar[i].id }) { i ->
+                                        val s = similar[i]
+                                        PosterCard(s, onClick = { rememberSpot("similar", i); nav.push(Screen.Detail(s.id)) }, width = UiScale.posterWidth, showTitle = true,
+                                            focusRequester = backReqFor("similar", i))
                                     }
                                 }
                             }

@@ -1,5 +1,7 @@
 package org.phoenicx.nova.ui.screens
 
+import org.phoenicx.nova.ui.components.wrapRowFocus
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.graphicsLayer
@@ -48,6 +50,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -136,6 +140,9 @@ private fun TorviaSearchTab(nav: Navigator) {
     var runs by remember { mutableIntStateOf(0) }
     val fieldRequester = remember { FocusRequester() }
     val fromNav = remember { nav.focusNavOnEnter }
+    // Back from a title: that poster gets the highlight again
+    val gf = org.phoenicx.nova.ui.components.rememberGridFocus(nav, "torvia-search", firstOnOpen = false)
+    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
 
     LaunchedEffect(Unit) { if (!fromNav && results.isEmpty()) { delay(150); runCatching { fieldRequester.requestFocus() } } }
     LaunchedEffect(query, runs) {
@@ -167,19 +174,22 @@ private fun TorviaSearchTab(nav: Navigator) {
         query.trim().length >= 2 && results.isEmpty() && !loading -> CenterMessage("Nothing found", "Try another name, or paste a TMDB or IMDb link")
         results.isEmpty() -> CenterMessage("Find a movie or show to add", "Search by name, or paste a TMDB or IMDb link")
         else -> LazyVerticalGrid(
+            state = grid,
             columns = GridCells.Adaptive(UiScale.posterWidth.dp),
             contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 24.dp, bottom = 60.dp),
             horizontalArrangement = Arrangement.spacedBy(if (Lay.phone) 12.dp else 20.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().wrapRowFocus(),
         ) {
-            items(results, key = { "${it.type}-${it.tmdbId}" }) { t ->
-                TmdbPosterCard(t.title, t.year, t.poster, if (t.isTv) "Series" else "Movie") {
+            items(results.size, key = { "${results[it].type}-${results[it].tmdbId}" }) { i ->
+                val t = results[i]
+                TmdbPosterCard(t.title, t.year, t.poster, if (t.isTv) "Series" else "Movie", gf.req(i), { gf.focused(i) }) {
                     nav.push(Screen.TorviaTitle(t.type, t.tmdbId, t.title))
                 }
             }
         }
     }
+    org.phoenicx.nova.ui.components.GridFocusEffect(gf, results.isNotEmpty()) { grid.scrollToItem(it.coerceAtMost(results.size - 1)) }
 }
 
 // ============================================================================ Add a link (phones & tablets)
@@ -447,10 +457,13 @@ private fun StepTitle(n: String, text: String) {
 }
 
 @Composable
-private fun TmdbPosterCard(title: String, year: Int?, poster: String?, badge: String?, onClick: () -> Unit) {
+private fun TmdbPosterCard(
+    title: String, year: Int?, poster: String?, badge: String?,
+    requester: FocusRequester? = null, onFocus: (() -> Unit)? = null, onClick: () -> Unit,
+) {
     val w = UiScale.posterWidth
     Column(Modifier.width(w.dp)) {
-        FocusSurface(onClick = onClick, modifier = Modifier.size(w.dp, (w * 1.5f).dp)) { _ ->
+        FocusSurface(onClick = onClick, modifier = Modifier.size(w.dp, (w * 1.5f).dp), focusRequester = requester, onFocused = onFocus) { _ ->
             Box(Modifier.fillMaxSize().background(Nova.Surface))
             if (poster != null) {
                 AsyncImage(poster, title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -483,6 +496,16 @@ private fun TorviaAddsTab(nav: Navigator) {
     var reload by remember { mutableIntStateOf(0) }
     var confirm by remember { mutableStateOf<TorviaAdd?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
+    // After the "Remove?" box closes, put the highlight back on that row (or the one that took its place)
+    var rowFocus by remember { mutableIntStateOf(-1) }
+    val rowReq = remember { FocusRequester() }
+    LaunchedEffect(rowFocus, data) {
+        if (rowFocus < 0 || confirm != null) return@LaunchedEffect
+        repeat(5) {
+            delay(80)
+            if (runCatching { rowReq.requestFocus() }.isSuccess) { rowFocus = -1; return@LaunchedEffect }
+        }
+    }
 
     LaunchedEffect(everyone, userFilter, reload) {
         error = null
@@ -519,10 +542,12 @@ private fun TorviaAddsTab(nav: Navigator) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(d.items, key = { it.id }) { a ->
+                    items(d.items.size, key = { d.items[it].id }) { i ->
+                        val a = d.items[i]
                         AddRow(a, showUser = everyone,
                             onOpen = a.jellyfinItemId?.let { id -> { nav.push(Screen.Detail(id)) } },
-                            onRemove = if (a.canRemove) ({ confirm = a }) else null,
+                            onRemove = if (a.canRemove) ({ rowFocus = -1; confirm = a }) else null,
+                            focusRequester = if (i == rowFocus.coerceAtMost(d.items.lastIndex)) rowReq else null,
                         )
                     }
                 }
@@ -534,21 +559,26 @@ private fun TorviaAddsTab(nav: Navigator) {
                 body = "This deletes it from TorBox and it leaves Jellyfin. If it was already in TorBox before, or someone else added it too, it stays in TorBox.",
                 confirmText = "Remove",
                 onConfirm = {
+                    val idx = data?.items?.indexOfFirst { it.id == a.id } ?: -1
                     confirm = null
                     scope.launch {
                         notice = runCatching { torvia.remove(a.id).message }.getOrElse { it.message ?: "Couldn't remove it." }
                         reload++
                         nav.refreshTorvia()
+                        rowFocus = idx.coerceAtLeast(0)
                     }
                 },
-                onDismiss = { confirm = null },
+                onDismiss = {
+                    rowFocus = data?.items?.indexOfFirst { it.id == a.id } ?: -1
+                    confirm = null
+                },
             )
         }
     }
 }
 
 @Composable
-private fun AddRow(a: TorviaAdd, showUser: Boolean, onOpen: (() -> Unit)?, onRemove: (() -> Unit)?) {
+private fun AddRow(a: TorviaAdd, showUser: Boolean, onOpen: (() -> Unit)?, onRemove: (() -> Unit)?, focusRequester: FocusRequester? = null) {
     Row(
         Modifier.fillMaxWidth()
             .background(Color(0x12FFFFFF), RoundedCornerShape(16.dp))
@@ -590,9 +620,9 @@ private fun AddRow(a: TorviaAdd, showUser: Boolean, onOpen: (() -> Unit)?, onRem
         }
         if (!Lay.phone) {
             Spacer(Modifier.width(12.dp))
-            if (onOpen != null) NovaButton("Open", Icons.Outlined.PlayArrow, onClick = onOpen)
+            if (onOpen != null) NovaButton("Open", Icons.Outlined.PlayArrow, focusRequester = focusRequester, onClick = onOpen)
             if (onOpen != null && onRemove != null) Spacer(Modifier.width(10.dp))
-            if (onRemove != null) NovaButton("Remove", Icons.Outlined.Delete, onClick = onRemove)
+            if (onRemove != null) NovaButton("Remove", Icons.Outlined.Delete, focusRequester = if (onOpen == null) focusRequester else null, onClick = onRemove)
         }
     }
 }
@@ -651,7 +681,7 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
         if (!waiting) return@LaunchedEffect
         repeat(18) {
             delay(10_000)
-            torvia.inLibrary(type, tmdbId)?.let { inLibraryId = it; waiting = false; return@LaunchedEffect }
+            torvia.inLibrary(type, tmdbId)?.let { inLibraryId = it; waiting = false; focusAfterAdd++; return@LaunchedEffect }
         }
         waiting = false
     }
@@ -660,17 +690,54 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
     val shown = f.apply(all)
     fun set(n: ReleaseFilter) { f = n; note = null }
 
-    BackHandler(enabled = picked != null) { picked = null }
+    BackHandler(enabled = picked != null && !adding) { picked = null }
 
+    // TV highlight: the first release when the page opens; after adding, "Open in library" (or the same release)
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val firstReq = remember { FocusRequester() }
+    val openReq = remember { FocusRequester() }
+    var lastPickedKey by remember { mutableStateOf<String?>(null) }
+    val pickedReq = remember { FocusRequester() }
+    var focusedFirst by remember { mutableStateOf(false) }
+    var focusAfterAdd by remember { mutableIntStateOf(0) }
+    val d0 = details
+    // Rows in the list: header, (season/episode), (filters), "Releases" title, then the releases
+    val releasesStart = if (d0 == null) 0 else 1 +
+        (if (d0.title.isTv && d0.seasons.isNotEmpty()) 1 else 0) + (if (all.isNotEmpty()) 1 else 0) + 1
+    LaunchedEffect(details, releases) {
+        if (focusedFirst || details == null || releases == null) return@LaunchedEffect
+        focusedFirst = true
+        delay(120)
+        if (shown.isNotEmpty()) {
+            // Show the filters above the first release too
+            runCatching { listState.scrollToItem((releasesStart - 2).coerceAtLeast(0)) }
+            repeat(5) { delay(80); if (runCatching { firstReq.requestFocus() }.isSuccess) return@LaunchedEffect }
+        }
+        runCatching { listState.scrollToItem(0) }
+        delay(80)
+        runCatching { openReq.requestFocus() }
+    }
+    LaunchedEffect(focusAfterAdd) {
+        if (focusAfterAdd == 0) return@LaunchedEffect
+        delay(120)
+        if (inLibraryId != null) {
+            runCatching { listState.scrollToItem(0) }
+            repeat(5) { delay(80); if (runCatching { openReq.requestFocus() }.isSuccess) return@LaunchedEffect }
+        }
+        repeat(5) { delay(80); if (runCatching { pickedReq.requestFocus() }.isSuccess) return@LaunchedEffect }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+    // The top bar stays put while the list scrolls (like every other page)
+    TopNav(nav, Screen.Torvia)
     Box(Modifier.fillMaxSize()) {
         val d = details
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 60.dp)) {
-            item { TopNav(nav, Screen.Torvia) }
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 60.dp)) {
             if (d == null) {
                 item { if (error != null) CenterMessage("Couldn't open $name", error) else NovaLoader() }
                 return@LazyColumn
             }
-            item { TitleHeader(d.title, inLibraryId, waiting, result, nav) }
+            item { TitleHeader(d.title, inLibraryId, waiting, result, nav, openReq) }
 
             if (d.title.isTv && d.seasons.isNotEmpty()) {
                 item {
@@ -710,7 +777,15 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
                 all.isEmpty() -> item { Text(if (d.title.isTv && episode == 0) "No whole-season packs cached on TorBox right now. Pick an episode above to see single episodes." else "No cached releases found on TorBox for this.", style = NovaType.Body, color = Nova.TextDim, modifier = Modifier.padding(horizontal = Lay.side)) }
                 shown.isEmpty() -> item { Text("No releases match these filters.", style = NovaType.Body, color = Nova.TextDim, modifier = Modifier.padding(horizontal = Lay.side)) }
                 else -> items(shown, key = { it.hash + it.fileName }) { r ->
-                    ReleaseRow(r, best = f.sort == "best" && !r.isCam && r === shown.first()) { picked = r }
+                    val key = r.hash + r.fileName
+                    ReleaseRow(
+                        r, best = f.sort == "best" && !r.isCam && r === shown.first(),
+                        focusRequester = when {
+                            key == lastPickedKey -> pickedReq
+                            r === shown.first() -> firstReq
+                            else -> null
+                        },
+                    ) { lastPickedKey = key; picked = r }
                 }
             }
         }
@@ -733,16 +808,18 @@ fun TorviaTitleScreen(nav: Navigator, type: String, tmdbId: Int, name: String) {
                             nav.refreshTorvia()
                             if (inLibraryId == null) waiting = true
                         }
+                        focusAfterAdd++
                     }
                 },
-                onDismiss = { if (!adding) picked = null },
+                onDismiss = { if (!adding) { picked = null; focusAfterAdd++ } },
             )
         }
+    }
     }
 }
 
 @Composable
-private fun TitleHeader(t: TorviaTitle, inLibraryId: String?, waiting: Boolean, result: String?, nav: Navigator) {
+private fun TitleHeader(t: TorviaTitle, inLibraryId: String?, waiting: Boolean, result: String?, nav: Navigator, openReq: FocusRequester) {
     Box(Modifier.fillMaxWidth()) {
         if (t.backdrop != null) {
             AsyncImage(t.backdrop, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(if (Lay.phone) 200.dp else 260.dp))
@@ -776,7 +853,7 @@ private fun TitleHeader(t: TorviaTitle, inLibraryId: String?, waiting: Boolean, 
             Spacer(Modifier.height(8.dp))
         }
         when {
-            inLibraryId != null -> NovaButton("Open in library", Icons.Outlined.PlayArrow, primary = true) { nav.push(Screen.Detail(inLibraryId)) }
+            inLibraryId != null -> NovaButton("Open in library", Icons.Outlined.PlayArrow, primary = true, focusRequester = openReq) { nav.push(Screen.Detail(inLibraryId)) }
             waiting -> Text("Waiting for it to appear in Jellyfin…", style = NovaType.Label, color = Nova.TextDim)
         }
     }
@@ -878,9 +955,10 @@ private fun ChipRow(label: String, chips: @Composable () -> Unit) {
 }
 
 @Composable
-private fun ReleaseRow(r: TorviaRelease, best: Boolean, onClick: () -> Unit) {
+private fun ReleaseRow(r: TorviaRelease, best: Boolean, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
     FocusSurface(
         onClick = onClick,
+        focusRequester = focusRequester,
         modifier = Modifier.fillMaxWidth().padding(horizontal = Lay.side, vertical = 5.dp),
         shape = RoundedCornerShape(16.dp),
         focusedScale = 1.01f,
@@ -960,11 +1038,14 @@ private fun AddDialog(
                 Spacer(Modifier.width(10.dp))
                 Text("Adding to TorBox… this can take up to half a minute", style = NovaType.Label, color = Nova.TextDim)
             }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                NovaButton("Add", Icons.Outlined.Add, primary = true, focusRequester = addReq) { onAdd(tag.ifBlank { null }) }
-                NovaButton("Cancel", onClick = onDismiss)
+            Spacer(Modifier.height(12.dp))
+        }
+        // The Add button stays in place while it works, so the highlight doesn't fall off the box
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            NovaButton(if (busy) "Adding…" else "Add", Icons.Outlined.Add, primary = true, focusRequester = addReq) {
+                if (!busy) onAdd(tag.ifBlank { null })
             }
+            if (!busy) NovaButton("Cancel", onClick = onDismiss)
         }
     }
 }
@@ -987,6 +1068,7 @@ private fun ConfirmDialog(title: String, body: String, confirmText: String, onCo
 }
 
 /** A centred panel over a dimmed screen; tap outside (touch) closes it */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun DialogFrame(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     Box(
@@ -997,6 +1079,9 @@ private fun DialogFrame(onDismiss: () -> Unit, content: @Composable () -> Unit) 
     ) {
         Column(
             Modifier
+                // Remote: ▲ ▼ ◀ ▶ can't leave the box for the page behind it
+                .focusProperties { exit = { FocusRequester.Cancel } }
+                .focusGroup()
                 .padding(20.dp)
                 .widthIn(max = 620.dp)
                 .fillMaxWidth()

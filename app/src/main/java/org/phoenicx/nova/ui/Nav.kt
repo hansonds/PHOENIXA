@@ -49,6 +49,17 @@ class Navigator(start: Screen) {
     /** Remembers where you were in each library grid: libraryId -> (sortIndex, itemIndex) */
     val libraryPos = mutableMapOf<String, Pair<Int, Int>>()
 
+    /** Last highlighted tile of other grids (Library page, Favorites, Search…), for coming Back */
+    val gridPos = mutableMapOf<String, Int>()
+
+    /** Movie / series page: the row and tile you opened (similar, cast, collection), for coming Back */
+    val detailPos = mutableMapOf<String, Pair<String, Int>>()
+
+    /** Search and Favorites remember what was on screen while you open a title and come back */
+    var searchQuery = ""
+    var searchResults: List<org.phoenicx.nova.data.Item> = emptyList()
+    var favFilter = 0
+
     fun push(s: Screen) { stack.add(s) }
 
     /** Top-level tabs replace everything above Home. */

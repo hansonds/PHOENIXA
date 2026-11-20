@@ -49,13 +49,22 @@ class GlassState {
     var visible by mutableStateOf(false); private set
     var moves by mutableStateOf(0); private set
     private var owner: Any? = null
+    private var waitingForPlace = false
 
-    fun claim(token: Any, shape: Shape, scale: Float) {
-        if (owner !== token) moves++
+    /** [placed]: whether we already know where the new tile is (a tile that only just scrolled in may not be placed yet) */
+    fun claim(token: Any, shape: Shape, scale: Float, placed: Boolean = true) {
+        val changed = owner !== token
         owner = token; this.shape = shape; this.scale = scale; visible = true
+        if (!changed) return
+        // Start the glide only once we know where to glide to, so it never just jumps
+        if (placed) moves++ else waitingForPlace = true
     }
 
-    fun update(token: Any, r: Rect) { if (owner === token) rect = r }
+    fun update(token: Any, r: Rect) {
+        if (owner !== token) return
+        rect = r
+        if (waitingForPlace) { waitingForPlace = false; moves++ }
+    }
 
     fun release(token: Any) {
         if (owner === token) { owner = null; visible = false }

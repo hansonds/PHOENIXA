@@ -67,7 +67,9 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
     val saved = remember { if (fromNav) null else nav.libraryPos[lib.id] }
     var sortIdx by remember { mutableIntStateOf(saved?.first ?: 0) }
     val restoreRequester = remember { androidx.compose.ui.focus.FocusRequester() }
-    var restoreIndex by remember { mutableIntStateOf(saved?.second ?: -1) }
+    // Back: the poster you opened. Opened from the Library page: the first poster. From the top bar: stay up there.
+    val restoreTarget = remember { saved?.second ?: if (fromNav) -1 else 0 }
+    var restoreIndex by remember { mutableIntStateOf(restoreTarget) }
     var items by remember { mutableStateOf<List<Item>>(emptyList()) }
     var total by remember { mutableIntStateOf(-1) }
     var loading by remember { mutableStateOf(false) }
@@ -104,8 +106,10 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
         }
         grid.scrollToItem(target.coerceIn(0, (items.size - 1).coerceAtLeast(0)))
         if (target >= 0) {
-            delay(120)
-            runCatching { restoreRequester.requestFocus() }
+            repeat(5) {
+                delay(80)
+                if (runCatching { restoreRequester.requestFocus() }.isSuccess) return@repeat
+            }
             restoreIndex = -1
         }
     }
@@ -142,7 +146,7 @@ fun LibraryScreen(nav: Navigator, lib: Library) {
                         },
                         width = UiScale.posterWidth,
                         showTitle = true,
-                        focusRequester = if (index == (saved?.second ?: -2)) restoreRequester else null,
+                        focusRequester = if (index == restoreTarget) restoreRequester else null,
                     )
                 }
             } }

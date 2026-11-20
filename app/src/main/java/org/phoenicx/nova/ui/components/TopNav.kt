@@ -37,6 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.layout.positionInParent
@@ -75,6 +77,7 @@ fun NovaWordmark() {
     )
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
     val selReq = remember { FocusRequester() }
@@ -149,6 +152,9 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
                     .clip(RoundedCornerShape(26.dp))
                     .background(Nova.Surface.copy(alpha = 0.36f))
                     .border(1.dp, Nova.Stroke, RoundedCornerShape(26.dp))
+                    // Coming up from the page, the highlight lands on the current page's item
+                    .focusProperties { enter = { if (selIndex >= 0) selReq else FocusRequester.Default } }
+                    .focusGroup()
                     .onFocusChanged { barFocused = it.hasFocus }
                     .padding(5.dp),
             ) {

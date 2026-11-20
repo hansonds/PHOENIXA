@@ -19,11 +19,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.composed
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
@@ -80,7 +84,11 @@ fun FocusSurface(
     LaunchedEffect(isFocused) {
         if (isFocused) {
             onFocused?.invoke()
-            if (useShared) { shared!!.claim(token, shape, focusedScale); lastBounds[0]?.let { shared.update(token, it) } }
+            if (useShared) {
+                val known = lastBounds[0]
+                shared!!.claim(token, shape, focusedScale, placed = known != null)
+                known?.let { shared.update(token, it) }
+            }
             else if (tv && decorate) { glare.snapTo(-0.6f); glare.animateTo(1.6f, tween(750, easing = FastOutSlowInEasing)) }
         } else if (useShared) shared!!.release(token)
     }
@@ -176,16 +184,65 @@ fun EdgeScroll(startMargin: Dp, endMargin: Dp, content: @Composable () -> Unit) 
  */
 fun Modifier.wrapRowFocus(): Modifier = this.composed {
     val fm = androidx.compose.ui.platform.LocalFocusManager.current
-    Modifier.onPreviewKeyEvent { e ->
+    // Whether the highlight is still on one of this grid's tiles
+    val inside = remember { booleanArrayOf(false) }
+    Modifier.onFocusChanged { inside[0] = it.hasFocus }.onPreviewKeyEvent { e ->
         if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
         when (e.key) {
-            // Always the next tile in reading order (looking "to the right" could jump up to the sort buttons)
-            androidx.compose.ui.input.key.Key.DirectionRight ->
-                fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)
+            // Always the next tile in reading order (looking "to the right" could jump up to the sort buttons).
+            // On the very last tile, stay there instead of jumping back up to the top bar.
+            androidx.compose.ui.input.key.Key.DirectionRight -> {
+                if (fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Next) && !inside[0]) {
+                    fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Previous)
+                }
+                true
+            }
             androidx.compose.ui.input.key.Key.DirectionLeft ->
                 if (fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)) true
                 else fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Previous)
             else -> false
+        }
+    }
+}
+
+/**
+ * TV: which tile of a grid gets the highlight when a page opens (the first one) or when you come
+ * Back to it (the one you opened). Pages opened from the top bar keep the highlight on the top bar.
+ */
+class GridFocus(private val save: (Int) -> Unit, val target: Int) {
+    val requester = FocusRequester()
+    /** The requester for tile [i] (only the tile to highlight gets one) */
+    fun req(i: Int): FocusRequester? = if (i == target) requester else null
+    /** Call when tile [i] gets the highlight, so Back can return to it */
+    fun focused(i: Int) = save(i)
+}
+
+@Composable
+fun rememberGridFocus(nav: org.phoenicx.nova.ui.Navigator, key: String, firstOnOpen: Boolean = true): GridFocus {
+    val fromNav = remember { nav.focusNavOnEnter }
+    return remember(key) {
+        if (fromNav) nav.gridPos.remove(key)
+        val saved = nav.gridPos[key]
+        GridFocus({ nav.gridPos[key] = it }, when {
+            fromNav -> -1
+            saved != null -> saved
+            firstOnOpen -> 0
+            else -> -1
+        })
+    }
+}
+
+/** Highlights the chosen tile once the grid has its items ([scrollTo] brings it on screen first) */
+@Composable
+fun GridFocusEffect(gf: GridFocus, ready: Boolean, scrollTo: suspend (Int) -> Unit = {}) {
+    var done by remember { mutableStateOf(false) }
+    LaunchedEffect(ready) {
+        if (!ready || done || gf.target < 0) return@LaunchedEffect
+        done = true
+        runCatching { scrollTo(gf.target) }
+        repeat(5) {
+            delay(80)
+            if (runCatching { gf.requester.requestFocus() }.isSuccess) return@LaunchedEffect
         }
     }
 }

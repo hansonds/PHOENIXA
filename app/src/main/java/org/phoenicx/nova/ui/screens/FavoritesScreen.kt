@@ -45,7 +45,10 @@ private val filters = listOf(
 
 @Composable
 fun FavoritesScreen(nav: Navigator) {
-    var filter by remember { mutableIntStateOf(0) }
+    var filter by remember { mutableIntStateOf(nav.favFilter) }
+    LaunchedEffect(filter) { nav.favFilter = filter }
+    val gf = org.phoenicx.nova.ui.components.rememberGridFocus(nav, "fav")
+    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
     var items by remember { mutableStateOf<List<Item>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -67,16 +70,20 @@ fun FavoritesScreen(nav: Navigator) {
             error != null -> CenterMessage("Couldn't load favorites", error)
             list.isEmpty() -> CenterMessage("No favorites yet", "Press ♥ on any movie or show to save it here")
             else -> LazyVerticalGrid(
+                state = grid,
                 columns = GridCells.Adaptive(UiScale.posterWidth.dp),
                 contentPadding = PaddingValues(start = Lay.side, end = Lay.side, top = 18.dp, bottom = 60.dp),
                 horizontalArrangement = Arrangement.spacedBy(if (Lay.phone) 12.dp else 20.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
                 modifier = Modifier.fillMaxSize().wrapRowFocus(),
             ) {
-                items(list, key = { it.id }) { item ->
-                    PosterCard(item, onClick = { nav.push(Screen.Detail(item.id)) }, width = UiScale.posterWidth, showTitle = true)
+                items(list.size, key = { list[it].id }) { i ->
+                    val item = list[i]
+                    PosterCard(item, onClick = { nav.push(Screen.Detail(item.id)) }, width = UiScale.posterWidth, showTitle = true,
+                        focusRequester = gf.req(i), onFocused = { gf.focused(i) })
                 }
             }
         }
+        org.phoenicx.nova.ui.components.GridFocusEffect(gf, !list.isNullOrEmpty()) { grid.scrollToItem(it.coerceAtMost((list?.size ?: 1) - 1)) }
     }
 }
