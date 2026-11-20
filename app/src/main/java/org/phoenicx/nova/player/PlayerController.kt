@@ -93,10 +93,43 @@ class PlayerController(private val context: Context) {
     fun changeSpeed(v: Float) {
         speed = v
         player.setPlaybackSpeed(v)
+        // Dolby / DTS sent straight to the TV or soundbar can't be sped up or slowed down.
+        // Switch to decoding the sound in the app (and carry on from the same moment).
+        if (v != 1f && !pcmOnly && player.audioFormat?.sampleMimeType in passthroughTypes) switchToPcm()
+    }
+
+    /** Audio decoded in the app (no passthrough), so the speed can be changed */
+    private var pcmOnly = false
+    private val passthroughTypes = setOf(
+        MimeTypes.AUDIO_AC3, MimeTypes.AUDIO_E_AC3, MimeTypes.AUDIO_E_AC3_JOC, MimeTypes.AUDIO_AC4,
+        MimeTypes.AUDIO_DTS, MimeTypes.AUDIO_DTS_HD, MimeTypes.AUDIO_DTS_EXPRESS, MimeTypes.AUDIO_TRUEHD,
+    )
+
+    private fun switchToPcm() {
+        val current = item ?: return
+        val pos = player.currentPosition.coerceAtLeast(0)
+        val keepMode = mode
+        val keepErrors = lastErrors.toList()
+        runCatching { player.release() }
+        pcmOnly = true
+        player = buildPlayer(preferExtensions)
+        player.setPlaybackSpeed(speed)
+        load(current.id, pos * 10_000, keepMode)
+        lastErrors.clear()
+        lastErrors += keepErrors
     }
 
     private fun buildPlayer(preferExtensions: Boolean): ExoPlayer {
-        val renderers = DefaultRenderersFactory(context)
+        val renderers = object : DefaultRenderersFactory(context) {
+            override fun buildAudioSink(
+                context: android.content.Context, enableFloatOutput: Boolean, enableAudioOutputPlaybackParams: Boolean,
+            ): androidx.media3.exoplayer.audio.AudioSink? =
+                if (pcmOnly) {
+                    // No context = no passthrough: everything is decoded to normal audio, which can change speed
+                    @Suppress("DEPRECATION")
+                    androidx.media3.exoplayer.audio.DefaultAudioSink.Builder().build()
+                } else super.buildAudioSink(context, enableFloatOutput, enableAudioOutputPlaybackParams)
+        }
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(
                 if (preferExtensions) DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
@@ -135,6 +168,13 @@ class PlayerController(private val context: Context) {
             .setSeekForwardIncrementMs(10_000)
             .build()
         player.addListener(object : Player.Listener {
+            override fun onPlaybackParametersChanged(p: androidx.media3.common.PlaybackParameters) {
+                // The chosen speed didn't take (sound going straight to the TV): decode it in the app instead
+                if (!pcmOnly && speed != 1f && kotlin.math.abs(p.speed - speed) > 0.01f) {
+                    android.os.Handler(android.os.Looper.getMainLooper()).post { if (!pcmOnly) switchToPcm() }
+                }
+            }
+
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
                 report(paused = !playing)

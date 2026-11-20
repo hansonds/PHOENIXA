@@ -382,7 +382,9 @@ private fun PlayerScreen(
                         else -> {}
                     }
                 }
-                if (!overlay) {
+                // Controls hidden and no panel open: the remote controls the video directly.
+                // (With a panel open, its buttons get the keys, even if the controls have faded away.)
+                if (!overlay && panel == Panel.None) {
                     when (e.key) {
                         // Play / pause when OK is let go (so holding it can open the quick options instead)
                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { okDown = true; true }
