@@ -37,6 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.asPaddingValues
@@ -105,6 +107,8 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
                 modifier = Modifier.height(20.dp),
             )
             Spacer(Modifier.weight(1f))
+            BatteryBadge()
+            Spacer(Modifier.width(14.dp))
             Clock(big = true)
         }
         return
@@ -261,3 +265,65 @@ fun Clock(big: Boolean = false) {
 
 @Suppress("unused")
 private fun Library.isVideo() = collectionType in setOf("movies", "tvshows")
+
+/**
+ * Phones: battery level next to the clock, drawn in the theme's colours.
+ * Red when low, with a small bolt while charging. (Read from the phone; no permission needed.)
+ */
+@Composable
+fun BatteryBadge() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var level by remember { mutableStateOf(-1) }
+    var charging by remember { mutableStateOf(false) }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        fun read(i: android.content.Intent?) {
+            if (i == null) return
+            val l = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
+            val s = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100)
+            if (l >= 0 && s > 0) level = (l * 100 / s)
+            val st = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1)
+            charging = st == android.os.BatteryManager.BATTERY_STATUS_CHARGING || st == android.os.BatteryManager.BATTERY_STATUS_FULL
+        }
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, i: android.content.Intent?) = read(i)
+        }
+        read(androidx.core.content.ContextCompat.registerReceiver(
+            context, receiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED),
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        ))
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+    if (level < 0) return
+    val low = level <= 15 && !charging
+    val fillColor = if (low) Color(0xFFFF5A5A) else Nova.Cyan
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "$level%",
+            style = NovaType.Label.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+            color = if (low) fillColor else Nova.TextDim,
+        )
+        Spacer(Modifier.width(6.dp))
+        // Battery shape: outlined body with a fill for the level, and a small tip on the right
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(26.dp, 13.dp)
+                    .border(1.3.dp, Nova.TextDim, RoundedCornerShape(3.5.dp))
+                    .padding(2.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Box(
+                    Modifier.fillMaxHeight().fillMaxWidth((level / 100f).coerceIn(0.06f, 1f))
+                        .clip(RoundedCornerShape(1.5.dp))
+                        .background(Brush.horizontalGradient(listOf(fillColor.copy(alpha = 0.85f), fillColor)))
+                )
+                if (charging) {
+                    Icon(
+                        Icons.Filled.Bolt, null, tint = Color.White,
+                        modifier = Modifier.align(Alignment.Center).size(11.dp),
+                    )
+                }
+            }
+            Box(Modifier.padding(start = 1.dp).size(2.dp, 5.dp).clip(RoundedCornerShape(1.dp)).background(Nova.TextDim))
+        }
+    }
+}
