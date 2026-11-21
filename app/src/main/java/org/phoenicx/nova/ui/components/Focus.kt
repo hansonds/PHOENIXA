@@ -92,7 +92,7 @@ fun FocusSurface(
             else if (tv && decorate) { glare.snapTo(-0.6f); glare.animateTo(1.6f, tween(750, easing = FastOutSlowInEasing)) }
         } else if (useShared) shared!!.release(token)
     }
-    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { shared?.release(token) } }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { shared?.release(token, gone = true) } }
 
     Box(
         modifier

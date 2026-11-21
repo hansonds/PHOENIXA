@@ -50,6 +50,8 @@ class GlassState {
     var moves by mutableStateOf(0); private set
     /** true right after a page change: disappear at once instead of fading where the old card was */
     var instant by mutableStateOf(false); private set
+    /** the new card hasn't been laid out yet: draw nothing rather than a frame at the old card's spot */
+    var pending by mutableStateOf(false); private set
     private var owner: Any? = null
     private var waitingForPlace = false
     // The card that was picked when we left a page: it keeps its highlight while the old page fades out,
@@ -64,23 +66,24 @@ class GlassState {
         owner = token; this.shape = shape; this.scale = scale; visible = true
         if (!changed) return
         // Start the glide only once we know where to glide to, so it never just jumps
-        if (placed) moves++ else waitingForPlace = true
+        if (placed) { pending = false; moves++ } else { waitingForPlace = true; pending = true }
     }
 
     fun update(token: Any, r: Rect) {
         if (owner !== token) return
         rect = r
-        if (waitingForPlace) { waitingForPlace = false; moves++ }
+        if (waitingForPlace) { waitingForPlace = false; pending = false; moves++ }
     }
 
     /** A new page is opening: hide the glass right away; it comes back on the new page's highlighted card */
     fun leavePage() {
-        left = owner; owner = null; waitingForPlace = false
+        left = owner; owner = null; waitingForPlace = false; pending = false
         instant = true; visible = false
     }
 
-    fun release(token: Any) {
-        if (owner === token) { owner = null; visible = false }
+    /** [gone]: the card itself was removed (a closed menu, a reloaded list): vanish at once, no fading ghost */
+    fun release(token: Any, gone: Boolean = false) {
+        if (owner === token) { owner = null; waitingForPlace = false; pending = false; instant = gone; visible = false }
     }
 }
 
@@ -135,7 +138,7 @@ fun BoxScope.GlassLayer(state: GlassState) {
     val gh = (th + dh.value).coerceAtLeast(1f)
     if (state.visible) drawn[0] = Rect(gx, gy, gx + gw, gy + gh)
 
-    if (alpha <= 0.01f) return
+    if (alpha <= 0.01f || state.pending) return
     // Google TV style: a thin frosted glass frame around the highlighted tile, tinted with the theme colour,
     // plus a light glassy sheen over the tile itself
     val pad = with(d) { 4.dp.toPx() }
