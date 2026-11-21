@@ -148,6 +148,8 @@ fun NovaRoot() {
         nav.current != Screen.Login && nav.current != Screen.Profiles
     // TV: the shared glass pane that glides between highlighted cards
     val glass = remember { org.phoenicx.nova.ui.components.GlassState() }
+    // Opening another page: the glass must not stay on the picked card while the old page fades away
+    remember(nav.current) { glass.leavePage(); 0 }
     androidx.compose.runtime.CompositionLocalProvider(
         org.phoenicx.nova.ui.components.LocalGlass provides (if (app.isTv) glass else null)
     ) {

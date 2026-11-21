@@ -48,11 +48,18 @@ class GlassState {
     var scale by mutableStateOf(1f); private set
     var visible by mutableStateOf(false); private set
     var moves by mutableStateOf(0); private set
+    /** true right after a page change: disappear at once instead of fading where the old card was */
+    var instant by mutableStateOf(false); private set
     private var owner: Any? = null
     private var waitingForPlace = false
+    // The card that was picked when we left a page: it keeps its highlight while the old page fades out,
+    // so it must not pull the glass back onto the new page
+    private var left: Any? = null
 
     /** [placed]: whether we already know where the new tile is (a tile that only just scrolled in may not be placed yet) */
     fun claim(token: Any, shape: Shape, scale: Float, placed: Boolean = true) {
+        if (token === left) return
+        left = null; instant = false
         val changed = owner !== token
         owner = token; this.shape = shape; this.scale = scale; visible = true
         if (!changed) return
@@ -66,6 +73,12 @@ class GlassState {
         if (waitingForPlace) { waitingForPlace = false; moves++ }
     }
 
+    /** A new page is opening: hide the glass right away; it comes back on the new page's highlighted card */
+    fun leavePage() {
+        left = owner; owner = null; waitingForPlace = false
+        instant = true; visible = false
+    }
+
     fun release(token: Any) {
         if (owner === token) { owner = null; visible = false }
     }
@@ -77,7 +90,7 @@ val LocalGlass = staticCompositionLocalOf<GlassState?> { null }
 fun BoxScope.GlassLayer(state: GlassState) {
     val target = state.rect ?: return
     val d = LocalDensity.current
-    val alpha by animateFloatAsState(if (state.visible) 1f else 0f, tween(if (state.visible) 120 else 200), label = "glassAlpha")
+    val alpha by animateFloatAsState(if (state.visible) 1f else 0f, tween(if (state.visible) 120 else if (state.instant) 0 else 200), label = "glassAlpha")
     val glare = remember { Animatable(-1f) }
 
     // The card grows a little when highlighted: make the glass match that size
