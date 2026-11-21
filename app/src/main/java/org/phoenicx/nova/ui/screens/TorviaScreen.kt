@@ -463,7 +463,7 @@ private fun TmdbPosterCard(
 ) {
     val w = UiScale.posterWidth
     Column(Modifier.width(w.dp)) {
-        FocusSurface(onClick = onClick, modifier = Modifier.size(w.dp, (w * 1.5f).dp), focusRequester = requester, onFocused = onFocus) { _ ->
+        FocusSurface(onClick = onClick, modifier = Modifier.size(w.dp, (w * 1.5f).dp), focusRequester = requester, onFocused = onFocus, tile = true) { _ ->
             Box(Modifier.fillMaxSize().background(Nova.Surface))
             if (poster != null) {
                 AsyncImage(poster, title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())

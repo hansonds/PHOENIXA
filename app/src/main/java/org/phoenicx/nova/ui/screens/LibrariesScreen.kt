@@ -101,7 +101,7 @@ private fun Tile(
     Column(Modifier.fillMaxWidth()) {
         FocusSurface(
             onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), shape = RoundedCornerShape(14.dp),
-            focusRequester = requester, onFocused = onFocus,
+            focusRequester = requester, onFocused = onFocus, tile = true,
         ) { _ ->
             if (image != null) {
                 ShimmerBox(Modifier.fillMaxSize())

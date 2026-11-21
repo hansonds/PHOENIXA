@@ -59,6 +59,8 @@ fun FocusSurface(
     focusRequester: FocusRequester? = null,
     onFocused: (() -> Unit)? = null,
     decorate: Boolean = true,
+    /** a movie / series / library tile: the TV glass hops between these */
+    tile: Boolean = false,
     content: @Composable BoxScope.(focused: Boolean) -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -86,7 +88,7 @@ fun FocusSurface(
             onFocused?.invoke()
             if (useShared) {
                 val known = lastBounds[0]
-                shared!!.claim(token, shape, focusedScale, placed = known != null)
+                shared!!.claim(token, shape, focusedScale, placed = known != null, tile = tile)
                 known?.let { shared.update(token, it) }
             }
             else if (tv && decorate) { glare.snapTo(-0.6f); glare.animateTo(1.6f, tween(750, easing = FastOutSlowInEasing)) }

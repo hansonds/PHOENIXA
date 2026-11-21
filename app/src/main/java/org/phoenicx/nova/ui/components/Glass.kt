@@ -52,6 +52,10 @@ class GlassState {
     var instant by mutableStateOf(false); private set
     /** the new card hasn't been laid out yet: draw nothing rather than a frame at the old card's spot */
     var pending by mutableStateOf(false); private set
+    /** this move is from one movie/series/library tile to another: hop across instead of sliding */
+    var hop by mutableStateOf(false); private set
+    private var lastWasTile = false
+    private var lastMoveAt = 0L
     private var owner: Any? = null
     private var waitingForPlace = false
     // The card that was picked when we left a page: it keeps its highlight while the old page fades out,
@@ -59,12 +63,16 @@ class GlassState {
     private var left: Any? = null
 
     /** [placed]: whether we already know where the new tile is (a tile that only just scrolled in may not be placed yet) */
-    fun claim(token: Any, shape: Shape, scale: Float, placed: Boolean = true) {
+    fun claim(token: Any, shape: Shape, scale: Float, placed: Boolean = true, tile: Boolean = false) {
         if (token === left) return
         left = null; instant = false
         val changed = owner !== token
         owner = token; this.shape = shape; this.scale = scale; visible = true
         if (!changed) return
+        // Hop only tile → tile. Holding an arrow down (moves come quickly) just glides, so it never looks jittery.
+        val now = android.os.SystemClock.uptimeMillis()
+        hop = tile && lastWasTile && now - lastMoveAt > 200
+        lastWasTile = tile; lastMoveAt = now
         // Start the glide only once we know where to glide to, so it never just jumps
         if (placed) { pending = false; moves++ } else { waitingForPlace = true; pending = true }
     }
@@ -77,7 +85,7 @@ class GlassState {
 
     /** A new page is opening: hide the glass right away; it comes back on the new page's highlighted card */
     fun leavePage() {
-        left = owner; owner = null; waitingForPlace = false; pending = false
+        left = owner; owner = null; waitingForPlace = false; pending = false; lastWasTile = false
         instant = true; visible = false
     }
 
@@ -111,13 +119,37 @@ fun BoxScope.GlassLayer(state: GlassState) {
     val dw = remember { Animatable(0f) }
     val dh = remember { Animatable(0f) }
     val drawn = remember { arrayOfNulls<Rect>(1) }
+    // Tile → tile hop: 0..1 along a small arc, then a soft squash when it lands
+    val arc = remember { Animatable(1f) }
+    val arcHeight = remember { floatArrayOf(0f) }
+    val squash = remember { Animatable(0f) }
 
     LaunchedEffect(state.moves) {
         val prev = drawn[0]
         val now = latest.value
         if (prev == null || !state.visible) {
-            dx.snapTo(0f); dy.snapTo(0f); dw.snapTo(0f); dh.snapTo(0f)
+            dx.snapTo(0f); dy.snapTo(0f); dw.snapTo(0f); dh.snapTo(0f); arc.snapTo(1f); squash.snapTo(0f)
+        } else if (state.hop) coroutineScope {
+            dx.snapTo(prev.left - now.left); dy.snapTo(prev.top - now.top)
+            dw.snapTo(prev.width - now.width); dh.snapTo(prev.height - now.height)
+            squash.snapTo(0f)
+            // Jump: rises a little and drops onto the new tile, overshoots a touch and springs back
+            val dist = kotlin.math.abs(dx.value) + kotlin.math.abs(dy.value) * 0.5f
+            arcHeight[0] = with(d) { 10.dp.toPx() } + minOf(with(d) { 16.dp.toPx() }, dist * 0.12f)
+            arc.snapTo(0f)
+            val bounce = spring<Float>(dampingRatio = 0.6f, stiffness = 300f)
+            launch { dx.animateTo(0f, bounce) }
+            launch { dy.animateTo(0f, bounce) }
+            launch { dw.animateTo(0f, bounce) }
+            launch { dh.animateTo(0f, bounce) }
+            launch {
+                arc.animateTo(1f, tween(260, easing = androidx.compose.animation.core.LinearEasing))
+                // Landing: a quick soft squash
+                squash.snapTo(1f)
+                squash.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 700f))
+            }
         } else coroutineScope {
+            arc.snapTo(1f); squash.snapTo(0f)
             dx.snapTo(prev.left - now.left); dy.snapTo(prev.top - now.top)
             dw.snapTo(prev.width - now.width); dh.snapTo(prev.height - now.height)
             // A quick glide you can still see (about a quarter of a second), settling with a tiny bounce
@@ -132,11 +164,19 @@ fun BoxScope.GlassLayer(state: GlassState) {
     }
     LaunchedEffect(state.visible) { if (!state.visible) drawn[0] = null }
 
-    val gx = tl + dx.value
-    val gy = tt + dy.value
-    val gw = (tw + dw.value).coerceAtLeast(1f)
-    val gh = (th + dh.value).coerceAtLeast(1f)
-    if (state.visible) drawn[0] = Rect(gx, gy, gx + gw, gy + gh)
+    val p = arc.value
+    val lift = arcHeight[0] * 4f * p * (1f - p)
+    val bx = tl + dx.value
+    val by = tt + dy.value - lift
+    val bw = (tw + dw.value).coerceAtLeast(1f)
+    val bh = (th + dh.value).coerceAtLeast(1f)
+    if (state.visible) drawn[0] = Rect(bx, by, bx + bw, by + bh)
+    // Squash on landing: a little wider and shorter, resting on the tile's bottom edge
+    val sq = squash.value * 0.05f
+    val gw = bw * (1f + sq)
+    val gh = bh * (1f - sq)
+    val gx = bx - (gw - bw) / 2
+    val gy = by + (bh - gh)
 
     if (alpha <= 0.01f || state.pending) return
     // Google TV style: a thin frosted glass frame around the highlighted tile, tinted with the theme colour,
