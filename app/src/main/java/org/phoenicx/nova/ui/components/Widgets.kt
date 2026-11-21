@@ -307,7 +307,6 @@ fun PosterCard(
             modifier = Modifier.size(width.dp, (width * 1.5f).dp),
             focusRequester = focusRequester,
             onFocused = onFocused,
-            tile = true,
         ) { focused ->
             ShimmerBox(Modifier.fillMaxSize())
             AsyncImage(
@@ -358,7 +357,6 @@ fun LandscapeCard(
         modifier = modifier.size(width.dp, (width * 9f / 16f).dp),
         focusRequester = focusRequester,
         onFocused = onFocused,
-            tile = true,
     ) { focused ->
         ShimmerBox(Modifier.fillMaxSize())
         AsyncImage(

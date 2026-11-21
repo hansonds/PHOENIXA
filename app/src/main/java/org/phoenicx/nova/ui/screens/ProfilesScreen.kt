@@ -162,7 +162,7 @@ private fun kotlinx.coroutines.CoroutineScope.launchLogout(p: Profile) {
                 .url(p.server.trimEnd('/') + "/Sessions/Logout")
                 .header(
                     "Authorization",
-                    "MediaBrowser Client=\"PHOENIXA\", Device=\"${android.os.Build.MODEL}\", DeviceId=\"${p.deviceId}\", Version=\"1.0.0\", Token=\"${p.token}\"",
+                    "MediaBrowser Client=\"PHOENIXA\", Device=\"${org.phoenicx.nova.data.deviceName}\", DeviceId=\"${p.deviceId}\", Version=\"${org.phoenicx.nova.data.clientVersion}\", Token=\"${p.token}\"",
                 )
                 .post(ByteArray(0).toRequestBody())
                 .build()

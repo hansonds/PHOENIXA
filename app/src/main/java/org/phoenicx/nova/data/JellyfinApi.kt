@@ -50,8 +50,7 @@ class JellyfinApi(private val prefs: Prefs) {
     val isLoggedIn: Boolean get() = !prefs.token.isNullOrEmpty() && !prefs.userId.isNullOrEmpty()
 
     fun authHeader(tok: String? = prefs.token): String {
-        val device = (Build.MODEL ?: "Android TV").replace("\"", "")
-        val base = "MediaBrowser Client=\"PHOENIXA\", Device=\"$device\", DeviceId=\"${prefs.deviceId}\", Version=\"1.0.0\""
+        val base = "MediaBrowser Client=\"PHOENIXA\", Device=\"$deviceName\", DeviceId=\"${prefs.deviceId}\", Version=\"$clientVersion\""
         return if (tok.isNullOrEmpty()) base else "$base, Token=\"$tok\""
     }
 
@@ -440,4 +439,20 @@ class JellyfinApi(private val prefs: Prefs) {
 
     suspend fun reportStopped(itemId: String, src: PlaybackSource, ticks: Long) =
         runCatching { call("POST", "/Sessions/Playing/Stopped", progressBody(itemId, src, ticks, false)) }
+}
+
+/** The app's real version (e.g. 1.17.1), so the server's Devices page shows which PHOENIXA each device runs */
+val clientVersion: String by lazy {
+    val app = org.phoenicx.nova.NovaApp.instance
+    runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull()
+        ?.takeIf { it.isNotBlank() } ?: "1.0"
+}
+
+/** The name the owner gave this device ("Hanson's S23"), else the model; kept to plain characters for the header */
+val deviceName: String by lazy {
+    val cr = org.phoenicx.nova.NovaApp.instance.contentResolver
+    val given = runCatching { android.provider.Settings.Global.getString(cr, "device_name") }.getOrNull()
+        ?: runCatching { android.provider.Settings.Secure.getString(cr, "bluetooth_name") }.getOrNull()
+    fun clean(v: String?) = v?.filter { it in ' '..'~' && it != '"' && it != ',' }?.trim()?.takeIf { it.isNotEmpty() }
+    clean(given) ?: clean("${Build.MANUFACTURER} ${Build.MODEL}".takeIf { !Build.MODEL.isNullOrBlank() }) ?: "Android device"
 }
