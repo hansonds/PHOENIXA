@@ -22,6 +22,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withLock
 import okhttp3.Request
 import org.phoenicx.nova.MainActivity
 import org.phoenicx.nova.NovaApp
@@ -30,25 +31,47 @@ import org.phoenicx.nova.data.Item
 import java.util.concurrent.TimeUnit
 
 /**
- * Phones and tablets: every hour, quietly ask the server what was added most recently,
+ * Phones and tablets: every 10 minutes, quietly ask the server what was added most recently,
  * and show a notification for anything new ("New on PHOENIXA · Tumbbad (2018)"). Tapping it opens the title.
  */
 object NewTitles {
     const val EXTRA_OPEN_ID = "open_item_id"
     private const val CHANNEL = "new_titles"
-    private const val WORK = "new-titles-check"
+    private const val WORK = "new-titles-check"          // safety net (Android's periodic work can't go below 15 min)
+    private const val NEXT = "new-titles-next"            // the 10-minute chain: each check books the next one
+    private const val EVERY_MIN = 10L
+    private val lock = kotlinx.coroutines.sync.Mutex()
     private const val GROUP = "org.phoenicx.nova.NEW_TITLES"
 
     /** Turn the regular check on or off (follows the Settings switch; never on TVs) */
     fun schedule(context: Context) {
         val app = NovaApp.instance
         val wm = WorkManager.getInstance(context)
-        if (app.isTv || !app.prefs.notifyNewTitles) { wm.cancelUniqueWork(WORK); return }
+        if (app.isTv || !app.prefs.notifyNewTitles) { wm.cancelUniqueWork(WORK); wm.cancelUniqueWork(NEXT); return }
         val req = PeriodicWorkRequestBuilder<CheckWorker>(1, TimeUnit.HOURS)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setConstraints(constraints())
             .build()
         wm.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, req)
+        // Start the 10-minute chain if it isn't already waiting
+        wm.enqueueUniqueWork(NEXT, androidx.work.ExistingWorkPolicy.KEEP, nextRequest())
     }
+
+    private fun constraints() = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
+    private fun nextRequest() = androidx.work.OneTimeWorkRequestBuilder<NextWorker>()
+        .setInitialDelay(EVERY_MIN, TimeUnit.MINUTES)
+        .setConstraints(constraints())
+        .build()
+
+    /** Called at the end of each 10-minute check: book the next one */
+    internal fun bookNext(context: Context) {
+        val app = NovaApp.instance
+        if (app.isTv || !app.prefs.notifyNewTitles) return
+        WorkManager.getInstance(context).enqueueUniqueWork(NEXT, androidx.work.ExistingWorkPolicy.APPEND_OR_REPLACE, nextRequest())
+    }
+
+    /** One check at a time (the chain and the safety net never notify twice) */
+    internal suspend fun checkOnce(context: Context) = lock.withLock { check(context) }
 
     private fun channel(context: Context) {
         if (Build.VERSION.SDK_INT < 26) return
@@ -150,7 +173,16 @@ object NewTitles {
 
 class CheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        runCatching { NewTitles.check(applicationContext) }
+        runCatching { NewTitles.checkOnce(applicationContext) }
+        return Result.success()
+    }
+}
+
+/** The 10-minute check: looks for new titles, then books the next one */
+class NextWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        runCatching { NewTitles.checkOnce(applicationContext) }
+        runCatching { NewTitles.bookNext(applicationContext) }
         return Result.success()
     }
 }
