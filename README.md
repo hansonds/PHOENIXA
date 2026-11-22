@@ -15,6 +15,14 @@ Built for the couch: big artwork, calm navigation, and a player that plays your 
 
 <img src="docs/banner.png" alt="PHOENIXA banner" width="640" />
 
+### Download
+
+<a href="https://play.google.com/store/apps/details?id=org.phoenicx.nova"><img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" height="80" /></a>
+
+<a href="https://github.com/hansonds/PHOENIXA/releases/latest/download/PHOENIXA.apk"><img src="https://img.shields.io/badge/Download%20APK-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="Download the APK from GitHub" height="48" /></a>
+
+**Google Play** for Android TV, Google TV and phones · **APK** for Fire TV, Android boxes and phones (Downloader code **`4563854`**)
+
 </div>
 
 ---
@@ -28,11 +36,20 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 ### Home
 - **Featured carousel**: full-screen backdrops with title logos, rating, year, runtime and quality badges. It auto-rotates, and you can flip slides with left and right.
 - **Continue Watching**, **Next Up**, **Recently Added** for each library, and **My Favorites** rows.
+- On phones, a slim top strip with the **PHOENIXA** logo, the **time** and a small **battery** indicator (green, orange below 15%, red below 10%).
 - A simple top bar on TV (**Home · Library · Search · Add · Profile**) that always stays the same, plus a small clock. **Library** shows every library and Favorites on one page.
 - On phones, a **bottom bar** (Home · Library · Search · Add · Profile) within reach of your thumb. **Library** shows every library and Favorites on one page.
 - Grey **placeholder cards** while pages load, and **pull down to refresh** on phones and tablets.
-- **Phones:** a notification when new movies or shows are added to your server ("New on PHOENIXA"). Tap it to open the title. Turn it off in Settings → Notifications.
 - **Android TV / Google TV:** what you're watching appears in the TV home screen's **Continue watching** row. Pick it there and it plays straight away.
+
+### Notifications & messages
+- **Instant "New on PHOENIXA" notifications** on phones and tablets the moment a movie, series or episode is added to your server, with its poster. Tap one to open the title. They arrive as real push notifications (like WhatsApp), so nothing runs in the background on your phone.
+- Each person only hears about titles in the libraries they're allowed to see. Several new episodes of one show come together as one notification ("Lupin · 3 new episodes").
+- **Messages from the server owner** (for example "Server maintenance tonight"):
+  - **Phones:** a notification you can expand to read in full, in its own "Messages from the server" category.
+  - **TV and Fire TV:** a banner at the top of the screen, **even while a movie is playing**. Playback keeps going and the banner hides by itself.
+- PHOENIXA asks for notification permission right after you sign in. **Settings → Notifications** shows whether everything works and has a **Send a test notification** button.
+- Needs the **[Torvia](https://github.com/hansonds/Torvia-Jellyfin)** plugin on your server with its free Firebase setup (Torvia → Push notifications).
 
 ### Browsing
 - **Library grids** sorted by Recently Added, A–Z, Top Rated, Release Year or Random. The app remembers where you were when you come back.
@@ -60,9 +77,10 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - **Phones and tablets:** swipe up or down for volume (right side) and brightness (left side), swipe left or right to seek, double-tap a side to skip 10 s (keep tapping to add more), press and hold for **2× speed**, pinch to zoom, and a **🔒 lock** button against pocket touches.
 - **Remote:** the ⏯ ⏪ ⏩ media keys always work, and holding **OK** (or pressing **Menu**) opens quick options: subtitles, audio, speed, screen size, next episode.
 
-### Search & Add (Torvia servers)
-- If your Jellyfin server runs the **[Torvia](https://github.com/hansonds/Torvia-Jellyfin)** plugin, a **Search & Add** tab appears for allowed users (TV, phone and tablet).
-- Search by name or a TMDB / IMDb link, pick a season and episode (or the whole season), filter releases by quality, 10-bit, HDR or CAM, and add one to TorBox. PHOENIXA waits for it to appear in Jellyfin and opens it.
+### Add (Torvia servers)
+- If your Jellyfin server runs the **[Torvia](https://github.com/hansonds/Torvia-Jellyfin)** plugin, an **Add** button appears next to Search for allowed users (TV, phone and tablet).
+- Search by name or a TMDB / IMDb link. Series open on the whole season; pick an episode only if you want one. Filter releases the same way as Torvia's web page (quality, type, video, language, sort) and add one to TorBox. PHOENIXA waits for it to appear in Jellyfin and opens it.
+- **Add a link** (phones and tablets): paste your own magnet link or pick a torrent file, choose the title, and follow its download progress.
 - **My adds** lists what you added, with Open and Remove. Admins can see everyone's. Daily limits and permissions come from the server.
 - Servers without the plugin don't show the tab at all.
 
@@ -72,12 +90,19 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - The keyboard opens only when you press OK on a text box.
 - **11 colour themes** (Phoenix Ember, Nova, Midnight Blue, Emerald, Royal Purple, Crimson Noir, Ocean Teal, Sunset Gold, Rose Quartz, Graphite, Cyber Neon), changed instantly from Settings.
 - Card size setting (Small, Medium or Large) and a streaming quality limit.
-- Calm, snappy scrolling tuned for Fire TV Sticks.
+- A **glass highlight** on TV that glides from tile to tile, tinted with your theme colour.
+- Calm, snappy scrolling tuned for Fire TV Sticks: the screen stays still while the highlight moves, and right at the end of a row continues on the next row.
+- Your server's **Devices** page shows each device by its own name ("Hanson's S23") and the real PHOENIXA version.
 - Small app size (about 13 MB) and a self-managing image cache.
 
 ---
 
 ## 📥 Install
+
+### Google Play (Android TV, Google TV, phones and tablets)
+<a href="https://play.google.com/store/apps/details?id=org.phoenicx.nova"><img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" height="60" /></a>
+
+Install from Google Play and updates come automatically.
 
 ### Fire TV / Fire TV Stick
 1. On your Fire TV, go to **Settings → My Fire TV → Developer options** and allow **Apps from Unknown Sources** (or allow the *Downloader* app).
@@ -90,12 +115,14 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 Install **Downloader** from the Play Store and enter the same code **`4563854`**. You can also use **Send Files to TV**, or copy the APK over USB and open it with a file manager.
 
 ### Android phones and tablets
-The same **PHOENIXA.apk** works on phones: download it on your phone from [Releases → latest](https://github.com/hansonds/PHOENIXA/releases/latest) and open it to install (allow "Install unknown apps" for your browser when asked).
+Get it from **[Google Play](https://play.google.com/store/apps/details?id=org.phoenicx.nova)**, or download the same **[PHOENIXA.apk](https://github.com/hansonds/PHOENIXA/releases/latest/download/PHOENIXA.apk)** on your phone from GitHub and open it to install (allow "Install unknown apps" for your browser when asked).
 
 On a phone the app uses the same design in **portrait**, made for touch (videos open in landscape). On a **tablet** it rotates freely: the wide TV-style layout when held sideways, the portrait layout when held upright. Touch controls: tap anything to open it, swipe the home banner to change the featured title, tap the video to show or hide the controls, double-tap the left or right side to skip 10 s, and drag the seek bar to jump.
 
 ### Updating
-Download and install the new APK in the same way. It installs over the old version and keeps your login and settings.
+Google Play updates PHOENIXA by itself. For the APK, download and install the new one in the same way: it installs over the old version and keeps your login and settings.
+
+> The Google Play version and the GitHub APK are signed differently, so one can't be installed over the other. To switch, uninstall first (you'll need to sign in again).
 
 ---
 
@@ -138,6 +165,8 @@ Download and install the new APK in the same way. It installs over the old versi
 | **Card size** | Small / Medium / Large posters and thumbnails, applied instantly. |
 | **Auto-play next episode** | Starts the next episode when one ends. |
 | **Rotate featured carousel** | Turns banner auto-rotation on or off. |
+| **Notifications** (phones) | New movies & shows on or off, and **Send a test notification**. |
+| **Rate on Google Play** | Shown only when PHOENIXA was installed from Google Play. |
 
 ---
 
@@ -162,6 +191,12 @@ Dolby Vision profile 7 (some Blu-ray rips) falls back to its HDR10 base layer on
 <summary><b>"Can't play this" error</b></summary>
 
 Your TV's chip probably can't decode that video (common with AV1 or 4K HEVC on older or budget TVs). Either keep an H.264 or HEVC version of the file, or enable transcoding on the server and turn **Direct play only** off in PHOENIXA Settings. The error screen lists the exact reason, which helps when reporting an issue.
+</details>
+
+<details>
+<summary><b>No notifications on my phone</b></summary>
+
+Open **Settings → Notifications** in PHOENIXA: it tells you what's missing. Your server needs Torvia with push notifications set up, PHOENIXA must be allowed to send notifications, and the phone needs Google Play services. **Send a test notification** checks the whole chain.
 </details>
 
 <details>
