@@ -173,4 +173,3 @@ object NewTitles {
         }.getOrNull()
     }
 }
-}
