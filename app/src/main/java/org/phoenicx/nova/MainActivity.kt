@@ -47,8 +47,15 @@ class MainActivity : ComponentActivity() {
         }
         immersiveOnPhone()
         setContent {
-            NovaTheme { NovaRoot() }
+            NovaTheme {
+                androidx.compose.foundation.layout.Box {
+                    NovaRoot()
+                    // TVs: messages from the server owner
+                    org.phoenicx.nova.tv.ServerMessageBanner()
+                }
+            }
         }
+        org.phoenicx.nova.tv.ServerMessages.watch(this)
         openFromTvHome(intent)
         openFromNotification(intent)
         askNotifyPermission()

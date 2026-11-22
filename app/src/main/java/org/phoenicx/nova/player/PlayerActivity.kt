@@ -150,9 +150,14 @@ class PlayerActivity : ComponentActivity() {
                 if (controller.inPip && android.os.Build.VERSION.SDK_INT >= 26) pipParams()?.let { runCatching { setPictureInPictureParams(it) } }
             }
             NovaTheme {
-                PlayerScreen(controller, onExit = { finish() }, registerRescue = { rescue = it }, registerMediaKeys = { mediaKeys = it })
+                androidx.compose.foundation.layout.Box {
+                    PlayerScreen(controller, onExit = { finish() }, registerRescue = { rescue = it }, registerMediaKeys = { mediaKeys = it })
+                    // TVs: messages from the server owner appear over the film without pausing it
+                    if (!controller.inPip) org.phoenicx.nova.tv.ServerMessageBanner()
+                }
             }
         }
+        org.phoenicx.nova.tv.ServerMessages.watch(this)
     }
 
     /** Set by the player screen; puts the remote's highlight back somewhere sensible. */
