@@ -171,6 +171,8 @@ object Push {
                 withTimeoutOrNull(15_000) { NewTitles.show(ctx, NewTitles.parse(data["items"])) }
             }
             "test" -> NewTitles.showTest(ctx)
+            "message" -> NewTitles.showMessage(ctx, data["title"], data["body"])
+            else -> Unit   // something a newer server sends that this version doesn't know: ignore it
         }
     }
 }

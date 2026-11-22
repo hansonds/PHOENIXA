@@ -41,6 +41,7 @@ data class PushTitle(
 object NewTitles {
     const val EXTRA_OPEN_ID = "open_item_id"
     private const val CHANNEL = "new_titles"
+    private const val MSG_CHANNEL = "server_messages"
     private const val GROUP = "org.phoenicx.nova.NEW_TITLES"
 
     /** The old every-10-minutes check is gone: clear anything earlier versions scheduled */
@@ -137,6 +138,33 @@ object NewTitles {
         runCatching { NotificationManagerCompat.from(context).notify(7001, n) }
     }
 
+    /** A message the server owner wrote (Torvia → Push notifications → Send a message) */
+    fun showMessage(context: Context, title: String?, body: String?) {
+        val text = body?.trim().orEmpty().take(500)
+        val head = title?.trim().orEmpty().take(80).ifEmpty { "PHOENIXA" }
+        if (text.isEmpty() || !canNotify(context)) return
+        if (Build.VERSION.SDK_INT >= 26) {
+            val nm = context.getSystemService(NotificationManager::class.java)
+            if (nm.getNotificationChannel(MSG_CHANNEL) == null) {
+                nm.createNotificationChannel(
+                    NotificationChannel(MSG_CHANNEL, "Messages from the server", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                        description = "Announcements written by your server's owner"
+                    }
+                )
+            }
+        }
+        val n = NotificationCompat.Builder(context, MSG_CHANNEL)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle(head)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(openIntent(context, null))
+            .setAutoCancel(true)
+            .build()
+        // Each message gets its own notification, so a new one doesn't replace an unread one
+        runCatching { NotificationManagerCompat.from(context).notify((System.currentTimeMillis() and 0x3fffffff).toInt(), n) }
+    }
+
     private fun channel(context: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -148,7 +176,6 @@ object NewTitles {
         )
     }
 
-    /** Looks for new titles and notifies. The very first time it only remembers what's there. */
 
     fun canNotify(context: Context): Boolean =
         (Build.VERSION.SDK_INT < 33 ||
