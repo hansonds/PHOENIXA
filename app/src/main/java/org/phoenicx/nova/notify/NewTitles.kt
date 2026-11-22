@@ -13,106 +13,82 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.work.Constraints
-import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.sync.withLock
 import okhttp3.Request
+import org.json.JSONArray
 import org.phoenicx.nova.MainActivity
 import org.phoenicx.nova.NovaApp
 import org.phoenicx.nova.R
-import org.phoenicx.nova.data.Item
-import java.util.concurrent.TimeUnit
+
+/** One title in a push from the server */
+data class PushTitle(
+    val id: String,
+    val type: String,            // Movie, Series or Episode
+    val name: String,
+    val year: Int?,
+    val seriesId: String?,
+    val seriesName: String?,
+    val season: Int?,
+    val episode: Int?,
+)
 
 /**
- * Phones and tablets: every 10 minutes, quietly ask the server what was added most recently,
- * and show a notification for anything new ("New on PHOENIXA · Tumbbad (2018)"). Tapping it opens the title.
+ * "New on PHOENIXA" notifications (phones and tablets). The server (Torvia) pushes them the moment
+ * something is added, like WhatsApp does, so nothing runs in the background on the phone.
+ * Tapping one opens the title.
  */
 object NewTitles {
     const val EXTRA_OPEN_ID = "open_item_id"
     private const val CHANNEL = "new_titles"
-    private const val WORK = "new-titles-check"          // safety net (Android's periodic work can't go below 15 min)
-    private const val NEXT = "new-titles-next"            // the 10-minute chain: each check books the next one
-    private const val EVERY_MIN = 10L
-    private val lock = kotlinx.coroutines.sync.Mutex()
     private const val GROUP = "org.phoenicx.nova.NEW_TITLES"
 
-    /** Turn the regular check on or off (follows the Settings switch; never on TVs) */
-    fun schedule(context: Context) {
-        val app = NovaApp.instance
-        val wm = WorkManager.getInstance(context)
-        if (app.isTv || !app.prefs.notifyNewTitles) { wm.cancelUniqueWork(WORK); wm.cancelUniqueWork(NEXT); return }
-        val req = PeriodicWorkRequestBuilder<CheckWorker>(1, TimeUnit.HOURS)
-            .setConstraints(constraints())
-            .build()
-        wm.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, req)
-        // Start the 10-minute chain if it isn't already waiting
-        wm.enqueueUniqueWork(NEXT, androidx.work.ExistingWorkPolicy.KEEP, nextRequest())
+    /** The old every-10-minutes check is gone: clear anything earlier versions scheduled */
+    fun stopOldChecks(context: Context) {
+        runCatching {
+            val wm = androidx.work.WorkManager.getInstance(context)
+            wm.cancelUniqueWork("new-titles-check")
+            wm.cancelUniqueWork("new-titles-next")
+        }
     }
 
-    private fun constraints() = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+    fun parse(json: String?): List<PushTitle> = runCatching {
+        val a = JSONArray(json ?: return emptyList())
+        (0 until a.length()).mapNotNull { i ->
+            val o = a.optJSONObject(i) ?: return@mapNotNull null
+            fun str(k: String) = if (o.isNull(k)) null else o.optString(k).takeIf { it.isNotBlank() }
+            fun num(k: String) = if (o.isNull(k) || !o.has(k)) null else o.optInt(k)
+            PushTitle(
+                id = str("id") ?: return@mapNotNull null,
+                type = str("type") ?: "Movie",
+                name = str("name") ?: return@mapNotNull null,
+                year = num("year"), seriesId = str("seriesId"), seriesName = str("seriesName"),
+                season = num("season"), episode = num("episode"),
+            )
+        }
+    }.getOrDefault(emptyList())
 
-    private fun nextRequest() = androidx.work.OneTimeWorkRequestBuilder<NextWorker>()
-        .setInitialDelay(EVERY_MIN, TimeUnit.MINUTES)
-        .setConstraints(constraints())
-        .build()
-
-    /** Called at the end of each 10-minute check: book the next one */
-    internal fun bookNext(context: Context) {
-        val app = NovaApp.instance
-        if (app.isTv || !app.prefs.notifyNewTitles) return
-        WorkManager.getInstance(context).enqueueUniqueWork(NEXT, androidx.work.ExistingWorkPolicy.APPEND_OR_REPLACE, nextRequest())
-    }
-
-    /** One check at a time (the chain and the safety net never notify twice) */
-    internal suspend fun checkOnce(context: Context) = lock.withLock { check(context) }
-
-    private fun channel(context: Context) {
-        if (Build.VERSION.SDK_INT < 26) return
-        val nm = context.getSystemService(NotificationManager::class.java)
-        if (nm.getNotificationChannel(CHANNEL) != null) return
-        nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "New movies & shows", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "When something new is added to your server"
-            }
-        )
-    }
-
-    /** Looks for new titles and notifies. The very first time it only remembers what's there. */
-    suspend fun check(context: Context) {
-        val app = NovaApp.instance
-        val api = app.api
-        val prefs = app.prefs
-        if (!api.isLoggedIn || !prefs.notifyNewTitles) return
-        val latest = runCatching { api.newestAdded(40) }.getOrNull() ?: return
-        val seen = prefs.seenTitles()
-        val firstTime = seen.isEmpty()
-        prefs.saveSeenTitles((latest.map { it.id } + seen).distinct().take(400))
-        if (firstTime) return
-        val fresh = latest.filter { it.id !in seen }
-        if (fresh.isEmpty()) return
-        if (!canNotify(context)) return
+    /** Show the titles the server just pushed */
+    suspend fun show(context: Context, fresh: List<PushTitle>) {
+        if (fresh.isEmpty() || !canNotify(context)) return
+        val api = NovaApp.instance.api
         channel(context)
+        fun poster(id: String?) = api.image(id, "Primary", null, 300)
 
         // Episodes of the same show become one line: "Lupin · 2 new episodes"
         data class Entry(val openId: String, val title: String, val text: String, val image: String?)
         val entries = buildList {
-            fresh.filter { !it.isEpisode }.forEach { m ->
-                add(Entry(m.id, m.name + (m.year?.let { " ($it)" } ?: ""), if (m.type == "Series") "New series" else "New movie", api.poster(m, 300)))
+            fresh.filter { it.type != "Episode" }.forEach { m ->
+                add(Entry(m.id, m.name + (m.year?.let { " ($it)" } ?: ""), if (m.type == "Series") "New series" else "New movie", poster(m.id)))
             }
             // A brand-new show already has its own line, so its episodes aren't listed again
             val newShows = fresh.filter { it.type == "Series" }.map { it.id }.toSet()
-            fresh.filter { it.isEpisode && it.seriesId !in newShows }.groupBy { it.seriesId ?: it.id }.forEach { (sid, eps) ->
+            fresh.filter { it.type == "Episode" && it.seriesId !in newShows }.groupBy { it.seriesId ?: it.id }.forEach { (sid, eps) ->
                 val e = eps.first()
                 val name = e.seriesName ?: e.name
-                val text = if (eps.size == 1) listOfNotNull(e.episodeLabel, e.name).joinToString(" · ") else "${eps.size} new episodes"
-                add(Entry(sid, name, text, api.poster(e, 300)))
+                val label = if (e.season != null && e.episode != null) "S${e.season}:E${e.episode}" else null
+                val text = if (eps.size == 1) listOfNotNull(label, e.name).joinToString(" · ") else "${eps.size} new episodes"
+                add(Entry(sid, name, text, poster(e.seriesId ?: e.id)))
             }
         }
         val nm = NotificationManagerCompat.from(context)
@@ -147,6 +123,33 @@ object NewTitles {
         }
     }
 
+    /** A quick notification to prove push works (Settings → "Send a test") */
+    fun showTest(context: Context) {
+        if (!canNotify(context)) return
+        channel(context)
+        val n = NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle("PHOENIXA notifications work")
+            .setContentText("You'll hear here when new movies and shows are added")
+            .setContentIntent(openIntent(context, null))
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(7001, n) }
+    }
+
+    private fun channel(context: Context) {
+        if (Build.VERSION.SDK_INT < 26) return
+        val nm = context.getSystemService(NotificationManager::class.java)
+        if (nm.getNotificationChannel(CHANNEL) != null) return
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL, "New movies & shows", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "When something new is added to your server"
+            }
+        )
+    }
+
+    /** Looks for new titles and notifies. The very first time it only remembers what's there. */
+
     fun canNotify(context: Context): Boolean =
         (Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) &&
@@ -170,19 +173,4 @@ object NewTitles {
         }.getOrNull()
     }
 }
-
-class CheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result {
-        runCatching { NewTitles.checkOnce(applicationContext) }
-        return Result.success()
-    }
-}
-
-/** The 10-minute check: looks for new titles, then books the next one */
-class NextWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result {
-        runCatching { NewTitles.checkOnce(applicationContext) }
-        runCatching { NewTitles.bookNext(applicationContext) }
-        return Result.success()
-    }
 }

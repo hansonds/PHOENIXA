@@ -1,5 +1,6 @@
 package org.phoenicx.nova.ui.screens
 
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -120,15 +121,28 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
             // Phones and tablets only
             if (!app.isTv) {
                 var notify by remember { mutableStateOf(prefs.notifyNewTitles) }
+                val push by org.phoenicx.nova.notify.Push.state
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                var testMsg by remember { mutableStateOf<String?>(null) }
+                androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { org.phoenicx.nova.notify.Push.sync(app) } }
+                val blocked = notify && !org.phoenicx.nova.notify.NewTitles.canNotify(app)
                 SectionLabel("Notifications")
                 SettingRow(
                     "New movies & shows",
-                    if (notify && !org.phoenicx.nova.notify.NewTitles.canNotify(app))
-                        "Notifications are turned off for PHOENIXA in your phone's settings. Tap to open them."
-                    else "Get a notification when something new is added to your server",
+                    when {
+                        blocked -> "Notifications are turned off for PHOENIXA in your phone's settings. Tap to open them."
+                        !notify -> "Get a notification the moment something new is added to your server"
+                        push == org.phoenicx.nova.notify.Push.State.NoServer ->
+                            "Your server hasn't turned on push notifications yet (Torvia → Push notifications)"
+                        push == org.phoenicx.nova.notify.Push.State.NoGooglePlay ->
+                            "This device has no Google Play services, which notifications need"
+                        push == org.phoenicx.nova.notify.Push.State.Failed -> "Couldn't reach your server. It will try again next time."
+                        push == org.phoenicx.nova.notify.Push.State.Ready -> "On: you'll be notified the moment something new is added"
+                        else -> "Get a notification the moment something new is added to your server"
+                    },
                     if (notify) "On" else "Off",
                 ) {
-                    if (notify && !org.phoenicx.nova.notify.NewTitles.canNotify(app)) {
+                    if (blocked) {
                         // Allowed in PHOENIXA but blocked by the phone: open the phone's notification settings
                         runCatching {
                             app.startActivity(
@@ -140,7 +154,17 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
                     } else {
                         notify = !notify
                         prefs.notifyNewTitles = notify
-                        org.phoenicx.nova.notify.NewTitles.schedule(app)
+                        testMsg = null
+                        scope.launch { runCatching { org.phoenicx.nova.notify.Push.sync(app) } }
+                    }
+                }
+                if (notify && !blocked && push == org.phoenicx.nova.notify.Push.State.Ready) {
+                    SettingRow("Send a test notification", testMsg ?: "Check that notifications reach this phone", "Send") {
+                        testMsg = "Sending…"
+                        scope.launch {
+                            testMsg = if (org.phoenicx.nova.notify.Push.test()) "Sent. It should appear in a few seconds."
+                            else "Couldn't send. Check Torvia's push settings on your server."
+                        }
                     }
                 }
             }

@@ -157,6 +157,7 @@ fun ProfilesScreen(
 /** Ends that person's session on their server (best effort) */
 private fun kotlinx.coroutines.CoroutineScope.launchLogout(p: Profile) {
     launch {
+        org.phoenicx.nova.notify.Push.unregister(p)
         runCatching {
             val req = okhttp3.Request.Builder()
                 .url(p.server.trimEnd('/') + "/Sessions/Logout")

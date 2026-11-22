@@ -125,7 +125,7 @@ fun NovaRoot() {
     // Everything that belongs to the signed-in person starts fresh
     fun freshSession() {
         org.phoenicx.nova.tv.WatchNext.sync(app)
-        runCatching { org.phoenicx.nova.notify.NewTitles.schedule(app) }
+        org.phoenicx.nova.notify.Push.syncLater(app)
         homeState = HomeState()
         nav.libraries.value = emptyList()
         nav.torvia.value = null
@@ -194,8 +194,11 @@ fun NovaRoot() {
             Screen.Libraries -> org.phoenicx.nova.ui.screens.LibrariesScreen(nav)
             Screen.Settings -> SettingsScreen(nav, onSignOut = {
                 val tok = prefs.token
-                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { app.api.logout(tok) }
                 val me = prefs.profiles.firstOrNull { it.key == prefs.activeKey }
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    me?.let { org.phoenicx.nova.notify.Push.unregister(it) }
+                    app.api.logout(tok)
+                }
                 if (me != null) prefs.removeProfile(me) else prefs.signOut()
                 freshSession()
                 nav.reset(if (prefs.profiles.isNotEmpty()) Screen.Profiles else Screen.Login)

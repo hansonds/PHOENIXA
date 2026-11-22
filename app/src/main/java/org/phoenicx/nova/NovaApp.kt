@@ -38,8 +38,10 @@ class NovaApp : Application(), ImageLoaderFactory {
         Thread { runCatching { org.phoenicx.nova.player.DeviceProfile.get(false) } }.start()
         // Warm up the decoder scan in the background so playback starts faster later
         Thread { runCatching { org.phoenicx.nova.player.DeviceProfile.get() } }.start()
-        // Phones: check for newly added titles every hour
-        runCatching { org.phoenicx.nova.notify.NewTitles.schedule(this) }
+        // Phones: "New on PHOENIXA" notifications come as pushes from the server
+        runCatching { org.phoenicx.nova.notify.NewTitles.stopOldChecks(this) }
+        runCatching { org.phoenicx.nova.notify.Push.initFromCache(this) }
+        org.phoenicx.nova.notify.Push.syncLater(this)
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
