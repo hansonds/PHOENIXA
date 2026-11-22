@@ -219,6 +219,21 @@ Posters are cached (up to 250 MB) and the oldest are removed automatically. You 
 
 ---
 
+## Privacy and data deletion
+
+PHOENIXA has no account system of its own and sends nothing to its developer. Your sign-in, watch history and settings go only to **your own Jellyfin server**, and stay on your device.
+
+On phones, if the server has push notifications turned on (Torvia), PHOENIXA sends that server a **notification ID** (a Firebase Cloud Messaging token) plus the device's name and PHOENIXA version, so it can deliver notifications. Google's Firebase service delivers them.
+
+**To delete this data**, do any of these in PHOENIXA:
+- **Settings → Notifications → turn off** "New movies & shows": the notification ID is removed from the server straight away.
+- **Settings → Sign out**, or remove your profile under **Who's watching? → Manage profiles**: the ID is removed and the device is signed out of the server.
+- **Uninstall PHOENIXA**: the ID stops working, and the server deletes it the next time it tries to use it.
+
+Your Jellyfin account itself (and its watch history) belongs to your server: ask the server's owner to delete it. For anything else, email **hanson.in@outlook.com**.
+
+---
+
 ## 🛠 Build from source
 
 Every push to `main` builds a signed release APK with GitHub Actions and publishes it to **Releases → latest**.
