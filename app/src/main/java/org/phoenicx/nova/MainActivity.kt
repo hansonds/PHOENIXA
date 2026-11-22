@@ -79,7 +79,8 @@ class MainActivity : ComponentActivity() {
     ) { }
 
     /** Phones (Android 13+): ask once if PHOENIXA may show notifications for new titles */
-    private fun askNotifyPermission() {
+    /** Phones, Android 13+: ask once, as soon as someone is signed in (first sign-in included) */
+    fun askNotifyPermission() {
         val app = NovaApp.instance
         if (app.isTv || android.os.Build.VERSION.SDK_INT < 33 || app.prefs.askedNotify || !app.prefs.notifyNewTitles) return
         if (!app.api.isLoggedIn) return
@@ -115,6 +116,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun NovaRoot() {
     val app = NovaApp.instance
+    val activity = androidx.compose.ui.platform.LocalContext.current as? MainActivity
     val prefs = app.prefs
     val nav = remember {
         val profiles = prefs.profiles
@@ -133,6 +135,7 @@ fun NovaRoot() {
     fun freshSession() {
         org.phoenicx.nova.tv.WatchNext.sync(app)
         org.phoenicx.nova.notify.Push.syncLater(app)
+        activity?.askNotifyPermission()
         homeState = HomeState()
         nav.libraries.value = emptyList()
         nav.torvia.value = null
