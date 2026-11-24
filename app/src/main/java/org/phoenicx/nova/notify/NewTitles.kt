@@ -124,6 +124,32 @@ object NewTitles {
         }
     }
 
+    /** Titles the server removed: one notification, no poster, opens Home */
+    fun showRemoved(context: Context, gone: List<PushTitle>) {
+        if (gone.isEmpty()) return
+        val nm = NotificationManagerCompat.from(context)
+        // A "New on PHOENIXA" notification still showing for one of these would open a title that's gone
+        gone.forEach { runCatching { nm.cancel(it.id.hashCode()) } }
+        if (!canNotify(context)) return
+        channel(context)
+        fun label(t: PushTitle) = t.name + (t.year?.let { " ($it)" } ?: "")
+        val one = gone.size == 1
+        val title = when {
+            !one -> "Removed ${gone.size} titles"
+            gone[0].type == "Series" -> "Removed a show"
+            else -> "Removed a movie"
+        }
+        val text = if (one) "${label(gone[0])} removed" else gone.joinToString(", ") { label(it) }
+        val b = NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setContentIntent(openIntent(context, null))
+            .setAutoCancel(true)
+        if (!one) b.setStyle(NotificationCompat.BigTextStyle().bigText(gone.joinToString("\n") { label(it) }))
+        runCatching { nm.notify(("removed|" + gone.joinToString(",") { it.id }).hashCode(), b.build()) }
+    }
+
     /** A quick notification to prove push works (Settings → "Send a test") */
     fun showTest(context: Context) {
         if (!canNotify(context)) return
