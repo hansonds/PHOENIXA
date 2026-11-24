@@ -76,15 +76,26 @@ fun SyncPlayButton(
     showLabel: Boolean = false,
 ) {
     val group by SyncPlay.group
+    // After the menu closes, the highlight comes back to this button (not to the first item on the page)
+    val req = focusRequester ?: remember { androidx.compose.ui.focus.FocusRequester() }
+    var opened by remember { mutableStateOf(false) }
+    val sheetNow = SyncPlay.sheet.value
+    LaunchedEffect(sheetNow) {
+        if (sheetNow == null && opened) {
+            opened = false
+            repeat(5) { delay(60); if (runCatching { req.requestFocus() }.isSuccess) return@LaunchedEffect }
+        }
+    }
+    val open = { opened = true; SyncPlay.sheet.value = SyncPlay.SheetRequest(item) }
     if (iconOnly) {
         val inGrp = group != null
         FocusSurface(
-            onClick = { SyncPlay.sheet.value = SyncPlay.SheetRequest(item) },
+            onClick = open,
             modifier = modifier.height(48.dp),
             shape = RoundedCornerShape(24.dp),
             focusedScale = 1.06f,
             borderWidth = 0.dp,
-            focusRequester = focusRequester,
+            focusRequester = req,
         ) { focused ->
             val fg = if (focused) Nova.OnFocus else if (inGrp) Nova.Cyan else Nova.Text
             Row(
@@ -115,12 +126,12 @@ fun SyncPlayButton(
     val pulse = rememberInfiniteTransition(label = "live")
     val live by pulse.animateFloat(0.35f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "dot")
     FocusSurface(
-        onClick = { SyncPlay.sheet.value = SyncPlay.SheetRequest(item) },
+        onClick = open,
         modifier = modifier.height(if (compact) 38.dp else 48.dp),
         shape = RoundedCornerShape(24.dp),
         focusedScale = if (compact) 1.08f else 1.06f,
         borderWidth = 0.dp,
-        focusRequester = focusRequester,
+        focusRequester = req,
     ) { focused ->
         val bg: Brush = when {
             focused -> Brush.horizontalGradient(listOf(Nova.Focus, Nova.Focus))
