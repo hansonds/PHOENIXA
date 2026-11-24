@@ -195,7 +195,8 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
                 /* handleAudioFocus= */ true,
             )
             .setHandleAudioBecomingNoisy(true)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(http))
+            // Internet streams go through OkHttp; downloads on this phone (file://) are read straight from storage
+            .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(androidx.media3.datasource.DefaultDataSource.Factory(context, http)))
             .setLoadControl(loadControl)
             .setTrackSelector(selector)
             .setSeekBackIncrementMs(10_000)
