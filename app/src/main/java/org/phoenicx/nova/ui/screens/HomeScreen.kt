@@ -320,7 +320,7 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
                                     var focusedBtn by remember { mutableIntStateOf(0) }
                                     Row(
                                         Modifier.onPreviewKeyEvent { e ->
-                                            if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp) {
+                                            if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp && !NovaApp.instance.isTv) {
                                                 // UP from the banner buttons: the Watch together button (then the top bar)
                                                 return@onPreviewKeyEvent runCatching { syncRequester.requestFocus() }.isSuccess
                                             }
@@ -363,8 +363,8 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
                                     Spacer(Modifier.height(8.dp))
                                 }
                             }
-                            // Watch together (SyncPlay), small, top right of the banner. Remote: UP from the banner buttons.
-                            org.phoenicx.nova.syncplay.SyncPlayButton(
+                            // Phones: Watch together (SyncPlay), small, top right of the banner (TV has it in the top bar)
+                            if (!NovaApp.instance.isTv) org.phoenicx.nova.syncplay.SyncPlayButton(
                                 item = null, compact = true, focusRequester = syncRequester,
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)

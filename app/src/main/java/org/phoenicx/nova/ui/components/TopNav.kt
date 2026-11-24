@@ -151,7 +151,14 @@ fun TopNav(nav: Navigator, selected: Screen, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center,
         ) {
             Box(Modifier.align(Alignment.CenterStart)) { NovaWordmark() }
-            Box(Modifier.align(Alignment.CenterEnd)) { Clock(big = true) }
+            Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically) {
+                // Home: Watch together (SyncPlay) as its own round button, between the menu and the clock
+                if (selected == org.phoenicx.nova.ui.Screen.Home) {
+                    org.phoenicx.nova.syncplay.SyncPlayButton(null, iconOnly = true)
+                    Spacer(Modifier.width(22.dp))
+                }
+                Clock(big = true)
+            }
             Box(
                 Modifier
                     .clip(RoundedCornerShape(26.dp))
