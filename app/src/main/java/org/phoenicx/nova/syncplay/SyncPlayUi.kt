@@ -116,6 +116,7 @@ fun SyncPlaySheet() {
     var page by remember(req) { mutableStateOf("menu") }          // menu · list · busy
     var groups by remember(req) { mutableStateOf<List<SyncPlay.ListedGroup>?>(null) }
     val close = { SyncPlay.sheet.value = null }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val item = req.item
 
     LaunchedEffect(page) {
@@ -132,7 +133,12 @@ fun SyncPlaySheet() {
 
         g != null -> {
             val opts = buildList {
-                if (item != null) add(SheetOption("Play ${item.name} for everyone", "Everyone in the group starts it together", false) to "play")
+                if (SyncPlay.currentItemId != null && !SyncPlay.playerOpen) {
+                    add(SheetOption("Back to the group's video", "Carry on watching with everyone", false) to "rejoin")
+                }
+                if (item != null && item.id.replace("-", "").lowercase() != SyncPlay.currentItemId) {
+                    add(SheetOption("Play ${item.name} for everyone", "Everyone in the group starts it together", false) to "play")
+                }
                 add(SheetOption("Watching now (${g.members.size})", g.members.joinToString(", ").ifEmpty { "Just you" }, false) to "none")
                 add(SheetOption("Leave watch party", "The others keep watching", false) to "leave")
             }
@@ -142,6 +148,7 @@ fun SyncPlaySheet() {
                 onSelect = { i ->
                     when (opts[i].second) {
                         "play" -> { close(); uiScope.launch { SyncPlay.playForEveryone(item!!) } }
+                        "rejoin" -> { close(); SyncPlay.rejoinPlayer(ctx) }
                         "leave" -> { close(); SyncPlay.leave() }
                     }
                 },

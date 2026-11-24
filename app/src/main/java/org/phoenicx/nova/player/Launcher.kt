@@ -13,6 +13,9 @@ object Launcher {
         val api = NovaApp.instance.api
         // In a watch party, Play starts it for everyone in the group
         if (org.phoenicx.nova.syncplay.SyncPlay.inGroup) {
+            // The title the group is already watching: just go back to it, in sync
+            if (item.id.replace("-", "").lowercase() == org.phoenicx.nova.syncplay.SyncPlay.currentItemId &&
+                org.phoenicx.nova.syncplay.SyncPlay.rejoinPlayer(context)) return
             scope.launch { org.phoenicx.nova.syncplay.SyncPlay.playForEveryone(item, fromStart) }
             return
         }

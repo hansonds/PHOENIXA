@@ -150,6 +150,8 @@ fun NovaRoot() {
     fun freshSession() {
         org.phoenicx.nova.tv.WatchNext.sync(app)
         org.phoenicx.nova.notify.Push.syncLater(app)
+        // A different person now: leave any watch party the previous one was in
+        if (org.phoenicx.nova.syncplay.SyncPlay.inGroup) org.phoenicx.nova.syncplay.SyncPlay.leave()
         activity?.askNotifyPermission()
         homeState = HomeState()
         nav.libraries.value = emptyList()

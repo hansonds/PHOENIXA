@@ -462,6 +462,23 @@ object SyncPlay {
     fun requestUnpause() = post("/SyncPlay/Unpause")
     fun requestSeek(ms: Long) = post("/SyncPlay/Seek", JSONObject().put("PositionTicks", ms.coerceAtLeast(0) * 10_000))
 
+    /** What the group is watching right now (null when nothing) */
+    val currentItemId: String? get() = itemId
+    val playerOpen get() = target != null
+
+    /**
+     * Back to the group's video after closing the player: opens it where the group is now and
+     * says we're ready; the server then tells us exactly where to be.
+     */
+    fun rejoinPlayer(context: android.content.Context): Boolean {
+        val id = itemId ?: return false
+        if (target != null) return true
+        val posMs = anchor?.let { (w, p) -> p + (serverNow() - w) } ?: 0L
+        awaitingReady = true; reportedBuffering = false; lastCommandKey = null
+        org.phoenicx.nova.player.PlayerActivity.start(context, id, posMs.coerceAtLeast(0) * 10_000, sync = true)
+        return true
+    }
+
     val hasNext get() = playingIndex in 0 until playlist.lastIndex
     fun requestNext() {
         val pid = playlistItemId ?: return
