@@ -787,13 +787,14 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
         if (code == 401 || code == 403) return SUBS_NOT_ALLOWED
         if (code !in 200..299) return "The server couldn't download it (error $code)"
         // The server adds it to the video in the background: wait for it to show up (up to ~20 s)
+        val cur = it
         repeat(20) {
             delay(1000)
-            val fresh = runCatching { api.item(it.id) }.getOrNull() ?: return@repeat
+            val fresh = runCatching { api.item(cur.id) }.getOrNull() ?: return@repeat
             val src = fresh.mediaSources.firstOrNull { s -> s.id == source?.mediaSourceId } ?: fresh.mediaSources.firstOrNull()
             val added = src?.subtitleStreams?.filter { s -> s.index !in before }?.maxByOrNull { s -> s.index }
             if (added != null) {
-                Lang.rememberSubtitle(added.language, off = false, seriesId = it.seriesId)
+                Lang.rememberSubtitle(added.language, off = false, seriesId = cur.seriesId)
                 selection = (selection ?: PlaySelection(mediaSourceId = source?.mediaSourceId)).copy(subtitleIndex = added.index)
                 reloadHere()
                 return null
