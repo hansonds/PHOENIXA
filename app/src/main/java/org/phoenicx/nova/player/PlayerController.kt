@@ -105,12 +105,12 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
     var inPip by mutableStateOf(false)
 
     /** Picture size: 0 = Fit (whole picture), 1 = Zoom (fills the screen, edges cut), 2 = Stretch */
-    var videoFit by mutableStateOf(prefs.videoFit.coerceIn(0, 2)); private set
+    /** Every video starts "Fit to screen"; a change (button, pinch) lasts for this video only */
+    var videoFit by mutableStateOf(0); private set
     val videoFitLabel: String get() = listOf("Fit to screen", "Zoom to fill", "Stretch")[videoFit]
 
     fun setFit(mode: Int) {
         videoFit = mode.coerceIn(0, 2)
-        prefs.videoFit = videoFit
     }
 
     fun cycleFit() = setFit((videoFit + 1) % 3)
