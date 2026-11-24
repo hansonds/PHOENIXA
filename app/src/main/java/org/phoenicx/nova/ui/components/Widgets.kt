@@ -95,7 +95,8 @@ fun NovaButton(
         ) {
             if (icon != null) Icon(icon, null, tint = fg, modifier = Modifier.size(22.dp))
             if (icon != null && text.isNotEmpty()) Spacer(Modifier.width(10.dp))
-            if (text.isNotEmpty()) Text(text, style = NovaType.Button, color = fg)
+            // Never break a button's name over several lines
+            if (text.isNotEmpty()) Text(text, style = NovaType.Button, color = fg, maxLines = 1, softWrap = false)
         }
     }
 }

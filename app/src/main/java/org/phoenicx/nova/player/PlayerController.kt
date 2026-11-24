@@ -53,9 +53,6 @@ data class TrackOption(
 /** How the video reaches the TV, tried in this order until one works. */
 enum class StreamMode(val label: String) { Direct("Direct play"), Hls("Transcoding"), Progressive("Transcoding (compat)") }
 
-private const val SUBS_NOT_ALLOWED =
-    "Your account isn't allowed to download subtitles. The server owner can turn on \"Allow subtitle management\" for you (Dashboard → Users)."
-
 class PlayerController(private val context: Context) : org.phoenicx.nova.syncplay.SyncTarget {
     private val api = NovaApp.instance.api
     private val prefs = NovaApp.instance.prefs
@@ -747,60 +744,20 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
     }
 
     // ---- Subtitles from the internet (the server's OpenSubtitles plugin) ----
-    data class RemoteSub(val id: String, val name: String, val detail: String)
-
-    /** Search the server's subtitle providers. Returns the results, or an error message. */
-    suspend fun searchSubtitles(lang3: String): Pair<List<RemoteSub>, String?> {
-        val it = item ?: return emptyList<RemoteSub>() to "Still loading, try again in a moment"
-        val (code, body) = runCatching {
-            api.raw("GET", "/Items/${it.id}/RemoteSearch/Subtitles/$lang3?isPerfectMatch=false")
-        }.getOrElse { e -> return emptyList<RemoteSub>() to (e.message ?: "Couldn't reach the server") }
-        if (code == 401 || code == 403) return emptyList<RemoteSub>() to SUBS_NOT_ALLOWED
-        if (code !in 200..299) return emptyList<RemoteSub>() to "The server couldn't search (error $code)"
-        val a = runCatching { org.json.JSONArray(body) }.getOrNull() ?: return emptyList<RemoteSub>() to null
-        val list = (0 until a.length()).mapNotNull { i ->
-            val o = a.optJSONObject(i) ?: return@mapNotNull null
-            val id = o.optString("Id").takeIf { s -> s.isNotBlank() } ?: return@mapNotNull null
-            val detail = listOfNotNull(
-                o.optString("ProviderName").takeIf { s -> s.isNotBlank() },
-                o.optString("Format").takeIf { s -> s.isNotBlank() }?.uppercase(),
-                o.optInt("DownloadCount", 0).takeIf { n -> n > 0 }?.let { n -> "⬇ $n" },
-                if (o.optBoolean("IsHashMatch", false)) "Exact match for this file" else null,
-                if (o.optBoolean("HearingImpaired", false)) "SDH" else null,
-            ).joinToString(" · ")
-            RemoteSub(id, o.optString("Name").ifBlank { "Subtitle" }, detail) to (if (o.optBoolean("IsHashMatch", false)) 1 else 0) * 1_000_000 + o.optInt("DownloadCount", 0)
-        }.sortedByDescending { p -> p.second }.map { p -> p.first }
-        return list to null
+    suspend fun searchSubtitles(lang3: String): Pair<List<org.phoenicx.nova.data.RemoteSubs.Result>, String?> {
+        val it = item ?: return emptyList<org.phoenicx.nova.data.RemoteSubs.Result>() to "Still loading, try again in a moment"
+        return org.phoenicx.nova.data.RemoteSubs.search(it.id, lang3)
     }
 
-    /**
-     * Ask the server to download a subtitle for this video, wait until it's added, then switch to it.
-     * Returns an error message, or null when it worked.
-     */
-    suspend fun downloadSubtitle(sub: RemoteSub): String? {
-        val it = item ?: return "Still loading"
-        val before = runCatching { api.item(it.id) }.getOrNull()
-            ?.mediaSources?.flatMap { s -> s.subtitleStreams }?.map { s -> s.index }?.toSet() ?: emptySet()
-        val (code, _) = runCatching {
-            api.raw("POST", "/Items/${it.id}/RemoteSearch/Subtitles/${android.net.Uri.encode(sub.id)}")
-        }.getOrElse { e -> return e.message ?: "Couldn't reach the server" }
-        if (code == 401 || code == 403) return SUBS_NOT_ALLOWED
-        if (code !in 200..299) return "The server couldn't download it (error $code)"
-        // The server adds it to the video in the background: wait for it to show up (up to ~20 s)
-        val cur = it
-        repeat(20) {
-            delay(1000)
-            val fresh = runCatching { api.item(cur.id) }.getOrNull() ?: return@repeat
-            val src = fresh.mediaSources.firstOrNull { s -> s.id == source?.mediaSourceId } ?: fresh.mediaSources.firstOrNull()
-            val added = src?.subtitleStreams?.filter { s -> s.index !in before }?.maxByOrNull { s -> s.index }
-            if (added != null) {
-                Lang.rememberSubtitle(added.language, off = false, seriesId = cur.seriesId)
-                selection = (selection ?: PlaySelection(mediaSourceId = source?.mediaSourceId)).copy(subtitleIndex = added.index)
-                reloadHere()
-                return null
-            }
-        }
-        return "Downloaded, but the server is still adding it. Open Subtitles again in a minute."
+    /** Download it to the server, then switch to it right here. Returns an error message, or null. */
+    suspend fun downloadSubtitle(sub: org.phoenicx.nova.data.RemoteSubs.Result): String? {
+        val cur = item ?: return "Still loading"
+        val (added, err) = org.phoenicx.nova.data.RemoteSubs.download(cur.id, source?.mediaSourceId, sub)
+        if (added == null) return err
+        Lang.rememberSubtitle(added.language, off = false, seriesId = cur.seriesId)
+        selection = (selection ?: PlaySelection(mediaSourceId = source?.mediaSourceId)).copy(subtitleIndex = added.index)
+        reloadHere()
+        return null
     }
 
     // ---- SyncPlay: the server drives the player ----

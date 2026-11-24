@@ -472,16 +472,33 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                     val current = subSel ?: Lang.pickSubtitle(curSrc.streams, curSrc.defaultSubtitleIndex, cur.seriesId)
                     OptionSheet(
                         "Subtitles",
-                        listOf(SheetOption("Off", "", current == -1)) +
+                        // First: missing your language? Search the internet (server's OpenSubtitles plugin)
+                        listOf(SheetOption("🔍  Find subtitles online", "Malayalam, English and more", false)) +
+                            listOf(SheetOption("Off", "", current == -1)) +
                             list.map { x -> Lang.label(x).let { (m, d) -> SheetOption(m, d, x.index == current) } },
                         onSelect = { i ->
-                            subSel = if (i == 0) -1 else list[i - 1].index
-                            Lang.rememberSubtitle(if (i == 0) null else list[i - 1].language, off = i == 0, seriesId = cur.seriesId)
+                            if (i == 0) { sheet = "subsearch"; return@OptionSheet }
+                            val k = i - 1
+                            subSel = if (k == 0) -1 else list[k - 1].index
+                            Lang.rememberSubtitle(if (k == 0) null else list[k - 1].language, off = k == 0, seriesId = cur.seriesId)
                             sheet = null
                         },
                         onDismiss = { sheet = null },
                     )
                 }
+                "subsearch" -> org.phoenicx.nova.ui.components.SubtitleSearchSheet(
+                    itemId = cur.id,
+                    mediaSourceId = curSrc.id,
+                    onAdded = { added ->
+                        // Show it in the list and choose it for playback
+                        scope.launch { runCatching { item = api.item(cur.id) } }
+                        subSel = added.index
+                        Lang.rememberSubtitle(added.language, off = false, seriesId = cur.seriesId)
+                        sheet = null
+                        android.widget.Toast.makeText(context, "Subtitles added", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    onDismiss = { sheet = "subs" },
+                )
             }
         }
     }
@@ -577,8 +594,9 @@ private fun SeasonTab(name: String, selected: Boolean, onClick: () -> Unit) {
 
 /** On phones, rows of buttons / chips that don't fit scroll sideways */
 @Composable
-private fun Modifier.phoneScroll(): Modifier =
-    if (Lay.phone) this.horizontalScroll(androidx.compose.foundation.rememberScrollState()) else this
+/** Rows of buttons / chips scroll sideways when they don't fit (phones and TV), so nothing gets squeezed */
+@Composable
+private fun Modifier.phoneScroll(): Modifier = this.horizontalScroll(androidx.compose.foundation.rememberScrollState())
 
 /** Friendly name for a kind of extra */
 private fun extraLabel(type: String?) = when (type) {

@@ -1041,29 +1041,6 @@ private fun TrackPanel(c: PlayerController, type: Int, title: String, onDone: ()
             Text("No tracks available", style = NovaType.Body, color = Nova.TextDim)
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(options.size) { i ->
-                val o = options[i]
-                FocusSurface(
-                    onClick = { c.select(type, o); onDone() },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    focusedScale = 1.02f,
-                    focusRequester = if (o.selected || (i == 0 && options.none { it.selected })) first else null,
-                ) { focused ->
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Color(0x14FFFFFF))
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f).widthIn(max = 300.dp)) {
-                            Text(o.label, style = NovaType.Button, color = Nova.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (o.detail.isNotEmpty()) Text(o.detail, style = NovaType.Label.copy(fontSize = 12.sp), color = Nova.TextDim, maxLines = 1)
-                        }
-                        if (o.selected) Icon(Icons.Outlined.Check, null, tint = Nova.Cyan)
-                    }
-                }
-            }
             // Missing your language? Search the internet (the server's OpenSubtitles plugin)
             if (onFindOnline != null) item {
                 FocusSurface(
@@ -1089,21 +1066,40 @@ private fun TrackPanel(c: PlayerController, type: Int, title: String, onDone: ()
                     }
                 }
             }
+            items(options.size) { i ->
+                val o = options[i]
+                FocusSurface(
+                    onClick = { c.select(type, o); onDone() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    focusedScale = 1.02f,
+                    focusRequester = if (o.selected || (i == 0 && options.none { it.selected })) first else null,
+                ) { focused ->
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Color(0x14FFFFFF))
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).widthIn(max = 300.dp)) {
+                            Text(o.label, style = NovaType.Button, color = Nova.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (o.detail.isNotEmpty()) Text(o.detail, style = NovaType.Label.copy(fontSize = 12.sp), color = Nova.TextDim, maxLines = 1)
+                        }
+                        if (o.selected) Icon(Icons.Outlined.Check, null, tint = Nova.Cyan)
+                    }
+                }
+            }
         }
     }
 }
 
-/** Languages offered when searching subtitles online (ISO 639-2 codes, as Jellyfin wants them) */
-private val subLanguages = listOf(
-    "mal" to "Malayalam", "eng" to "English", "tam" to "Tamil", "hin" to "Hindi", "tel" to "Telugu",
-    "kan" to "Kannada", "ara" to "Arabic", "ger" to "German", "fre" to "French", "spa" to "Spanish",
-)
+private val subLanguages = org.phoenicx.nova.data.RemoteSubs.languages
 
 /** Search the server's subtitle providers, pick one, and it's downloaded and switched on */
 @Composable
 private fun SubSearchPanel(c: PlayerController, onDone: () -> Unit) {
     var lang by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var results by remember { mutableStateOf<List<PlayerController.RemoteSub>?>(null) }
+    var results by remember { mutableStateOf<List<org.phoenicx.nova.data.RemoteSubs.Result>?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
