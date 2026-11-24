@@ -592,8 +592,6 @@ private fun SeasonTab(name: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** On phones, rows of buttons / chips that don't fit scroll sideways */
-@Composable
 /** Rows of buttons / chips scroll sideways when they don't fit (phones and TV), so nothing gets squeezed */
 @Composable
 private fun Modifier.phoneScroll(): Modifier = this.horizontalScroll(androidx.compose.foundation.rememberScrollState())
