@@ -42,6 +42,14 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - Grey **placeholder cards** while pages load, and **pull down to refresh** on phones and tablets.
 - **Android TV / Google TV:** what you're watching appears in the TV home screen's **Continue watching** row. Pick it there and it plays straight away.
 
+### Watch together (SyncPlay)
+- A **Watch together** button on every movie and episode page, and in the player.
+- **Start a watch party** and everyone who joins watches the same title at the same moment, wherever they are. Pause, play, seek or skip to the next episode and it happens for the whole group.
+- **Join a watch party** lists the groups on your server, with who's in them.
+- If someone's connection is slow, the group waits for them, then carries on together. Small drifts are corrected automatically.
+- Uses Jellyfin's own SyncPlay, so people on the Jellyfin web page or the official apps can be in the same group.
+- Works on TV, Fire TV, phones and tablets. The server owner can allow or block it per user (Dashboard → Users → SyncPlay).
+
 ### Notifications & messages
 - **Instant "New on PHOENIXA" notifications** on phones and tablets the moment a movie, series or episode is added to your server, with its poster. Tap one to open the title. They arrive as real push notifications (like WhatsApp), so nothing runs in the background on your phone.
 - Each person only hears about titles in the libraries they're allowed to see. Several new episodes of one show come together as one notification ("Lupin · 3 new episodes").
