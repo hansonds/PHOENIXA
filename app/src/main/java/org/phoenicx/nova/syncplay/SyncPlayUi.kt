@@ -64,21 +64,30 @@ private fun say(msg: String) { SyncPlay.notice.value = System.nanoTime() to msg 
  * group it shows a live dot and how many people are watching.
  */
 @Composable
-fun SyncPlayButton(item: Item) {
+fun SyncPlayButton(
+    item: Item?,
+    /** Smaller version (Home banner, top right) */
+    compact: Boolean = false,
+    modifier: Modifier = Modifier,
+    focusRequester: androidx.compose.ui.focus.FocusRequester? = null,
+) {
     val group by SyncPlay.group
     val inGroup = group != null
     val pulse = rememberInfiniteTransition(label = "live")
     val live by pulse.animateFloat(0.35f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "dot")
     FocusSurface(
         onClick = { SyncPlay.sheet.value = SyncPlay.SheetRequest(item) },
-        modifier = Modifier.height(48.dp),
+        modifier = modifier.height(if (compact) 38.dp else 48.dp),
         shape = RoundedCornerShape(24.dp),
-        focusedScale = 1.06f,
+        focusedScale = if (compact) 1.08f else 1.06f,
         borderWidth = 0.dp,
+        focusRequester = focusRequester,
     ) { focused ->
         val bg: Brush = when {
             focused -> Brush.horizontalGradient(listOf(Nova.Focus, Nova.Focus))
             inGroup -> Brush.horizontalGradient(listOf(Nova.Violet.copy(alpha = 0.55f), Nova.Cyan.copy(alpha = 0.45f)))
+            // On artwork (Home banner): darker glass so it reads on any picture
+            compact -> Brush.horizontalGradient(listOf(Color(0x99101418), Color(0x80101418)))
             else -> Brush.horizontalGradient(listOf(Nova.Violet.copy(alpha = 0.22f), Nova.Cyan.copy(alpha = 0.16f)))
         }
         val fg = if (focused) Nova.OnFocus else Nova.Text
@@ -92,12 +101,16 @@ fun SyncPlayButton(item: Item) {
                     else Brush.horizontalGradient(listOf(Nova.Violet.copy(alpha = 0.8f), Nova.Cyan.copy(alpha = 0.8f))),
                     RoundedCornerShape(24.dp),
                 )
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = if (compact) 14.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.Groups, null, tint = fg, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(if (inGroup) "Watching together" else "Watch together", style = NovaType.Button, color = fg, maxLines = 1)
+            Icon(Icons.Outlined.Groups, null, tint = if (focused) fg else if (compact && !inGroup) Nova.Cyan else fg,
+                modifier = Modifier.size(if (compact) 19.dp else 22.dp))
+            Spacer(Modifier.width(if (compact) 8.dp else 10.dp))
+            Text(
+                if (inGroup) "Watching together" else "Watch together",
+                style = if (compact) NovaType.Label.copy(fontSize = 13.sp) else NovaType.Button, color = fg, maxLines = 1,
+            )
             if (inGroup) {
                 Spacer(Modifier.width(10.dp))
                 Box(Modifier.size(8.dp).alpha(live).clip(CircleShape).background(Color(0xFF34C759)))

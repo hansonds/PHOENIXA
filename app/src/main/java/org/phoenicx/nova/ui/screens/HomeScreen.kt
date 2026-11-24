@@ -204,6 +204,7 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
     }
 
     val heroRequester = remember { FocusRequester() }
+    val syncRequester = remember { FocusRequester() }
     val cardRequester = remember { FocusRequester() }
     val featured = state.featured
     val heroItem = featured.getOrNull(state.heroIndex)
@@ -283,6 +284,7 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
                 ) {
                     item(key = "hero") {
                         if (heroItem != null) {
+                          Box(Modifier.fillMaxWidth().height(heroH)) {
                             Column(
                                 Modifier
                                     .fillMaxWidth()
@@ -312,6 +314,10 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
                                     var focusedBtn by remember { mutableIntStateOf(0) }
                                     Row(
                                         Modifier.onPreviewKeyEvent { e ->
+                                            if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp) {
+                                                // UP from the banner buttons: the Watch together button (then the top bar)
+                                                return@onPreviewKeyEvent runCatching { syncRequester.requestFocus() }.isSuccess
+                                            }
                                             if (e.type != KeyEventType.KeyDown || featured.size < 2) return@onPreviewKeyEvent false
                                             when {
                                                 e.key == Key.DirectionLeft && focusedBtn == 0 -> {
@@ -351,6 +357,20 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
                                     Spacer(Modifier.height(8.dp))
                                 }
                             }
+                            // Watch together (SyncPlay), small, top right of the banner. Remote: UP from the banner buttons.
+                            org.phoenicx.nova.syncplay.SyncPlayButton(
+                                item = null, compact = true, focusRequester = syncRequester,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = if (Lay.phone) 10.dp else 14.dp, end = Lay.side)
+                                    .onFocusChanged { if (it.hasFocus) { heroArea = true; state.heroMode = true } }
+                                    .onPreviewKeyEvent { e ->
+                                        if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown) {
+                                            runCatching { heroRequester.requestFocus() }; true
+                                        } else false
+                                    },
+                            )
+                          }
                         } else {
                             Spacer(Modifier.height(24.dp))
                         }
