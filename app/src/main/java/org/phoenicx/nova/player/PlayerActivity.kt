@@ -135,6 +135,10 @@ class PlayerActivity : ComponentActivity() {
         // Draw behind the system bars and camera cut-out (Android 15+ default), handled with insets
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Phones: videos play sideways (tablets, foldables and TVs follow the screen)
+        if (!NovaApp.instance.isTv && !NovaApp.instance.isTablet) {
+            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
         immersiveOnPhone()
         controller = PlayerController(this)
         val itemId = intent.getStringExtra(EXTRA_ID) ?: return finish()

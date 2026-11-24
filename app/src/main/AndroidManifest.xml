@@ -35,8 +35,7 @@
             android:exported="true"
             android:banner="@drawable/banner_phoenixa"
             android:icon="@mipmap/ic_phoenixa"
-            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout"
-            android:screenOrientation="sensorLandscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout"
             android:windowSoftInputMode="adjustNothing">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -50,8 +49,7 @@
             android:exported="false"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
-            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout"
-            android:screenOrientation="sensorLandscape" />
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout" />
 
         <!-- Offline downloads run as a "data sync" background task with a progress notification -->
         <service

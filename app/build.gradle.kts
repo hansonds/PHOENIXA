@@ -16,8 +16,8 @@ android {
         applicationId = "org.phoenicx.nova"
         minSdk = 24
         targetSdk = 36
-        versionCode = 87
-        versionName = "1.22.5"
+        versionCode = 88
+        versionName = "1.22.6"
         // One app for TV and phone: "leanback" (TV) is not required, so phones and tablets can install it too.
         manifestPlaceholders["leanbackRequired"] = "false"
     }
@@ -75,7 +75,9 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.activity:activity-compose:1.10.1")
+    // Newer than the old copy some libraries bring in (Play flags fragment 1.1.0 as outdated)
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.tvprovider:tvprovider:1.0.0")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
