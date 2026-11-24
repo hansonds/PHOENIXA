@@ -84,6 +84,12 @@ class MainActivity : ComponentActivity() {
 
     /** Tapped a "New on PHOENIXA" notification: open that title */
     private fun openFromNotification(intent: android.content.Intent?) {
+        // The download progress notification: open Settings → Downloads
+        if (intent?.getBooleanExtra(org.phoenicx.nova.download.Downloads.OPEN_DOWNLOADS, false) == true) {
+            intent.removeExtra(org.phoenicx.nova.download.Downloads.OPEN_DOWNLOADS)
+            pendingOpen.value = DOWNLOADS
+            return
+        }
         val id = intent?.getStringExtra(org.phoenicx.nova.notify.NewTitles.EXTRA_OPEN_ID) ?: return
         intent.removeExtra(org.phoenicx.nova.notify.NewTitles.EXTRA_OPEN_ID)
         if (NovaApp.instance.api.isLoggedIn) pendingOpen.value = id
@@ -106,6 +112,8 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** A title to open as soon as the app is showing (from a notification) */
         val pendingOpen = androidx.compose.runtime.mutableStateOf<String?>(null)
+        /** pendingOpen value meaning "the Downloads page" */
+        const val DOWNLOADS = "#downloads"
     }
 
     /** Picked from the TV home screen's "Continue watching" row: start playing straight away */
@@ -167,7 +175,7 @@ fun NovaRoot() {
         val id = toOpen ?: return@LaunchedEffect
         if (nav.current == Screen.Login || nav.current == Screen.Profiles) return@LaunchedEffect
         MainActivity.pendingOpen.value = null
-        nav.push(Screen.Detail(id))
+        nav.push(if (id == MainActivity.DOWNLOADS) Screen.Downloads else Screen.Detail(id))
     }
 
     // Phones: a bottom bar (Home · Movies · Shows · Search · Profile) on the main pages
@@ -231,6 +239,7 @@ fun NovaRoot() {
                 nav.reset(if (prefs.profiles.isNotEmpty()) Screen.Profiles else Screen.Login)
             })
             is Screen.Detail -> DetailScreen(nav, screen.itemId)
+            Screen.Downloads -> org.phoenicx.nova.ui.screens.DownloadsScreen(nav)
             is Screen.Person -> PersonScreen(nav, screen.id, screen.name)
             Screen.Torvia -> org.phoenicx.nova.ui.screens.TorviaScreen(nav)
             is Screen.TorviaTitle -> org.phoenicx.nova.ui.screens.TorviaTitleScreen(nav, screen.type, screen.tmdbId, screen.name)

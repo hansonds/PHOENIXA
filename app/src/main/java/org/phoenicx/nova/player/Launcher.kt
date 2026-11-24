@@ -31,7 +31,15 @@ object Launcher {
                     Toast.makeText(context, "Nothing to play", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
-                PlayerActivity.start(context, target.id, if (fromStart || target.played) 0L else target.playbackPositionTicks, if (target.id == item.id) sel else null)
+                val ticks = if (fromStart || target.played) 0L else target.playbackPositionTicks
+                // Downloaded on this phone: play the file (no data used); start where you got furthest
+                val local = org.phoenicx.nova.download.Downloads.playable(target.id)
+                if (local != null) {
+                    val startTicks = if (fromStart) 0L else maxOf(ticks, local.resumeMs * 10_000)
+                    PlayerActivity.startLocal(context, target.id, startTicks)
+                    return@launch
+                }
+                PlayerActivity.start(context, target.id, ticks, if (target.id == item.id) sel else null)
             } catch (e: Exception) {
                 Toast.makeText(context, e.message ?: "Playback failed", Toast.LENGTH_LONG).show()
             }

@@ -297,6 +297,16 @@ class JellyfinApi(private val prefs: Prefs) {
         getObj("/Users/$userId/Items/$id?Fields=$fields,People,Taglines,Studios,MediaSources")
     )
 
+    /** Trailers, behind the scenes, deleted scenes… stored with the movie or show (not theme songs) */
+    suspend fun extras(id: String): List<Item> {
+        suspend fun get(kind: String): List<Item> =
+            runCatching { getItems("/Items/$id/$kind?UserId=$userId&Fields=$fields") }.getOrNull()
+                ?: runCatching { getItems("/Users/$userId/Items/$id/$kind?Fields=$fields") }.getOrDefault(emptyList())
+        val trailers = get("LocalTrailers").map { if (it.extraType == null) it.copy(extraType = "Trailer") else it }
+        val features = get("SpecialFeatures").filter { it.extraType !in setOf("ThemeSong", "ThemeVideo") }
+        return (trailers + features).distinctBy { it.id }
+    }
+
     suspend fun seasons(seriesId: String): List<Item> = getItems(
         "/Shows/$seriesId/Seasons?UserId=$userId&Fields=$fields$imgParams"
     )

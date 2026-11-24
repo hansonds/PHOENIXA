@@ -1,5 +1,7 @@
 package org.phoenicx.nova.ui.screens
 
+import androidx.compose.material.icons.outlined.DownloadDone
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Tv
+import androidx.compose.material.icons.outlined.Theaters
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -96,6 +99,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
     var episodes by remember { mutableStateOf<List<Item>>(emptyList()) }
     var similar by remember { mutableStateOf<List<Item>>(emptyList()) }
     var children by remember { mutableStateOf<List<Item>>(emptyList()) }
+    var extras by remember { mutableStateOf<List<Item>>(emptyList()) }
     var nextUp by remember { mutableStateOf<Item?>(null) }
     val playRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -123,6 +127,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
             val it = api.item(itemId)
             item = it
             val simD = async { runCatching { api.similar(itemId) }.getOrDefault(emptyList()) }
+            val extD = async { if (it.isCollection) emptyList() else runCatching { api.extras(itemId) }.getOrDefault(emptyList()) }
             if (it.isSeries) {
                 val s = runCatching { api.seasons(it.id) }.getOrDefault(emptyList())
                 seasons = s
@@ -134,6 +139,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
             }
             if (it.isCollection) children = runCatching { api.children(it.id) }.getOrDefault(emptyList())
             similar = if (it.isCollection) emptyList() else simD.await()
+            extras = extD.await()
         } catch (e: Exception) {
             error = e.message ?: "Couldn't load"
         }
@@ -150,7 +156,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
         val s = selectedSeason ?: return@LaunchedEffect
         episodes = runCatching { api.episodes(item!!.id, s.id) }.getOrDefault(emptyList())
     }
-    LaunchedEffect(item != null, similar.size, children.size) {
+    LaunchedEffect(item != null, similar.size, children.size, extras.size) {
         val cur = item ?: return@LaunchedEffect
         if (focusedOnce) return@LaunchedEffect
         if (back != null) {
@@ -160,6 +166,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                 add("header")
                 if (cur.isCollection && children.isNotEmpty()) add("children")
                 if (cur.isSeries && seasons.isNotEmpty()) add("seasons")
+                if (extras.isNotEmpty()) add("extras")
                 if (castOk) add("cast")
                 if (similar.isNotEmpty()) add("similar")
             }
@@ -167,6 +174,7 @@ fun DetailScreen(nav: Navigator, itemId: String) {
             if (row < 0) {
                 // Not there yet ("More like this" loads a moment later); give up after the page is complete
                 if (back.first == "similar" && similar.isEmpty()) { delay(1500); if (similar.isNotEmpty() || focusedOnce) return@LaunchedEffect }
+                if (back.first == "extras" && extras.isEmpty()) { delay(1500); if (extras.isNotEmpty() || focusedOnce) return@LaunchedEffect }
             } else {
                 runCatching { listState.scrollToItem(row) }
                 repeat(6) {
@@ -239,6 +247,16 @@ fun DetailScreen(nav: Navigator, itemId: String) {
 
                             Spacer(Modifier.height(24.dp))
                             ActionRow(it, nextUp, playRequester,
+                                seasonEpisodes = episodes, seasonName = selectedSeason?.name,
+                                // No trailer on the server but one on the web (YouTube): open it there
+                                onTrailer = if (extras.none { e -> e.extraType == "Trailer" } && it.remoteTrailers.isNotEmpty()) ({
+                                    val url = it.remoteTrailers.first()
+                                    runCatching {
+                                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                                    }.onFailure { _ ->
+                                        android.widget.Toast.makeText(context, "No app here can open the trailer", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }) else null,
                                 onFocusRow = { scope.launch { delay(170); listState.animateScrollToItem(0) } }, onPlay = { fromStart ->
                                     val src = it.mediaSources.getOrNull(srcIdx)
                                     val sel = if (!it.isSeries && src != null) PlaySelection(
@@ -347,6 +365,41 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                     }
                 }
 
+                // Extras: trailers, behind the scenes, deleted scenes… (play right here)
+                if (extras.isNotEmpty()) {
+                    item("extras") {
+                        Column(Modifier.padding(top = 12.dp)) {
+                            SectionTitle("Extras · ${extras.size}", Modifier.padding(start = Lay.side))
+                            EdgeScroll(Lay.side, Lay.side) {
+                                LazyRow(
+                                    state = rememberLazyListState(if (back?.first == "extras") (back.second - 1).coerceAtLeast(0) else 0),
+                                    contentPadding = PaddingValues(horizontal = Lay.side, vertical = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(18.dp),
+                                ) {
+                                    items(extras.size, key = { i -> extras[i].id }) { i ->
+                                        val e = extras[i]
+                                        Column(Modifier.width(UiScale.landscapeWidth.dp)) {
+                                            LandscapeCard(
+                                                e.copy(name = e.name),
+                                                onClick = {
+                                                    rememberSpot("extras", i)
+                                                    org.phoenicx.nova.player.PlayerActivity.start(context, e.id, 0L)
+                                                },
+                                                focusRequester = backReqFor("extras", i),
+                                            )
+                                            Spacer(Modifier.height(8.dp))
+                                            Text(e.name, style = NovaType.Label.copy(fontSize = 14.sp), color = Nova.Text,
+                                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(extraLabel(e.extraType) + (if (e.runTimeTicks > 0) " · " + formatRuntime((e.runTimeTicks / 600_000_000L).toInt().coerceAtLeast(1)) else ""),
+                                                style = NovaType.Label.copy(fontSize = 12.sp), color = Nova.TextFaint, maxLines = 1)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 val cast = it.people.filter { p -> p.type == "Actor" || p.type == "GuestStar" }
                 if (cast.isNotEmpty()) {
                     item("cast") {
@@ -391,6 +444,9 @@ fun DetailScreen(nav: Navigator, itemId: String) {
                 }
             }
         }
+        // Download menu (phones)
+        dlSheet.value?.invoke()
+        androidx.compose.runtime.DisposableEffect(Unit) { onDispose { dlSheet.value = null } }
         val cur = item
         val curSrc = cur?.mediaSources?.getOrNull(srcIdx)
         if (sheet != null && cur != null && curSrc != null) {
@@ -459,6 +515,9 @@ private fun ActionRow(
     onGoSeries: (String) -> Unit,
     onChanged: (Item) -> Unit,
     onFocusRow: () -> Unit = {},
+    onTrailer: (() -> Unit)? = null,
+    seasonEpisodes: List<Item> = emptyList(),
+    seasonName: String? = null,
 ) {
     val scope = rememberCoroutineScope()
     Row(Modifier.onFocusChanged { f -> if (f.hasFocus) onFocusRow() }.phoneScroll(), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -477,6 +536,9 @@ private fun ActionRow(
         }
         // SyncPlay: watch this with other people on the server, in sync
         org.phoenicx.nova.syncplay.SyncPlayButton(item)
+        // Phones and tablets: save it to watch without internet
+        if (!org.phoenicx.nova.NovaApp.instance.isTv && !item.isCollection) DownloadButton(item, nextUp, seasonEpisodes, seasonName)
+        if (onTrailer != null) NovaButton("Trailer", Icons.Outlined.Theaters) { onTrailer() }
         if (item.isEpisode && item.seriesId != null) {
             NovaButton("Go to Series", Icons.Outlined.Tv) { onGoSeries(item.seriesId) }
         }
@@ -515,3 +577,106 @@ private fun SeasonTab(name: String, selected: Boolean, onClick: () -> Unit) {
 @Composable
 private fun Modifier.phoneScroll(): Modifier =
     if (Lay.phone) this.horizontalScroll(androidx.compose.foundation.rememberScrollState()) else this
+
+/** Friendly name for a kind of extra */
+private fun extraLabel(type: String?) = when (type) {
+    "Trailer" -> "Trailer"
+    "BehindTheScenes" -> "Behind the scenes"
+    "DeletedScene" -> "Deleted scene"
+    "Featurette" -> "Featurette"
+    "Interview" -> "Interview"
+    "Scene" -> "Scene"
+    "Sample" -> "Sample"
+    "Short" -> "Short"
+    "Clip" -> "Clip"
+    else -> "Extra"
+}
+
+/** The Download menu is drawn over the whole page (not inside the button row) */
+private val dlSheet = mutableStateOf<(@Composable () -> Unit)?>(null)
+
+/** Download for offline viewing: shows progress, "Downloaded", or offers the next episode / the season for a show */
+@Composable
+private fun DownloadButton(item: Item, nextUp: Item?, seasonEpisodes: List<Item>, seasonName: String?) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    @Suppress("UNUSED_VARIABLE") val all by org.phoenicx.nova.download.Downloads.all
+    var busy by remember { mutableStateOf(false) }
+    fun toast(msg: String) = android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+    fun start(list: List<Item>) {
+        busy = true
+        scope.launch {
+            for (e in list) {
+                val err = org.phoenicx.nova.download.Downloads.start(e, null)
+                if (err != null) { toast(err); break }
+            }
+            busy = false
+        }
+    }
+    val close = { dlSheet.value = null }
+
+    if (item.isSeries) {
+        NovaButton(if (busy) "Adding…" else "Download", Icons.Outlined.Download) {
+            if (busy) return@NovaButton
+            val todo = seasonEpisodes.filter { e -> org.phoenicx.nova.download.Downloads.get(e.id) == null }
+            val opts = buildList {
+                if (nextUp != null && org.phoenicx.nova.download.Downloads.get(nextUp.id) == null) {
+                    add(SheetOption("Next episode", listOfNotNull(nextUp.episodeLabel, nextUp.name).joinToString(" · "), false) to listOf(nextUp))
+                }
+                if (todo.isNotEmpty()) {
+                    add(SheetOption("All of ${seasonName ?: "this season"}", "${todo.size} episodes, one after another", false) to todo)
+                }
+                if (isEmpty()) add(SheetOption("Already downloaded", "See them in Settings → Downloads", false) to emptyList())
+            }
+            dlSheet.value = {
+                OptionSheet(
+                    title = "Download",
+                    options = opts.map { it.first },
+                    onSelect = { i -> close(); opts[i].second.takeIf { it.isNotEmpty() }?.let { start(it) } },
+                    onDismiss = close,
+                )
+            }
+        }
+        return
+    }
+
+    val rec = org.phoenicx.nova.download.Downloads.get(item.id)
+    val label = when {
+        busy -> "Starting…"
+        rec == null -> "Download"
+        rec.done -> "Downloaded"
+        rec.state == "failed" -> "Download failed"
+        rec.state == "downloading" -> "${rec.percent}%"
+        else -> "Waiting…"
+    }
+    NovaButton(label, if (rec?.done == true) Icons.Outlined.DownloadDone else Icons.Outlined.Download) {
+        if (busy) return@NovaButton
+        if (rec == null) { start(listOf(item)); return@NovaButton }
+        val opts = buildList {
+            if (rec.done) add("Play offline" to "play")
+            if (rec.state == "failed") add("Try again" to "retry")
+            add((if (rec.done) "Delete download" else "Stop and delete") to "delete")
+        }
+        dlSheet.value = {
+            OptionSheet(
+                title = rec.name,
+                options = opts.map { (l, k) ->
+                    SheetOption(l, when (k) {
+                        "delete" -> if (rec.doneBytes > 0) "Frees ${org.phoenicx.nova.download.formatSize(rec.doneBytes)}" else ""
+                        "retry" -> rec.error ?: ""
+                        else -> "No internet needed"
+                    }, false)
+                },
+                onSelect = { i ->
+                    close()
+                    when (opts[i].second) {
+                        "play" -> org.phoenicx.nova.player.PlayerActivity.startLocal(context, rec.id)
+                        "retry" -> org.phoenicx.nova.download.Downloads.retry(rec.id)
+                        "delete" -> org.phoenicx.nova.download.Downloads.delete(rec.id)
+                    }
+                },
+                onDismiss = close,
+            )
+        }
+    }
+}

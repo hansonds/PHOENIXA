@@ -165,6 +165,10 @@ data class Item(
     val endDate: String? = null,
     val locations: List<String> = emptyList(),
     val mediaSources: List<MediaSourceInfo> = emptyList(),
+    /** Extras: Trailer, BehindTheScenes, DeletedScene, Featurette, Interview… */
+    val extraType: String? = null,
+    /** Trailers on the web (YouTube links) */
+    val remoteTrailers: List<String> = emptyList(),
 ) {
     val isSeries get() = type == "Series"
     val isEpisode get() = type == "Episode"
@@ -296,6 +300,10 @@ data class Item(
                 endDate = o.optStringOrNull("EndDate"),
                 locations = o.optJSONArray("ProductionLocations").toStringList(),
                 mediaSources = sources,
+                extraType = o.optStringOrNull("ExtraType"),
+                remoteTrailers = o.optJSONArray("RemoteTrailers")?.let { arr ->
+                    (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.optString("Url")?.takeIf { u -> u.startsWith("http") } }
+                } ?: emptyList(),
             )
         }
     }

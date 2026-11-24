@@ -42,6 +42,8 @@ class NovaApp : Application(), ImageLoaderFactory {
         runCatching { org.phoenicx.nova.notify.NewTitles.stopOldChecks(this) }
         runCatching { org.phoenicx.nova.notify.Push.initFromCache(this) }
         org.phoenicx.nova.notify.Push.syncLater(this)
+        // Phones: carry on with downloads that were waiting
+        if (!isTv) runCatching { org.phoenicx.nova.download.Downloads.resumePending() }
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)

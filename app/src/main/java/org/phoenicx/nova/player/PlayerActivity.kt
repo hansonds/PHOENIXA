@@ -2,6 +2,10 @@
 
 package org.phoenicx.nova.player
 
+import androidx.compose.material.icons.outlined.DeleteOutline
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.outlined.Search
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color as AColor
@@ -144,7 +148,14 @@ class PlayerActivity : ComponentActivity() {
         val sync = intent.getBooleanExtra(EXTRA_SYNC, false)
         controller.onSyncStop = { finish() }
         org.phoenicx.nova.syncplay.SyncPlay.attach(controller)
-        controller.load(itemId, intent.getLongExtra(EXTRA_TICKS, 0L), StreamMode.Direct, sel, startPaused = sync)
+        val local = if (intent.getBooleanExtra(EXTRA_LOCAL, false)) org.phoenicx.nova.download.Downloads.playable(itemId) else null
+        if (local != null) {
+            // A download on this phone: plays from its private storage, no internet needed
+            val ticks = intent.getLongExtra(EXTRA_TICKS, -1L)
+            controller.loadLocal(local, if (ticks >= 0) ticks / 10_000 else local.resumeMs)
+        } else {
+            controller.load(itemId, intent.getLongExtra(EXTRA_TICKS, 0L), StreamMode.Direct, sel, startPaused = sync)
+        }
         // The play / pause button in the picture-in-picture window
         androidx.core.content.ContextCompat.registerReceiver(
             this, pipReceiver, android.content.IntentFilter(PIP_TOGGLE), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
@@ -285,7 +296,16 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_AUDIO = "audio"
         private const val EXTRA_SUB = "sub"
         private const val EXTRA_SYNC = "sync"
+        private const val EXTRA_LOCAL = "local"
         private const val PIP_TOGGLE = "org.phoenicx.nova.PIP_TOGGLE"
+        /** Play a download (startTicks -1 = where you left it) */
+        fun startLocal(context: Context, itemId: String, startTicks: Long = -1L) {
+            context.startActivity(
+                Intent(context, PlayerActivity::class.java)
+                    .putExtra(EXTRA_ID, itemId).putExtra(EXTRA_TICKS, startTicks).putExtra(EXTRA_LOCAL, true)
+            )
+        }
+
         fun start(context: Context, itemId: String, startTicks: Long, sel: org.phoenicx.nova.data.PlaySelection? = null, sync: Boolean = false) {
             val i = Intent(context, PlayerActivity::class.java)
                 .putExtra(EXTRA_ID, itemId)
@@ -299,7 +319,7 @@ class PlayerActivity : ComponentActivity() {
     }
 }
 
-private enum class Panel { None, Subtitles, Audio, Speed, Quick }
+private enum class Panel { None, Subtitles, Audio, Speed, Quick, SubSearch }
 
 @Composable
 private fun PlayerScreen(
@@ -686,10 +706,53 @@ private fun PlayerScreen(
                     onDone = { panel = Panel.None })
             } else if (panel == Panel.Speed) {
                 SpeedPanel(c, onDone = { panel = Panel.None })
+            } else if (panel == Panel.SubSearch) {
+                SubSearchPanel(c, onDone = { panel = Panel.None })
             } else {
                 TrackPanel(c, if (panel == Panel.Audio) C.TRACK_TYPE_AUDIO else C.TRACK_TYPE_TEXT,
                     title = if (panel == Panel.Audio) "Audio" else "Subtitles",
-                    onDone = { panel = Panel.None })
+                    onDone = { panel = Panel.None },
+                    onFindOnline = if (panel == Panel.Subtitles && !c.offline) ({ panel = Panel.SubSearch }) else null)
+            }
+        }
+
+        // A download near its end (or finished): offer to delete it and free the space
+        if (c.offline) {
+            var asked by remember { mutableStateOf(false) }
+            var showAsk by remember { mutableStateOf(false) }
+            val nearEnd = c.finished || (c.duration > 60_000 && c.position >= c.duration * 0.93)
+            LaunchedEffect(nearEnd) { if (nearEnd && !asked) { asked = true; showAsk = true } }
+            if (showAsk) {
+                val item0 = c.item
+                val rec = item0?.let { org.phoenicx.nova.download.Downloads.get(it.id) }
+                val keepReq = remember { FocusRequester() }
+                LaunchedEffect(Unit) { delay(120); runCatching { keepReq.requestFocus() } }
+                Box(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
+                    Column(
+                        Modifier.widthIn(max = 460.dp).background(Nova.Bg.copy(alpha = 0.97f), RoundedCornerShape(22.dp))
+                            .border(1.dp, Nova.Stroke, RoundedCornerShape(22.dp)).padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(Icons.Outlined.DeleteOutline, null, tint = Nova.Cyan, modifier = Modifier.size(36.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("Finished watching?", style = NovaType.Title, color = Nova.Text)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Delete ${item0?.name ?: "this"} from your downloads" +
+                                (rec?.let { " to free " + org.phoenicx.nova.download.formatSize(it.doneBytes) } ?: "") + ".",
+                            style = NovaType.Body, color = Nova.TextDim, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            NovaButton("Delete download", Icons.Outlined.DeleteOutline, primary = true) {
+                                item0?.let { org.phoenicx.nova.download.Downloads.delete(it.id) }
+                                showAsk = false
+                                onExit()
+                            }
+                            NovaButton("Keep it", focusRequester = keepReq) { showAsk = false }
+                        }
+                    }
+                }
             }
         }
 
@@ -956,7 +1019,7 @@ private fun SeekToast(c: PlayerController, trigger: Int) {
 }
 
 @Composable
-private fun TrackPanel(c: PlayerController, type: Int, title: String, onDone: () -> Unit) {
+private fun TrackPanel(c: PlayerController, type: Int, title: String, onDone: () -> Unit, onFindOnline: (() -> Unit)? = null) {
     val options = remember(c.tracksVersion, type) { c.tracks(type) }
     val first = remember { FocusRequester() }
     LaunchedEffect(type) { delay(80); runCatching { first.requestFocus() } }
@@ -997,6 +1060,126 @@ private fun TrackPanel(c: PlayerController, type: Int, title: String, onDone: ()
                     }
                 }
             }
+            // Missing your language? Search the internet (the server's OpenSubtitles plugin)
+            if (onFindOnline != null) item {
+                FocusSurface(
+                    onClick = onFindOnline,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    focusedScale = 1.02f,
+                    focusRequester = if (options.isEmpty()) first else null,
+                ) { focused ->
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Nova.Cyan.copy(alpha = 0.08f))
+                            .border(1.dp, Nova.Cyan.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Outlined.Search, null, tint = Nova.Cyan, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Find subtitles online", style = NovaType.Button, color = Nova.Text, maxLines = 1)
+                            Text("Malayalam, English and more", style = NovaType.Label.copy(fontSize = 12.sp), color = Nova.TextDim, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Languages offered when searching subtitles online (ISO 639-2 codes, as Jellyfin wants them) */
+private val subLanguages = listOf(
+    "mal" to "Malayalam", "eng" to "English", "tam" to "Tamil", "hin" to "Hindi", "tel" to "Telugu",
+    "kan" to "Kannada", "ara" to "Arabic", "ger" to "German", "fre" to "French", "spa" to "Spanish",
+)
+
+/** Search the server's subtitle providers, pick one, and it's downloaded and switched on */
+@Composable
+private fun SubSearchPanel(c: PlayerController, onDone: () -> Unit) {
+    var lang by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var results by remember { mutableStateOf<List<PlayerController.RemoteSub>?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val first = remember { FocusRequester() }
+    LaunchedEffect(lang, results) { delay(100); runCatching { first.requestFocus() } }
+    androidx.activity.compose.BackHandler {
+        if (lang != null && !busy) { lang = null; results = null; message = null } else if (!busy) onDone()
+    }
+    Column(
+        Modifier
+            .fillMaxHeight()
+            .width(440.dp)
+            .background(Brush.horizontalGradient(listOf(Nova.Bg.copy(alpha = 0.92f), Nova.Bg.copy(alpha = 0.99f))))
+            .border(1.dp, Nova.Stroke)
+            .padding(28.dp)
+    ) {
+        Text(if (lang == null) "Find subtitles" else "${lang!!.second} subtitles", style = NovaType.Title, color = Nova.Text)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            if (lang == null) "Pick a language" else "Best matches first",
+            style = NovaType.Label, color = Nova.TextDim,
+        )
+        Spacer(Modifier.height(16.dp))
+        message?.let {
+            Text(it, style = NovaType.Body, color = Nova.Gold)
+            Spacer(Modifier.height(12.dp))
+        }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (lang == null) {
+                items(subLanguages.size) { i ->
+                    val l = subLanguages[i]
+                    SubRow(l.second, "", if (i == 0) first else null) {
+                        lang = l; results = null; message = null
+                        scope.launch {
+                            val (list, err) = c.searchSubtitles(l.first)
+                            results = list
+                            message = err ?: if (list.isEmpty()) "No ${l.second} subtitles found for this video. (Your server needs the OpenSubtitles plugin.)" else null
+                        }
+                    }
+                }
+            } else if (results == null) {
+                item { Text("Searching…", style = NovaType.Body, color = Nova.TextDim) }
+            } else {
+                val list = results!!
+                items(list.size) { i ->
+                    val r = list[i]
+                    SubRow(r.name, r.detail, if (i == 0) first else null) {
+                        if (busy) return@SubRow
+                        busy = true; message = "Downloading to your server…"
+                        scope.launch {
+                            val err = c.downloadSubtitle(r)
+                            busy = false
+                            if (err == null) onDone() else message = err
+                        }
+                    }
+                }
+                item {
+                    SubRow("Other language", "", if (list.isEmpty()) first else null) { lang = null; results = null; message = null }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubRow(title: String, detail: String, requester: FocusRequester?, onClick: () -> Unit) {
+    FocusSurface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        focusedScale = 1.02f,
+        focusRequester = requester,
+    ) { focused ->
+        Column(
+            Modifier.fillMaxWidth()
+                .background(if (focused) Nova.Cyan.copy(alpha = 0.20f) else Color(0x14FFFFFF))
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(title, style = NovaType.Button, color = Nova.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (detail.isNotEmpty()) Text(detail, style = NovaType.Label.copy(fontSize = 12.sp), color = Nova.TextDim, maxLines = 1)
         }
     }
 }

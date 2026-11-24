@@ -1,5 +1,6 @@
 package org.phoenicx.nova.ui.screens
 
+import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
@@ -197,6 +198,11 @@ fun HomeScreen(nav: Navigator, state: HomeState) {
             if (state.error != null) {
                 CenterMessage("Can't reach the server", state.error) {
                     NovaButton("Try again", primary = true, onClick = { scope.launch { state.load(true); nav.libraries.value = state.libsCache } })
+                    // No internet (travelling)? Your downloads still play
+                    if (!NovaApp.instance.isTv && org.phoenicx.nova.download.Downloads.mine().any { it.done }) {
+                        androidx.compose.foundation.layout.Spacer(Modifier.size(12.dp))
+                        NovaButton("Watch downloads", Icons.Outlined.DownloadForOffline) { nav.push(Screen.Downloads) }
+                    }
                 }
             } else org.phoenicx.nova.ui.components.SkeletonHome()
         }

@@ -118,6 +118,20 @@ fun SettingsScreen(nav: Navigator, onSignOut: () -> Unit) {
                 heroRotate = !heroRotate; prefs.heroAutoRotate = heroRotate
             }
 
+            // Phones and tablets: what's downloaded for offline viewing
+            if (!app.isTv) {
+                @Suppress("UNUSED_VARIABLE") val dlAll by org.phoenicx.nova.download.Downloads.all
+                val mine = org.phoenicx.nova.download.Downloads.mine()
+                SectionLabel("Downloads")
+                SettingRow(
+                    "Downloads",
+                    if (mine.isEmpty()) "Movies and episodes you download to watch without internet"
+                    else "${mine.count { it.done }} ready to watch offline" +
+                        (mine.count { !it.done }.takeIf { it > 0 }?.let { " · $it downloading" } ?: ""),
+                    org.phoenicx.nova.download.formatSize(org.phoenicx.nova.download.Downloads.usedBytes()),
+                ) { nav.push(Screen.Downloads) }
+            }
+
             // Phones and tablets only
             if (!app.isTv) {
                 var notify by remember { mutableStateOf(prefs.notifyNewTitles) }

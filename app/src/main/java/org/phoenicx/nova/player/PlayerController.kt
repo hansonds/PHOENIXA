@@ -53,6 +53,9 @@ data class TrackOption(
 /** How the video reaches the TV, tried in this order until one works. */
 enum class StreamMode(val label: String) { Direct("Direct play"), Hls("Transcoding"), Progressive("Transcoding (compat)") }
 
+private const val SUBS_NOT_ALLOWED =
+    "Your account isn't allowed to download subtitles. The server owner can turn on \"Allow subtitle management\" for you (Dashboard → Users)."
+
 class PlayerController(private val context: Context) : org.phoenicx.nova.syncplay.SyncTarget {
     private val api = NovaApp.instance.api
     private val prefs = NovaApp.instance.prefs
@@ -306,6 +309,10 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
     /** "Try again" on the error box: same way as before, from where it stopped */
     fun retry() {
         val id = currentId ?: return
+        if (offline) {
+            org.phoenicx.nova.download.Downloads.playable(id)?.let { loadLocal(it, lastPos) }
+            return
+        }
         netRetries = 0
         lastErrors.clear()
         load(id, lastPos * 10_000, if (prefs.directPlayOnly) StreamMode.Direct else mode)
@@ -436,6 +443,47 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
         }
     }
 
+    /** Playing a downloaded file (no server needed) */
+    var offline by mutableStateOf(false); private set
+
+    /** Play a download from this phone's private storage */
+    fun loadLocal(rec: org.phoenicx.nova.download.DownloadRec, startMs: Long) {
+        val src = org.phoenicx.nova.download.Downloads.sourceFor(rec) ?: run { error = "This download is missing. Delete it and download it again."; return }
+        progressJob?.cancel()
+        offline = true
+        currentId = rec.id
+        lastPos = startMs
+        selection = PlaySelection(mediaSourceId = rec.mediaSourceId, audioIndex = rec.audioIndex, subtitleIndex = rec.subtitleIndex)
+            .takeIf { rec.audioIndex != null || rec.subtitleIndex != null }
+        loadingId = rec.id
+        pendingApplied = false
+        mode = StreamMode.Direct
+        error = null; finished = false; buffering = true
+        source = src
+        transcoding = false
+        pendingSeriesId = rec.seriesId
+        item = Item(
+            id = rec.id, name = rec.name, type = rec.type, overview = rec.overview, year = rec.year,
+            runTimeTicks = rec.runTimeTicks, seriesId = rec.seriesId, seriesName = rec.seriesName,
+            indexNumber = rec.episode, parentIndexNumber = rec.season,
+        )
+        val subs = src.externalSubs.map { s ->
+            MediaItem.SubtitleConfiguration.Builder(Uri.parse(s.url))
+                .setMimeType(MimeTypes.TEXT_VTT).setLanguage(s.language).setLabel(s.title).setId("ext${s.index}").build()
+        }
+        player.setMediaItem(MediaItem.Builder().setUri(src.url).setMediaId(rec.id).setSubtitleConfigurations(subs).build(), startMs)
+        player.prepare()
+        player.playWhenReady = true
+        nextEpisode = null
+        // Save where you are, now and then
+        progressJob = scope.launch {
+            while (isActive) {
+                delay(10_000)
+                if (player.currentMediaItem?.mediaId == rec.id) org.phoenicx.nova.download.Downloads.saveResume(rec.id, player.currentPosition)
+            }
+        }
+    }
+
     private fun startProgressLoop() {
         progressJob?.cancel()
         progressJob = scope.launch {
@@ -447,6 +495,7 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
     }
 
     private fun report(paused: Boolean) {
+        if (offline) return
         val src = source ?: return
         val it = item ?: return
         // Only for the video that's really in the player (not the previous episode while the next one loads)
@@ -464,6 +513,15 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
     }
 
     private fun onEnded() {
+        if (offline) {
+            currentId?.let { id ->
+                org.phoenicx.nova.download.Downloads.saveResume(id, 0)
+                // Tell the server it's watched, if we're online (ignored when not)
+                CoroutineScope(Dispatchers.IO).launch { runCatching { api.setPlayed(id, true) } }
+            }
+            finished = true
+            return
+        }
         if (SyncPlay.inGroup) {
             // The group moves on together (or stops at the end)
             if (!(prefs.autoPlayNext && SyncPlay.onEnded())) finished = true
@@ -688,6 +746,62 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
         player.trackSelectionParameters = b.build()
     }
 
+    // ---- Subtitles from the internet (the server's OpenSubtitles plugin) ----
+    data class RemoteSub(val id: String, val name: String, val detail: String)
+
+    /** Search the server's subtitle providers. Returns the results, or an error message. */
+    suspend fun searchSubtitles(lang3: String): Pair<List<RemoteSub>, String?> {
+        val it = item ?: return emptyList<RemoteSub>() to "Still loading, try again in a moment"
+        val (code, body) = runCatching {
+            api.raw("GET", "/Items/${it.id}/RemoteSearch/Subtitles/$lang3?isPerfectMatch=false")
+        }.getOrElse { e -> return emptyList<RemoteSub>() to (e.message ?: "Couldn't reach the server") }
+        if (code == 401 || code == 403) return emptyList<RemoteSub>() to SUBS_NOT_ALLOWED
+        if (code !in 200..299) return emptyList<RemoteSub>() to "The server couldn't search (error $code)"
+        val a = runCatching { org.json.JSONArray(body) }.getOrNull() ?: return emptyList<RemoteSub>() to null
+        val list = (0 until a.length()).mapNotNull { i ->
+            val o = a.optJSONObject(i) ?: return@mapNotNull null
+            val id = o.optString("Id").takeIf { s -> s.isNotBlank() } ?: return@mapNotNull null
+            val detail = listOfNotNull(
+                o.optString("ProviderName").takeIf { s -> s.isNotBlank() },
+                o.optString("Format").takeIf { s -> s.isNotBlank() }?.uppercase(),
+                o.optInt("DownloadCount", 0).takeIf { n -> n > 0 }?.let { n -> "⬇ $n" },
+                if (o.optBoolean("IsHashMatch", false)) "Exact match for this file" else null,
+                if (o.optBoolean("HearingImpaired", false)) "SDH" else null,
+            ).joinToString(" · ")
+            RemoteSub(id, o.optString("Name").ifBlank { "Subtitle" }, detail) to (if (o.optBoolean("IsHashMatch", false)) 1 else 0) * 1_000_000 + o.optInt("DownloadCount", 0)
+        }.sortedByDescending { p -> p.second }.map { p -> p.first }
+        return list to null
+    }
+
+    /**
+     * Ask the server to download a subtitle for this video, wait until it's added, then switch to it.
+     * Returns an error message, or null when it worked.
+     */
+    suspend fun downloadSubtitle(sub: RemoteSub): String? {
+        val it = item ?: return "Still loading"
+        val before = runCatching { api.item(it.id) }.getOrNull()
+            ?.mediaSources?.flatMap { s -> s.subtitleStreams }?.map { s -> s.index }?.toSet() ?: emptySet()
+        val (code, _) = runCatching {
+            api.raw("POST", "/Items/${it.id}/RemoteSearch/Subtitles/${android.net.Uri.encode(sub.id)}")
+        }.getOrElse { e -> return e.message ?: "Couldn't reach the server" }
+        if (code == 401 || code == 403) return SUBS_NOT_ALLOWED
+        if (code !in 200..299) return "The server couldn't download it (error $code)"
+        // The server adds it to the video in the background: wait for it to show up (up to ~20 s)
+        repeat(20) {
+            delay(1000)
+            val fresh = runCatching { api.item(it.id) }.getOrNull() ?: return@repeat
+            val src = fresh.mediaSources.firstOrNull { s -> s.id == source?.mediaSourceId } ?: fresh.mediaSources.firstOrNull()
+            val added = src?.subtitleStreams?.filter { s -> s.index !in before }?.maxByOrNull { s -> s.index }
+            if (added != null) {
+                Lang.rememberSubtitle(added.language, off = false, seriesId = it.seriesId)
+                selection = (selection ?: PlaySelection(mediaSourceId = source?.mediaSourceId)).copy(subtitleIndex = added.index)
+                reloadHere()
+                return null
+            }
+        }
+        return "Downloaded, but the server is still adding it. Open Subtitles again in a minute."
+    }
+
     // ---- SyncPlay: the server drives the player ----
     /** Called when the group wants us to stop (the activity closes the player) */
     var onSyncStop: (() -> Unit)? = null
@@ -707,6 +821,10 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
 
     fun release() {
         stallJob?.cancel()
+        if (offline) currentId?.let { id ->
+            val pos = player.currentPosition
+            if (!finished && pos > 0) org.phoenicx.nova.download.Downloads.saveResume(id, pos)
+        }
         val src = source
         val it = item
         val ticks = player.currentPosition * 10_000
