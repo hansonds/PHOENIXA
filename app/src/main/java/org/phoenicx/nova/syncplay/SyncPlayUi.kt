@@ -72,6 +72,8 @@ fun SyncPlayButton(
     focusRequester: androidx.compose.ui.focus.FocusRequester? = null,
     /** Plain round button with just the icon (title pages), like the other buttons there */
     iconOnly: Boolean = false,
+    /** With iconOnly: also write "Watch together" (TV) */
+    showLabel: Boolean = false,
 ) {
     val group by SyncPlay.group
     if (iconOnly) {
@@ -93,10 +95,14 @@ fun SyncPlayButton(
                         else Brush.horizontalGradient(listOf(Color(0x24FFFFFF), Color(0x14FFFFFF)))
                     )
                     .border(1.dp, if (focused) Color.Transparent else Nova.Stroke, RoundedCornerShape(24.dp))
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = if (showLabel) 22.dp else 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Outlined.Groups, "Watch together", tint = fg, modifier = Modifier.size(22.dp))
+                if (showLabel) {
+                    Spacer(Modifier.width(10.dp))
+                    Text("Watch together", style = NovaType.Button, color = fg, maxLines = 1)
+                }
                 if (inGrp) {
                     Spacer(Modifier.width(6.dp))
                     Text("${group?.members?.size ?: 1}", style = NovaType.Button, color = fg)

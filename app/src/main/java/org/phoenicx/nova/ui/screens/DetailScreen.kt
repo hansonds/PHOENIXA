@@ -534,20 +534,22 @@ private fun ActionRow(
         if (!item.isSeries && item.playbackPositionTicks > 0 && !item.played) {
             NovaButton("From Start", Icons.Outlined.Replay) { onPlay(true) }
         }
-        if (onTrailer != null) NovaButton("Trailer", Icons.Outlined.Theaters) { onTrailer() }
+        // TV: every button has its name; phones: icons only (except Play) to fit the screen
+        val tv = org.phoenicx.nova.NovaApp.instance.isTv
+        if (onTrailer != null) NovaButton(if (tv) "Trailer" else "", Icons.Outlined.Theaters) { onTrailer() }
         // SyncPlay: watch this with other people on the server, in sync
-        org.phoenicx.nova.syncplay.SyncPlayButton(item, iconOnly = true)
+        org.phoenicx.nova.syncplay.SyncPlayButton(item, iconOnly = true, showLabel = tv)
         // Phones and tablets: save it to watch without internet
         if (!org.phoenicx.nova.NovaApp.instance.isTv && !item.isCollection) DownloadButton(item, nextUp, seasonEpisodes, seasonName)
         if (item.isEpisode && item.seriesId != null) {
             NovaButton("Go to Series", Icons.Outlined.Tv) { onGoSeries(item.seriesId) }
         }
-        NovaButton("", if (item.played) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle) {
+        NovaButton(if (tv) "Watched" else "", if (item.played) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle) {
             val v = !item.played
             onChanged(item.copy(played = v, playbackPositionTicks = if (v) 0 else item.playbackPositionTicks, playedPercentage = null))
             scope.launch { runCatching { api.setPlayed(item.id, v) } }
         }
-        NovaButton("", if (item.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder) {
+        NovaButton(if (tv) "Favourite" else "", if (item.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder) {
             val v = !item.isFavorite
             onChanged(item.copy(isFavorite = v))
             scope.launch { runCatching { api.setFavorite(item.id, v) } }
@@ -616,7 +618,7 @@ private fun DownloadButton(item: Item, nextUp: Item?, seasonEpisodes: List<Item>
     val close = { dlSheet.value = null }
 
     if (item.isSeries) {
-        NovaButton(if (busy) "Adding…" else "Download", Icons.Outlined.Download) {
+        NovaButton(if (busy) "…" else "", Icons.Outlined.Download) {
             if (busy) return@NovaButton
             val todo = seasonEpisodes.filter { e -> org.phoenicx.nova.download.Downloads.get(e.id) == null }
             val opts = buildList {
@@ -641,13 +643,13 @@ private fun DownloadButton(item: Item, nextUp: Item?, seasonEpisodes: List<Item>
     }
 
     val rec = org.phoenicx.nova.download.Downloads.get(item.id)
+    // Just the icon; the percentage while it downloads
     val label = when {
-        busy -> "Starting…"
-        rec == null -> "Download"
-        rec.done -> "Downloaded"
-        rec.state == "failed" -> "Download failed"
+        busy -> "…"
+        rec == null || rec.done -> ""
+        rec.state == "failed" -> "!"
         rec.state == "downloading" -> "${rec.percent}%"
-        else -> "Waiting…"
+        else -> "…"
     }
     NovaButton(label, if (rec?.done == true) Icons.Outlined.DownloadDone else Icons.Outlined.Download) {
         if (busy) return@NovaButton
