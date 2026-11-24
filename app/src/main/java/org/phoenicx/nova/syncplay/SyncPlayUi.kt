@@ -106,12 +106,12 @@ fun SyncPlayButton(
                         else Brush.horizontalGradient(listOf(Color(0x24FFFFFF), Color(0x14FFFFFF)))
                     )
                     .border(1.dp, if (focused) Color.Transparent else Nova.Stroke, RoundedCornerShape(24.dp))
-                    .padding(horizontal = if (showLabel) 22.dp else 12.dp),
+                    .padding(horizontal = if (showLabel) 18.dp else 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Outlined.Groups, "Watch together", tint = fg, modifier = Modifier.size(22.dp))
                 if (showLabel) {
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text("Watch together", style = NovaType.Button, color = fg, maxLines = 1)
                 }
                 if (inGrp) {

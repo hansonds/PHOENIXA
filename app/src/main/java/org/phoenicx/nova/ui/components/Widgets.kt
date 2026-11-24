@@ -68,6 +68,8 @@ fun NovaButton(
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester? = null,
     onFocused: (() -> Unit)? = null,
+    /** Slimmer sides, for rows with many buttons (TV title page) */
+    compact: Boolean = false,
     onClick: () -> Unit,
 ) {
     FocusSurface(
@@ -90,11 +92,11 @@ fun NovaButton(
                 .fillMaxHeight()
                 .background(bg)
                 .border(1.dp, if (focused) Color.Transparent else Nova.Stroke, RoundedCornerShape(24.dp))
-                .padding(horizontal = if (text.isEmpty()) 12.dp else 22.dp),
+                .padding(horizontal = if (text.isEmpty()) 12.dp else if (compact) 18.dp else 22.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (icon != null) Icon(icon, null, tint = fg, modifier = Modifier.size(22.dp))
-            if (icon != null && text.isNotEmpty()) Spacer(Modifier.width(10.dp))
+            if (icon != null && text.isNotEmpty()) Spacer(Modifier.width(if (compact) 8.dp else 10.dp))
             // Never break a button's name over several lines
             if (text.isNotEmpty()) Text(text, style = NovaType.Button, color = fg, maxLines = 1, softWrap = false)
         }

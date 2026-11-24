@@ -537,7 +537,20 @@ private fun ActionRow(
     seasonName: String? = null,
 ) {
     val scope = rememberCoroutineScope()
-    Row(Modifier.onFocusChanged { f -> if (f.hasFocus) onFocusRow() }.phoneScroll(), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    val tv = org.phoenicx.nova.NovaApp.instance.isTv
+    // TV: the buttons stay inside the page and move to a second line if they don't fit (never cut or squeezed)
+    // Phones: one line that slides sideways
+    val rowMod = Modifier.onFocusChanged { f -> if (f.hasFocus) onFocusRow() }
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    val container: @Composable (@Composable () -> Unit) -> Unit = { content ->
+        if (tv) androidx.compose.foundation.layout.FlowRow(
+            rowMod,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) { content() }
+        else Row(rowMod.phoneScroll(), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+    }
+    container {
         val label = when {
             item.isSeries && nextUp != null -> {
                 val resume = nextUp.playbackPositionTicks > 0
@@ -547,26 +560,25 @@ private fun ActionRow(
             item.playbackPositionTicks > 0 && !item.played -> "Resume"
             else -> "Play"
         }
-        NovaButton(label.trim(), Icons.Filled.PlayArrow, primary = true, focusRequester = playRequester) { onPlay(false) }
+        NovaButton(label.trim(), Icons.Filled.PlayArrow, primary = true, focusRequester = playRequester, compact = tv) { onPlay(false) }
         if (!item.isSeries && item.playbackPositionTicks > 0 && !item.played) {
-            NovaButton("From Start", Icons.Outlined.Replay) { onPlay(true) }
+            NovaButton("From Start", Icons.Outlined.Replay, compact = tv) { onPlay(true) }
         }
         // TV: every button has its name; phones: icons only (except Play) to fit the screen
-        val tv = org.phoenicx.nova.NovaApp.instance.isTv
-        if (onTrailer != null) NovaButton(if (tv) "Trailer" else "", Icons.Outlined.Theaters) { onTrailer() }
+        if (onTrailer != null) NovaButton(if (tv) "Trailer" else "", Icons.Outlined.Theaters, compact = tv) { onTrailer() }
         // SyncPlay: watch this with other people on the server, in sync
         org.phoenicx.nova.syncplay.SyncPlayButton(item, iconOnly = true, showLabel = tv)
         // Phones and tablets: save it to watch without internet
         if (!org.phoenicx.nova.NovaApp.instance.isTv && !item.isCollection) DownloadButton(item, nextUp, seasonEpisodes, seasonName)
         if (item.isEpisode && item.seriesId != null) {
-            NovaButton("Go to Series", Icons.Outlined.Tv) { onGoSeries(item.seriesId) }
+            NovaButton("Go to Series", Icons.Outlined.Tv, compact = tv) { onGoSeries(item.seriesId) }
         }
-        NovaButton(if (tv) "Watched" else "", if (item.played) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle) {
+        NovaButton(if (tv) "Watched" else "", if (item.played) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle, compact = tv) {
             val v = !item.played
             onChanged(item.copy(played = v, playbackPositionTicks = if (v) 0 else item.playbackPositionTicks, playedPercentage = null))
             scope.launch { runCatching { api.setPlayed(item.id, v) } }
         }
-        NovaButton(if (tv) "Favourite" else "", if (item.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder) {
+        NovaButton(if (tv) "Favourite" else "", if (item.isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, compact = tv) {
             val v = !item.isFavorite
             onChanged(item.copy(isFavorite = v))
             scope.launch { runCatching { api.setFavorite(item.id, v) } }
@@ -592,9 +604,10 @@ private fun SeasonTab(name: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Rows of buttons / chips scroll sideways when they don't fit (phones and TV), so nothing gets squeezed */
+/** Phones: rows of buttons / chips that don't fit slide sideways */
 @Composable
-private fun Modifier.phoneScroll(): Modifier = this.horizontalScroll(androidx.compose.foundation.rememberScrollState())
+private fun Modifier.phoneScroll(): Modifier =
+    if (Lay.phone) this.horizontalScroll(androidx.compose.foundation.rememberScrollState()) else this
 
 /** Friendly name for a kind of extra */
 private fun extraLabel(type: String?) = when (type) {
