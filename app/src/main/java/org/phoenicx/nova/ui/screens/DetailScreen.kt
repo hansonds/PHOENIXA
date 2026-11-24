@@ -475,6 +475,8 @@ private fun ActionRow(
         if (!item.isSeries && item.playbackPositionTicks > 0 && !item.played) {
             NovaButton("From Start", Icons.Outlined.Replay) { onPlay(true) }
         }
+        // SyncPlay: watch this with other people on the server, in sync
+        org.phoenicx.nova.syncplay.SyncPlayButton(item)
         if (item.isEpisode && item.seriesId != null) {
             NovaButton("Go to Series", Icons.Outlined.Tv) { onGoSeries(item.seriesId) }
         }

@@ -46,6 +46,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.PlayArrow
@@ -139,7 +140,11 @@ class PlayerActivity : ComponentActivity() {
                 audioIndex = if (intent.hasExtra(EXTRA_AUDIO)) intent.getIntExtra(EXTRA_AUDIO, 0) else null,
                 subtitleIndex = if (intent.hasExtra(EXTRA_SUB)) intent.getIntExtra(EXTRA_SUB, -1) else null,
             ) else null
-        controller.load(itemId, intent.getLongExtra(EXTRA_TICKS, 0L), StreamMode.Direct, sel)
+        // SyncPlay: the group decides when to start, so load and wait
+        val sync = intent.getBooleanExtra(EXTRA_SYNC, false)
+        controller.onSyncStop = { finish() }
+        org.phoenicx.nova.syncplay.SyncPlay.attach(controller)
+        controller.load(itemId, intent.getLongExtra(EXTRA_TICKS, 0L), StreamMode.Direct, sel, startPaused = sync)
         // The play / pause button in the picture-in-picture window
         androidx.core.content.ContextCompat.registerReceiver(
             this, pipReceiver, android.content.IntentFilter(PIP_TOGGLE), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
@@ -152,6 +157,13 @@ class PlayerActivity : ComponentActivity() {
             NovaTheme {
                 androidx.compose.foundation.layout.Box {
                     PlayerScreen(controller, onExit = { finish() }, registerRescue = { rescue = it }, registerMediaKeys = { mediaKeys = it })
+                    if (!controller.inPip) {
+                        org.phoenicx.nova.syncplay.SyncPlaySheet()
+                        org.phoenicx.nova.syncplay.SyncPlayNotice(
+                            androidx.compose.ui.Alignment.TopCenter,
+                            androidx.compose.ui.Modifier.padding(top = 96.dp),
+                        )
+                    }
                     // TVs: messages from the server owner appear over the film without pausing it
                     if (!controller.inPip) org.phoenicx.nova.tv.ServerMessageBanner()
                 }
@@ -256,7 +268,10 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(pipReceiver) }
-        if (::controller.isInitialized) controller.release()
+        if (::controller.isInitialized) {
+            org.phoenicx.nova.syncplay.SyncPlay.detach(controller)
+            controller.release()
+        }
         // Android TV: refresh "Continue watching" once the server has the new position
         val app = applicationContext
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ org.phoenicx.nova.tv.WatchNext.sync(app) }, 2500)
@@ -269,11 +284,13 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA_SOURCE = "source"
         private const val EXTRA_AUDIO = "audio"
         private const val EXTRA_SUB = "sub"
+        private const val EXTRA_SYNC = "sync"
         private const val PIP_TOGGLE = "org.phoenicx.nova.PIP_TOGGLE"
-        fun start(context: Context, itemId: String, startTicks: Long, sel: org.phoenicx.nova.data.PlaySelection? = null) {
+        fun start(context: Context, itemId: String, startTicks: Long, sel: org.phoenicx.nova.data.PlaySelection? = null, sync: Boolean = false) {
             val i = Intent(context, PlayerActivity::class.java)
                 .putExtra(EXTRA_ID, itemId)
                 .putExtra(EXTRA_TICKS, startTicks)
+                .putExtra(EXTRA_SYNC, sync)
             sel?.mediaSourceId?.let { i.putExtra(EXTRA_SOURCE, it) }
             sel?.audioIndex?.let { i.putExtra(EXTRA_AUDIO, it) }
             sel?.subtitleIndex?.let { i.putExtra(EXTRA_SUB, it) }
@@ -738,6 +755,9 @@ private fun Overlay(
                 android.widget.Toast.makeText(ctx, c.videoFitLabel, android.widget.Toast.LENGTH_SHORT).show()
             }
             if (c.nextEpisode != null) RoundIcon(Icons.Filled.SkipNext, "Next episode") { c.playNext() }
+            RoundIcon(Icons.Outlined.Groups, "Watch together", active = org.phoenicx.nova.syncplay.SyncPlay.group.value != null) {
+                org.phoenicx.nova.syncplay.SyncPlay.sheet.value = org.phoenicx.nova.syncplay.SyncPlay.SheetRequest(item)
+            }
             RoundIcon(Icons.Outlined.Info, "Info", active = showInfo) { onInfo() }
             if (onLock != null) RoundIcon(Icons.Outlined.Lock, "Lock screen") { onLock() }
         }
@@ -1149,6 +1169,10 @@ private fun QuickPanel(c: PlayerController, showInfo: Boolean, onPick: (Panel) -
         add(Triple(Icons.Outlined.Speed, "Speed · " + speedLabel(c.speed)) { onPick(Panel.Speed) })
         add(Triple(Icons.Outlined.AspectRatio, "Screen size · " + c.videoFitLabel) { c.cycleFit() })
         if (c.nextEpisode != null) add(Triple(Icons.Filled.SkipNext, "Next episode") { onDone(); c.playNext() })
+        add(Triple(Icons.Outlined.Groups, if (org.phoenicx.nova.syncplay.SyncPlay.group.value != null) "Watch together · in a group" else "Watch together") {
+            onDone()
+            org.phoenicx.nova.syncplay.SyncPlay.sheet.value = org.phoenicx.nova.syncplay.SyncPlay.SheetRequest(c.item)
+        })
         add(Triple(Icons.Outlined.Info, if (showInfo) "Hide info" else "Info") { onInfo() })
     }
     Column(

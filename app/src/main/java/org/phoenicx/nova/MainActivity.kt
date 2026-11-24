@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
 import org.phoenicx.nova.ui.Navigator
 import org.phoenicx.nova.ui.components.GlassLayer
 import org.phoenicx.nova.ui.Screen
@@ -50,6 +51,20 @@ class MainActivity : ComponentActivity() {
             NovaTheme {
                 androidx.compose.foundation.layout.Box {
                     NovaRoot()
+                    // SyncPlay: its menu, its short messages, and opening the player when the group starts something
+                    org.phoenicx.nova.syncplay.SyncPlaySheet()
+                    org.phoenicx.nova.syncplay.SyncPlayNotice(
+                        androidx.compose.ui.Alignment.BottomCenter,
+                        androidx.compose.ui.Modifier.padding(bottom = if (org.phoenicx.nova.ui.theme.Lay.phone) 96.dp else 40.dp),
+                    )
+                    val pending = org.phoenicx.nova.syncplay.SyncPlay.pendingStart.value
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    androidx.compose.runtime.LaunchedEffect(pending) {
+                        if (pending != null) {
+                            org.phoenicx.nova.syncplay.SyncPlay.pendingStart.value = null
+                            org.phoenicx.nova.player.PlayerActivity.start(ctx, pending.first, pending.second, sync = true)
+                        }
+                    }
                     // TVs: messages from the server owner
                     org.phoenicx.nova.tv.ServerMessageBanner()
                 }

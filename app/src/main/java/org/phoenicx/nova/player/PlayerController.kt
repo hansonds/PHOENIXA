@@ -30,6 +30,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.phoenicx.nova.syncplay.SyncPlay
 import org.phoenicx.nova.NovaApp
 import org.phoenicx.nova.data.Item
 import org.phoenicx.nova.data.PlaybackSource
@@ -52,7 +53,7 @@ data class TrackOption(
 /** How the video reaches the TV, tried in this order until one works. */
 enum class StreamMode(val label: String) { Direct("Direct play"), Hls("Transcoding"), Progressive("Transcoding (compat)") }
 
-class PlayerController(private val context: Context) {
+class PlayerController(private val context: Context) : org.phoenicx.nova.syncplay.SyncTarget {
     private val api = NovaApp.instance.api
     private val prefs = NovaApp.instance.prefs
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -112,6 +113,8 @@ class PlayerController(private val context: Context) {
     fun cycleFit() = setFit((videoFit + 1) % 3)
 
     fun changeSpeed(v: Float) {
+        // SyncPlay: everyone has to move at the same pace
+        if (SyncPlay.inGroup && v != 1f) { SyncPlay.notice.value = System.nanoTime() to "Speed stays at 1× in SyncPlay"; return }
         speed = v
         player.setPlaybackSpeed(v)
         // Dolby / DTS sent straight to the TV or soundbar can't be sped up or slowed down.
@@ -213,6 +216,9 @@ class PlayerController(private val context: Context) {
 
             override fun onPlaybackStateChanged(state: Int) {
                 buffering = state == Player.STATE_BUFFERING
+                if (state == Player.STATE_BUFFERING || state == Player.STATE_READY) {
+                    SyncPlay.onPlayerState(this@PlayerController, state == Player.STATE_BUFFERING)
+                }
                 if (state == Player.STATE_READY) {
                     duration = player.duration.coerceAtLeast(0)
                     netRetries = 0
@@ -341,7 +347,11 @@ class PlayerController(private val context: Context) {
     private var pendingApplied = true
     private var loadingId: String? = null
 
-    fun load(itemId: String, startTicks: Long, streamMode: StreamMode = StreamMode.Direct, sel: PlaySelection? = selection) {
+    fun load(
+        itemId: String, startTicks: Long, streamMode: StreamMode = StreamMode.Direct, sel: PlaySelection? = selection,
+        /** SyncPlay: load and wait; the group starts together */
+        startPaused: Boolean = false,
+    ) {
         // While switching videos, don't save progress (it could land on the wrong episode)
         progressJob?.cancel()
         currentId = itemId
@@ -401,7 +411,7 @@ class PlayerController(private val context: Context) {
                 player.setMediaItem(mi, startTicks / 10_000)
                 player.setPlaybackSpeed(speed)
                 player.prepare()
-                player.playWhenReady = true
+                player.playWhenReady = !startPaused
                 val it = itemD.await()
                 item = it
                 if (!pendingApplied && !player.currentTracks.isEmpty) applySelection()
@@ -454,6 +464,11 @@ class PlayerController(private val context: Context) {
     }
 
     private fun onEnded() {
+        if (SyncPlay.inGroup) {
+            // The group moves on together (or stops at the end)
+            if (!(prefs.autoPlayNext && SyncPlay.onEnded())) finished = true
+            return
+        }
         val next = nextEpisode
         if (next != null && prefs.autoPlayNext) playNext() else finished = true
     }
@@ -462,6 +477,7 @@ class PlayerController(private val context: Context) {
     private var pendingSeriesId: String? = null
 
     fun playNext() {
+        if (SyncPlay.inGroup) { SyncPlay.requestNext(); return }
         val next = nextEpisode ?: return
         pendingSeriesId = next.seriesId
         if (pcmOnly && speed == 1f) {
@@ -477,6 +493,11 @@ class PlayerController(private val context: Context) {
     }
 
     fun togglePlay() {
+        if (SyncPlay.inGroup) {
+            // Ask the group; the server tells everyone (us too) when to pause or play
+            if (player.playWhenReady) SyncPlay.requestPause() else SyncPlay.requestUnpause()
+            return
+        }
         if (player.playbackState == Player.STATE_ENDED) player.seekTo(0)
         player.playWhenReady = !player.playWhenReady
     }
@@ -485,14 +506,16 @@ class PlayerController(private val context: Context) {
     fun seekTo(fraction: Float) {
         if (duration <= 0) return
         val target = (duration * fraction).toLong().coerceIn(0, duration - 1000)
-        player.seekTo(target)
         position = target
+        if (SyncPlay.inGroup) { SyncPlay.requestSeek(target); return }
+        player.seekTo(target)
     }
 
     fun seekBy(ms: Long) {
         val target = (player.currentPosition + ms).coerceIn(0, if (duration > 0) duration - 1000 else Long.MAX_VALUE)
-        player.seekTo(target)
         position = target
+        if (SyncPlay.inGroup) { SyncPlay.requestSeek(target); return }
+        player.seekTo(target)
     }
 
     /** Jellyfin stream info for an ExoPlayer track (matched by order / external id), for proper names */
@@ -664,6 +687,23 @@ class PlayerController(private val context: Context) {
         }
         player.trackSelectionParameters = b.build()
     }
+
+    // ---- SyncPlay: the server drives the player ----
+    /** Called when the group wants us to stop (the activity closes the player) */
+    var onSyncStop: (() -> Unit)? = null
+
+    override val syncItemId: String? get() = if (player.currentMediaItem?.mediaId == currentId) currentId else null
+    override val syncPositionMs: Long get() = player.currentPosition.coerceAtLeast(0)
+    override val syncPlayWhenReady: Boolean get() = player.playWhenReady
+    override val syncReady: Boolean get() = player.playbackState == Player.STATE_READY
+    override fun syncLoad(itemId: String, startMs: Long) {
+        if (speed != 1f) { speed = 1f; player.setPlaybackSpeed(1f) }
+        load(itemId, startMs * 10_000, StreamMode.Direct, sel = null, startPaused = true)
+    }
+    override fun syncPlay() { player.playWhenReady = true }
+    override fun syncPause() { player.playWhenReady = false }
+    override fun syncSeek(ms: Long) { player.seekTo(ms); position = ms }
+    override fun syncStop() { player.playWhenReady = false; onSyncStop?.invoke() }
 
     fun release() {
         stallJob?.cancel()

@@ -11,6 +11,11 @@ object Launcher {
     /** Plays a movie/episode directly; for a series or season it finds the next episode to watch. */
     fun play(context: Context, scope: CoroutineScope, item: Item, fromStart: Boolean = false, sel: org.phoenicx.nova.data.PlaySelection? = null) {
         val api = NovaApp.instance.api
+        // In a watch party, Play starts it for everyone in the group
+        if (org.phoenicx.nova.syncplay.SyncPlay.inGroup) {
+            scope.launch { org.phoenicx.nova.syncplay.SyncPlay.playForEveryone(item, fromStart) }
+            return
+        }
         scope.launch {
             try {
                 val target: Item? = when (item.type) {
