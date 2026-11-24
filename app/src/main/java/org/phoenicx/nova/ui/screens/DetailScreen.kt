@@ -534,11 +534,11 @@ private fun ActionRow(
         if (!item.isSeries && item.playbackPositionTicks > 0 && !item.played) {
             NovaButton("From Start", Icons.Outlined.Replay) { onPlay(true) }
         }
+        if (onTrailer != null) NovaButton("Trailer", Icons.Outlined.Theaters) { onTrailer() }
         // SyncPlay: watch this with other people on the server, in sync
-        org.phoenicx.nova.syncplay.SyncPlayButton(item)
+        org.phoenicx.nova.syncplay.SyncPlayButton(item, iconOnly = true)
         // Phones and tablets: save it to watch without internet
         if (!org.phoenicx.nova.NovaApp.instance.isTv && !item.isCollection) DownloadButton(item, nextUp, seasonEpisodes, seasonName)
-        if (onTrailer != null) NovaButton("Trailer", Icons.Outlined.Theaters) { onTrailer() }
         if (item.isEpisode && item.seriesId != null) {
             NovaButton("Go to Series", Icons.Outlined.Tv) { onGoSeries(item.seriesId) }
         }

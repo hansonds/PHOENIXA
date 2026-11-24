@@ -70,8 +70,41 @@ fun SyncPlayButton(
     compact: Boolean = false,
     modifier: Modifier = Modifier,
     focusRequester: androidx.compose.ui.focus.FocusRequester? = null,
+    /** Plain round button with just the icon (title pages), like the other buttons there */
+    iconOnly: Boolean = false,
 ) {
     val group by SyncPlay.group
+    if (iconOnly) {
+        val inGrp = group != null
+        FocusSurface(
+            onClick = { SyncPlay.sheet.value = SyncPlay.SheetRequest(item) },
+            modifier = modifier.height(48.dp),
+            shape = RoundedCornerShape(24.dp),
+            focusedScale = 1.06f,
+            borderWidth = 0.dp,
+            focusRequester = focusRequester,
+        ) { focused ->
+            val fg = if (focused) Nova.OnFocus else if (inGrp) Nova.Cyan else Nova.Text
+            Row(
+                Modifier
+                    .fillMaxHeight()
+                    .background(
+                        if (focused) Brush.horizontalGradient(listOf(Nova.Focus, Nova.Focus))
+                        else Brush.horizontalGradient(listOf(Color(0x24FFFFFF), Color(0x14FFFFFF)))
+                    )
+                    .border(1.dp, if (focused) Color.Transparent else Nova.Stroke, RoundedCornerShape(24.dp))
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Groups, "Watch together", tint = fg, modifier = Modifier.size(22.dp))
+                if (inGrp) {
+                    Spacer(Modifier.width(6.dp))
+                    Text("${group?.members?.size ?: 1}", style = NovaType.Button, color = fg)
+                }
+            }
+        }
+        return
+    }
     val inGroup = group != null
     val pulse = rememberInfiniteTransition(label = "live")
     val live by pulse.animateFloat(0.35f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "dot")
