@@ -42,6 +42,14 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - Grey **placeholder cards** while pages load, and **pull down to refresh** on phones and tablets.
 - **Android TV / Google TV:** what you're watching appears in the TV home screen's **Continue watching** row. Pick it there and it plays straight away.
 
+### Downloads (phones and tablets)
+- **Download** movies and episodes to watch without internet, for travel. On a show's page: the next episode or a whole season.
+- Files are kept in PHOENIXA's **private storage**: other apps and file managers can't open them, they're left out of backups, and they play **only inside PHOENIXA**.
+- Downloads keep going with the screen off and continue by themselves after a dropped connection.
+- **Settings → Downloads** lists everything with progress, space used and free space; play or delete from there. With no internet, Home offers **Watch downloads**.
+- Near the end of a downloaded video, PHOENIXA asks whether to delete it to free the space.
+- The server owner decides who may download (Dashboard → Users → Allow media downloading).
+
 ### Watch together (SyncPlay)
 - A **Watch together** button on every movie and episode page, and in the player.
 - **Start a watch party** and everyone who joins watches the same title at the same moment, wherever they are. Pause, play, seek or skip to the next episode and it happens for the whole group.
@@ -72,6 +80,7 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - Series: season tabs and episode cards. Play resumes the next episode automatically.
 - **Cast & Crew** cards open an **actor page** with photo, birth details, biography (with *Read more*) and everything they appear in on your server.
 - Mark as watched, add to favorites, and **More Like This**.
+- **Extras:** trailers, behind the scenes, deleted scenes and featurettes stored with the title play right here. A **Trailer** button opens the online trailer when the server has none.
 
 ### Player
 - **ExoPlayer (Media3)**, the same engine Google and the official Jellyfin TV app use.
@@ -80,6 +89,7 @@ The official Jellyfin TV app works, but it looks dated and can be awkward with a
 - Optional automatic transcode fallback, if you enable it on your server.
 - Subtitle and audio track picker with **real language names** (Tamil, Hindi, Malayalam, English …). Your language choice is **remembered**, and **per series**: pick Malayalam audio with English subtitles once, and every episode of that show starts the same way.
 - Playback **speed** from 0.5× to 2×.
+- **Find subtitles online** from the player's Subtitles menu: pick Malayalam, English or another language, choose a result and it's added and switched on (needs the OpenSubtitles plugin on the server and subtitle permission for the user).
 - Synopsis and cast overlay, a seek bar with hold-to-scrub, skip ±10 s, and **auto-play next episode**.
 - Watch progress syncs to your server, so you can continue on any device.
 - **Phones and tablets:** swipe up or down for volume (right side) and brightness (left side), swipe left or right to seek, double-tap a side to skip 10 s (keep tapping to add more), press and hold for **2× speed**, pinch to zoom, and a **🔒 lock** button against pocket touches.
