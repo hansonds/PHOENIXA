@@ -16,8 +16,8 @@ android {
         applicationId = "org.phoenicx.nova"
         minSdk = 24
         targetSdk = 36
-        versionCode = 95
-        versionName = "1.22.13"
+        versionCode = 96
+        versionName = "1.22.14"
         // One app for TV and phone: "leanback" (TV) is not required, so phones and tablets can install it too.
         manifestPlaceholders["leanbackRequired"] = "false"
     }

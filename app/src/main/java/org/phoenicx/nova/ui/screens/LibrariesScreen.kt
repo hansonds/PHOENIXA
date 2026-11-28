@@ -106,8 +106,14 @@ private fun Tile(
             if (image != null) {
                 ShimmerBox(Modifier.fillMaxSize())
                 AsyncImage(image, name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            } else if (name == "Favorites") {
+                // Favorites: PHOENIXA's own picture (glowing heart), in the same style as library pictures
+                androidx.compose.foundation.Image(
+                    androidx.compose.ui.res.painterResource(org.phoenicx.nova.R.drawable.lib_favorites), name,
+                    contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
+                )
             } else {
-                // No picture (e.g. Favorites): a soft gradient with the icon in the middle
+                // No picture: a soft gradient with the icon in the middle
                 Box(
                     Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Nova.Cyan.copy(alpha = 0.45f), Nova.Violet.copy(alpha = 0.35f)))),
                     contentAlignment = Alignment.Center,
