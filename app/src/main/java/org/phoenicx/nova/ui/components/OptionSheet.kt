@@ -1,5 +1,7 @@
 package org.phoenicx.nova.ui.components
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -61,7 +63,11 @@ fun OptionSheet(
     val requester = remember { FocusRequester() }
     var focusedIndex by remember { mutableIntStateOf(0) }
     val startIndex = options.indexOfFirst { it.selected }.coerceAtLeast(0)
-    LaunchedEffect(Unit) { delay(80); runCatching { requester.requestFocus() } }
+    // Take the remote's highlight, and keep trying for a moment in case the screen behind grabs it back
+    var hasFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        repeat(8) { delay(80); if (!hasFocus) runCatching { requester.requestFocus() } }
+    }
     BackHandler { onDismiss() }
 
     Box(
@@ -79,6 +85,7 @@ fun OptionSheet(
                 .background(Brush.horizontalGradient(listOf(Nova.Bg.copy(alpha = 0.95f), Nova.Bg.copy(alpha = 0.99f))))
                 .border(1.dp, Nova.Stroke)
                 .padding(28.dp)
+                .onFocusChanged { hasFocus = it.hasFocus }
                 .onPreviewKeyEvent { e ->
                     // Never let the highlight escape the panel onto the page behind
                     if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
