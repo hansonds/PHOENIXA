@@ -365,9 +365,13 @@ private fun PlayerScreen(
     var rootFocused by remember { mutableStateOf(false) }
     var anyFocus by remember { mutableStateOf(false) }
     var refocusTick by remember { mutableIntStateOf(0) }
+    // The "Watch together" menu sits on top of the player and has the remote's highlight itself:
+    // while it is open the player must not pull the highlight back onto its own controls
+    val sheetOpen = org.phoenicx.nova.syncplay.SyncPlay.sheet.value != null
 
     // Puts focus where it belongs for the current state of the screen
     fun refocus() {
+        if (org.phoenicx.nova.syncplay.SyncPlay.sheet.value != null) return
         val target = when {
             c.error != null -> goBackRequester
             panel != Panel.None -> null // the panel focuses its own selected row
@@ -376,7 +380,7 @@ private fun PlayerScreen(
         }
         if (target != null) runCatching { target.requestFocus() }.onFailure { runCatching { rootRequester.requestFocus() } }
     }
-    registerRescue { if (!overlay && c.error == null && !locked) overlay = true; refocusTick++ }
+    registerRescue { if (org.phoenicx.nova.syncplay.SyncPlay.sheet.value == null) { if (!overlay && c.error == null && !locked) overlay = true; refocusTick++ } }
     registerMediaKeys { code, repeat ->
         lastInput = System.currentTimeMillis()
         val step = if (repeat > 6) 30_000L else 10_000L
@@ -394,8 +398,13 @@ private fun PlayerScreen(
     LaunchedEffect(refocusTick) { if (refocusTick > 0) { delay(30); refocus() } }
 
     // Watchdog: if nothing on screen has focus (a control vanished), take it back
-    LaunchedEffect(anyFocus) {
-        if (!anyFocus) { delay(120); if (!anyFocus) refocus() }
+    // (not while the Watch together menu is open: the highlight is in that menu)
+    LaunchedEffect(anyFocus, sheetOpen) {
+        if (!anyFocus && !sheetOpen) { delay(120); if (!anyFocus) refocus() }
+    }
+    // Watch together menu closed: back to the player's controls
+    LaunchedEffect(sheetOpen) {
+        if (!sheetOpen) { delay(80); refocus() }
     }
     // After a side panel closes, its rows are gone — go back to the play button
     LaunchedEffect(panel) {
