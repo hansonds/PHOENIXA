@@ -195,6 +195,8 @@ class PlayerController(private val context: Context) : org.phoenicx.nova.syncpla
                 /* handleAudioFocus= */ true,
             )
             .setHandleAudioBecomingNoisy(true)
+            // Keeps the device and Wi-Fi awake during playback (stops the screensaver / Wi-Fi sleep cutting in)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             // Internet streams go through OkHttp; downloads on this phone (file://) are read straight from storage
             .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(androidx.media3.datasource.DefaultDataSource.Factory(context, http)))
             .setLoadControl(loadControl)

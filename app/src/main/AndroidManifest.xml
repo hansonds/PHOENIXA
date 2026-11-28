@@ -9,6 +9,7 @@
     <!-- Android TV / Google TV: lets PHOENIXA put your unfinished titles in the home screen's "Continue watching" row -->
     <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
     <!-- Phones: downloading movies and episodes for offline viewing keeps going in the background -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 

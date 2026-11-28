@@ -166,6 +166,13 @@ class PlayerActivity : ComponentActivity() {
         )
         setContent {
             // Keep the small window's button showing the right symbol
+            // Keep the TV / phone awake while a video plays or loads: no screensaver, no screen-off.
+            // (Set on the whole window, which every device respects, Fire TV included.) Paused: sleeps as usual.
+            androidx.compose.runtime.LaunchedEffect(controller.isPlaying, controller.buffering) {
+                val awake = controller.isPlaying || (controller.buffering && controller.player.playWhenReady)
+                if (awake) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
             androidx.compose.runtime.LaunchedEffect(controller.isPlaying, controller.inPip) {
                 if (controller.inPip && android.os.Build.VERSION.SDK_INT >= 26) pipParams()?.let { runCatching { setPictureInPictureParams(it) } }
             }
